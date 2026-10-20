@@ -1,0 +1,42 @@
+# ------------------------------------------------------------------ Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ------------------------------------------------------------- Node / arayüz
+node_modules/
+frontend/dist/
+dist-ssr/
+*.tsbuildinfo
+.vite/
+
+# ----------------------------------- Uygulamanın ürettiği çalışma dosyaları
+# Geçici yüklemeler, dalga formu/kare önbelleği ve dışa aktarılan klipler
+cache/
+exports/
+
+# Çalışma zamanı günlükleri
+backend.log
+backend.err.log
+*.log
+
+# --------------------------------------------------------- Yerel ayarlar
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------------------------------------------------------------------ Geçici
+*.tmp
+*.temp

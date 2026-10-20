@@ -1,0 +1,6 @@
+starlette>=0.30.0
+uvicorn>=0.20.0
+httpx>=0.24.0
+
+# YouTube desteği için (opsiyonel):
+#   pip install -U yt-dlp
