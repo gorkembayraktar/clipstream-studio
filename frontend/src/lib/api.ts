@@ -1,4 +1,5 @@
 /** Backend'e erişen tipli HTTP istemcisi. */
+import { translate } from "@/i18n"
 import type {
   ExportFile,
   ExportJob,
@@ -31,8 +32,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   } catch (error) {
     // Kullanıcı iptal ettiyse hata gibi gösterme; çağıran taraf ayırt eder.
     if (error instanceof DOMException && error.name === "AbortError") throw error
-    log("error", "Sunucuya ulaşılamadı. Backend çalışıyor mu?", path)
-    throw new ApiError("Sunucuya ulaşılamadı. Backend çalışıyor mu?", 0)
+    const message = translate("api.unreachable")
+    log("error", message, path)
+    throw new ApiError(message, 0)
   }
 
   const text = await response.text()
@@ -45,8 +47,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const message =
-      (data as { error?: string } | null)?.error ?? `İstek başarısız (HTTP ${response.status})`
-    log("error", `İstek başarısız: ${path}`, `HTTP ${response.status} — ${message}`)
+      (data as { error?: string } | null)?.error ??
+      translate("api.httpFailed", { status: response.status })
+    log(
+      "error",
+      translate("log.requestFailed", { path }),
+      `HTTP ${response.status} — ${message}`,
+    )
     throw new ApiError(message, response.status)
   }
 
@@ -101,15 +108,21 @@ function uploadLocalFile(
       }
       const message =
         (data as { error?: string } | null)?.error ??
-        `Yükleme başarısız (HTTP ${xhr.status})`
-      log("error", "Yerel dosya yüklenemedi", `HTTP ${xhr.status} — ${message}`)
+        translate("api.uploadHttpFailed", { status: xhr.status })
+      log(
+        "error",
+        translate("api.uploadFailed"),
+        `HTTP ${xhr.status} — ${message}`,
+      )
       reject(new ApiError(message, xhr.status))
     }
     xhr.onerror = () => {
-      log("error", "Sunucuya ulaşılamadı. Backend çalışıyor mu?", "/api/local/upload")
-      reject(new ApiError("Sunucuya ulaşılamadı. Backend çalışıyor mu?", 0))
+      const message = translate("api.unreachable")
+      log("error", message, "/api/local/upload")
+      reject(new ApiError(message, 0))
     }
-    xhr.onabort = () => reject(new DOMException("Yükleme iptal edildi.", "AbortError"))
+    xhr.onabort = () =>
+      reject(new DOMException(translate("log.uploadCancelled"), "AbortError"))
 
     options.signal?.addEventListener("abort", () => xhr.abort(), { once: true })
     xhr.send(file)
@@ -161,11 +174,11 @@ export const api = {
       })
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") throw error
-      throw new ApiError("Sunucuya ulaşılamadı. Backend çalışıyor mu?", 0)
+      throw new ApiError(translate("api.unreachable"), 0)
     }
 
     if (!response.ok) {
-      let message = `Önizleme karesi alınamadı (HTTP ${response.status})`
+      let message = translate("api.frameFailed", { status: response.status })
       try {
         const data = (await response.json()) as { error?: string }
         if (data?.error) message = data.error

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { toast } from "sonner"
 
+import { translate } from "@/i18n"
 import { api } from "@/lib/api"
 import type { ExportRequest } from "@/lib/types"
 import { log } from "@/stores/log-store"
@@ -17,12 +18,12 @@ export function useStartExport() {
   return useMutation({
     mutationFn: (payload: ExportRequest) => api.createExportJob(payload),
     onSuccess: (data) => {
-      log("success", `FFmpeg işlemi başlatıldı (ID: ${data.job_id}).`)
+      log("success", translate("log.exportStarted", { id: data.job_id }))
       addActiveJobId(data.job_id)
     },
     onError: (error: Error) => {
-      log("error", "Dışa aktarma başlatılamadı", error.message)
-      toast.error("Dışa aktarma başlatılamadı", { description: error.message })
+      log("error", translate("log.exportStartFailed"), error.message)
+      toast.error(translate("log.exportStartFailed"), { description: error.message })
     },
   })
 }
@@ -46,14 +47,14 @@ export function useCancelJob(jobId: string | null) {
     mutationFn: () => api.cancelJob(jobId as string),
     onSuccess: (data) => {
       if (data.success) {
-        log("warn", "Dışa aktarım iptal edildi.")
-        toast.info(data.message ?? "İşlem iptal edildi.")
+        log("warn", translate("log.exportCancelled"))
+        toast.info(translate("job.cancelled"))
         void queryClient.invalidateQueries({ queryKey: jobKeys.byId(jobId ?? "") })
       }
     },
     onError: (error: Error) => {
-      log("error", "İptal isteği başarısız", error.message)
-      toast.error("İptal edilemedi", { description: error.message })
+      log("error", translate("log.cancelFailed"), error.message)
+      toast.error(translate("log.cancelFailed"), { description: error.message })
     },
   })
 }

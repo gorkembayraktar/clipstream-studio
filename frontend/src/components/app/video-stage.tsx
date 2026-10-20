@@ -14,6 +14,7 @@ import { Timeline } from "@/components/app/timeline"
 import { TrimBar } from "@/components/app/trim-bar"
 import { useHlsSource } from "@/hooks/use-hls-source"
 import { useFullscreen } from "@/hooks/use-fullscreen"
+import { translate, useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import { isHlsUrl, proxiedUrl } from "@/lib/media"
 import { cn } from "cn"
@@ -25,6 +26,7 @@ import { useStudioStore } from "@/stores/studio-store"
 const SEEK_NOTE_MS = 1200
 
 export function VideoStage() {
+  const { t } = useI18n()
   const videoRef = useRef<HTMLVideoElement>(null)
   /** Aynı meta veriyi tekrar tekrar loglamamak için son kaydedilen boyut/süre. */
   const metaLoggedRef = useRef<string | null>(null)
@@ -99,11 +101,11 @@ export function VideoStage() {
     const setup = async () => {
       const { default: Hls } = await import("hls.js")
       if (disposed || !Hls.isSupported()) return
-      log("info", "Ses akışı HLS: hls.js ses elementine bağlanıyor...")
+      log("info", translate("hls.audioConnecting"))
       hls = new Hls({ enableWorker: true })
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || !hls) return
-        log("error", "Ses akışı (HLS) hatası.", String(data.details))
+        log("error", translate("log.audioHlsError"), String(data.details))
         hls.destroy()
         hls = null
       })
@@ -205,7 +207,7 @@ export function VideoStage() {
       if (performance.now() < settleUntil) return
       lastAudioRescue = performance.now()
       settle()
-      log("warn", "Ses akışı koptu; yeniden yükleniyor ve görüntü konumuna hizalanıyor.")
+      log("warn", translate("log.audioDisconnected"))
       audio.load()
       seekTo(audio, video.currentTime)
       if (!video.paused && !video.muted) void audio.play().catch(() => undefined)
@@ -262,7 +264,7 @@ export function VideoStage() {
           doubleAudioWarned = true
           log(
             "warn",
-            "Video akışı kendi sesini içeriyor: ayrı ses akışı durduruldu (çift ses engellendi).",
+            translate("log.doubleAudioStopped"),
           )
         }
         return
@@ -282,7 +284,7 @@ export function VideoStage() {
       ) {
         lastAudioRescue = now
         settle()
-        log("warn", "Ses akışı yanıt vermiyor; yeniden yükleniyor.")
+        log("warn", translate("log.audioUnresponsive"))
         audio.load()
         seekTo(audio, video.currentTime)
         void audio.play().catch(() => undefined)
@@ -463,7 +465,7 @@ export function VideoStage() {
         const known = useStudioStore.getState().meta?.fps
         if (!known || Math.abs(known - fps) > 0.01) {
           setMeta({ fps })
-          log("info", `Kare hızı ölçüldü: ${fps} fps (hassas kare adımı için kullanılır).`)
+          log("info", translate("log.frameRateMeasured", { fps }))
         }
       }
 
@@ -488,7 +490,11 @@ export function VideoStage() {
           metaLoggedRef.current = key
           log(
             "success",
-            `Video meta verileri yüklendi (${el.videoWidth}×${el.videoHeight}, ${formatTime(duration)})`,
+            translate("log.metadataLoaded", {
+              width: el.videoWidth,
+              height: el.videoHeight,
+              duration: formatTime(duration),
+            }),
           )
         }
       }
@@ -531,7 +537,7 @@ export function VideoStage() {
       mark({ buffering: true })
       if (!bufferingLoggedRef.current) {
         bufferingLoggedRef.current = true
-        log("info", "Video arabelleğe alınıyor (buffering)...")
+        log("info", translate("log.buffering"))
       }
     }
     const onCanPlay = () => {
@@ -543,16 +549,16 @@ export function VideoStage() {
       mark({ buffering: true })
       if (!bufferingLoggedRef.current) {
         bufferingLoggedRef.current = true
-        log("warn", "Yayın akışı durakladı (stalled).")
+        log("warn", translate("log.stalled"))
       }
     }
     const onSeeking = () => {
       clearSeekNote()
-      noteStatus({ label: "Kare Yükleniyor...", tone: "buffering" })
+      noteStatus({ label: translate("status.frameLoading"), tone: "buffering" })
     }
     const onSeeked = () => {
       mark({ currentTime: el.currentTime })
-      noteStatus({ label: "Kare Yüklendi", tone: "ready" })
+      noteStatus({ label: translate("status.frameLoaded"), tone: "ready" })
       clearSeekNote()
       seekNoteTimer = window.setTimeout(() => {
         seekNoteTimer = 0
@@ -567,10 +573,10 @@ export function VideoStage() {
     const onLeavePip = () => mark({ pipActive: false })
     const onError = () => {
       if (!el.error) return
-      const detail = el.error.message || `hata kodu ${el.error.code}`
-      log("error", "Video oynatılamadı", detail)
-      noteStatus({ label: "Hata Oluştu", tone: "error" })
-      toast.error("Video oynatılamadı", { description: detail })
+      const detail = el.error.message || translate("video.errorCode", { code: el.error.code })
+      log("error", translate("log.videoError"), detail)
+      noteStatus({ label: translate("status.error"), tone: "error" })
+      toast.error(translate("video.cannotPlay"), { description: detail })
     }
 
     player.bind(el)
@@ -627,7 +633,7 @@ export function VideoStage() {
       <div
         className="stage-frame relative flex min-h-60 items-center justify-center bg-black"
         onDoubleClick={toggleFullscreen}
-        title="Çift tıkla: tam ekran"
+        title={t("video.doubleClickFullscreen")}
       >
         <video
           ref={videoRef}
@@ -669,14 +675,12 @@ export function VideoStage() {
 }
 
 function EmptyStage() {
+  const { t } = useI18n()
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
       <Clapperboard className="size-8" />
-      <p className="text-sm font-medium text-foreground">Kaynak bekleniyor</p>
-      <p className="max-w-sm text-xs">
-        Sağdaki kaynak panelinden bir bağlantı yükle, bilgisayarından video seç ya da
-        videoyu doğrudan bu pencereye sürükle-bırak.
-      </p>
+      <p className="text-sm font-medium text-foreground">{t("video.emptyTitle")}</p>
+      <p className="max-w-sm text-xs">{t("video.emptyDescription")}</p>
     </div>
   )
 }

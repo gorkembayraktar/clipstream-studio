@@ -35,6 +35,7 @@ import { ApiError, api } from "@/lib/api"
 import { parseCurl } from "@/lib/curl"
 import { compactDuration, formatBytes, formatTime } from "@/lib/format"
 import { extractPastedUrl, withScheme } from "@/lib/media"
+import { useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
@@ -42,6 +43,7 @@ import { useStudioStore } from "@/stores/studio-store"
 const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 
 export function UrlSourceBar() {
+  const { t } = useI18n()
   const inputUrl = useStudioStore((s) => s.inputUrl)
   const streamUrl = useStudioStore((s) => s.streamUrl)
   const title = useStudioStore((s) => s.title)
@@ -85,13 +87,13 @@ export function UrlSourceBar() {
 
   const platformLabel =
     platform === "youtube"
-      ? "YouTube"
+      ? t("source.platformYoutube")
       : platform === "twitter"
-        ? "X"
+        ? t("source.platformX")
         : platform === "instagram"
-          ? "Instagram"
+          ? t("source.platformInstagram")
           : platform === "local"
-            ? "Yerel dosya"
+            ? t("source.platformLocal")
             : null
 
   const handleLoad = async (
@@ -108,7 +110,7 @@ export function UrlSourceBar() {
 
     setResolving(true)
     setSourceLoading(true)
-    log("info", `Kaynak çözümleniyor: ${url}`)
+    log("info", t("log.sourceResolving", { url }))
     try {
       const resolved = await api.resolve(url, requestedHeaders)
       const platform =
@@ -117,22 +119,24 @@ export function UrlSourceBar() {
       if (requestedHeaders && !effectiveHeaders) {
         log(
           "warn",
-          "curl başlıkları yalnızca doğrudan medya bağlantılarında kullanılır.",
-          "YouTube / X / Instagram için hesap çerezi kullanılmaz.",
+          t("log.curlHeadersDirectOnly"),
+          t("log.noAccountCookies"),
         )
       }
-      const PLATFORM_LABELS: Record<string, string> = {
-        youtube: "YouTube",
-        twitter: "X (Twitter)",
-        instagram: "Instagram",
-      }
-      const label = PLATFORM_LABELS[platform]
+      const label =
+        platform === "youtube"
+          ? t("source.platformYoutube")
+          : platform === "twitter"
+            ? t("source.platformX")
+            : platform === "instagram"
+              ? t("source.platformInstagram")
+              : null
       if (label) {
-        log("info", `${label} linki tespit edildi, akış adresi alındı.`)
+        log("info", t("log.platformDetected", { platform: label }))
         // Harici platformların CDN'leri CORS başlığı göndermez → proxy gerekir.
         if (!useProxy) {
           setUseProxy(true)
-          log("info", `${label} akışları CORS engelli: CORS proxy otomatik açıldı.`)
+          log("info", t("log.corsAutoEnabled", { platform: label }))
         }
       }
       if (effectiveHeaders) {
@@ -141,7 +145,10 @@ export function UrlSourceBar() {
         setUseProxy(true)
         log(
           "info",
-          `${names.length} HTTP başlığı uygulanacak${cookie ? " (cookie dahil)" : ""}.`,
+          t("log.headersApplied", {
+            count: names.length,
+            cookie: cookie ? t("log.cookieIncluded") : "",
+          }),
           names.join(", "),
         )
       }
@@ -158,14 +165,14 @@ export function UrlSourceBar() {
       })
       log(
         "success",
-        `Kaynak hazır: ${resolved.title ?? resolved.stream_url}`,
-        resolved.resolution ? `çözünürlük: ${resolved.resolution}` : undefined,
+        t("log.sourceReady", { title: resolved.title ?? resolved.stream_url }),
+        resolved.resolution ? t("log.resolution", { resolution: resolved.resolution }) : undefined,
       )
       if (resolved.audio_url) {
         log(
           "info",
-          "Bu akış yalnızca görüntü içeriyor; ses ayrı akıştan eşlenerek oynatılacak.",
-          "Dışa aktarmada görüntü ve ses otomatik birleştirilir.",
+          t("log.audioSeparate"),
+          t("log.audioMergedOnExport"),
         )
       }
 
@@ -183,29 +190,33 @@ export function UrlSourceBar() {
         })
         log(
           "success",
-          "FFprobe analizi başarılı",
-          `${probe.width}×${probe.height}, süre ${formatTime(probe.duration)}, ses: ${
-            probe.has_audio ? "var" : "yok"
-          }${probe.fps > 0 ? `, ${probe.fps} fps` : ""}`,
+          t("log.probeSuccess"),
+          t("log.probeDetail", {
+            width: probe.width,
+            height: probe.height,
+            duration: formatTime(probe.duration),
+            audio: probe.has_audio ? t("log.probeAudioYes") : t("log.probeAudioNo"),
+            fps: probe.fps > 0 ? `, ${probe.fps} fps` : "",
+          }),
         )
       } catch (probeError) {
         const message =
-          probeError instanceof Error ? probeError.message : "Analiz başarısız oldu."
-        log("warn", "FFprobe analizi başarısız", message)
-        toast.warning("Süre bilgisi alınamadı", { description: message })
+          probeError instanceof Error ? probeError.message : t("log.probeFailedFallback")
+        log("warn", t("log.probeFailed"), message)
+        toast.warning(t("log.durationUnavailable"), { description: message })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       if (error instanceof ApiError && error.status === 422) {
         log(
           "error",
-          "yt-dlp bulunamadı: YouTube videoları için 'pip install -U yt-dlp' kurulumu gerekir.",
+          t("log.ytdlpMissing"),
           message,
         )
-        toast.error("yt-dlp bulunamadı", { description: message })
+        toast.error(t("log.ytdlpMissing"), { description: message })
       } else {
-        log("error", "Kaynak yüklenemedi", message)
-        toast.error("Kaynak yüklenemedi", { description: message })
+        log("error", t("log.sourceLoadFailed"), message)
+        toast.error(t("log.sourceLoadFailed"), { description: message })
       }
     } finally {
       setResolving(false)
@@ -217,8 +228,8 @@ export function UrlSourceBar() {
   const handleCurlLoad = () => {
     const parsed = parseCurl(curlText)
     if (!parsed?.url) {
-      toast.error("curl içinde bağlantı bulunamadı", {
-        description: "Bağlantıyı tırnak içinde içeren curl komutunu yapıştır.",
+      toast.error(t("log.curlNoUrl"), {
+        description: t("log.curlNoUrlDesc"),
       })
       return
     }
@@ -231,7 +242,7 @@ export function UrlSourceBar() {
   const handleOpenLocalInNewTab = () => {
     if (!streamUrl) return
     window.open(streamUrl, "_blank", "noopener,noreferrer")
-    log("info", "Yerel kaynak yeni sekmede açıldı.")
+    log("info", t("log.localNewTab"))
   }
 
   /** Panodaki bağlantıyı tek tıkla giriş alanına aktarır. */
@@ -240,17 +251,17 @@ export function UrlSourceBar() {
       const text = await navigator.clipboard.readText()
       const value = extractPastedUrl(text)
       if (!value) {
-        toast.info("Panoda bağlantı yok", {
-          description: "Önce bir video bağlantısı kopyala, sonra tekrar dene.",
+        toast.info(t("log.clipboardEmpty"), {
+          description: t("log.clipboardEmptyDesc"),
         })
         return
       }
       setInputUrl(value)
       urlInputRef.current?.focus()
-      log("info", "Bağlantı panodan yapıştırıldı.")
+      log("info", t("log.clipboardPasted"))
     } catch {
-      toast.warning("Panoya erişilemedi", {
-        description: "Tarayıcı izin vermediyse Ctrl+V ile yapıştırabilirsin.",
+      toast.warning(t("log.clipboardDenied"), {
+        description: t("log.clipboardDeniedDesc"),
       })
     }
   }
@@ -264,8 +275,8 @@ export function UrlSourceBar() {
             <Input
               ref={urlInputRef}
               className="h-8 pr-8 text-xs"
-              placeholder="Bağlantı yapıştır · YouTube / X / Instagram"
-              aria-label="Video bağlantısı"
+              placeholder={t("source.urlPlaceholder")}
+              aria-label={t("source.urlAria")}
               spellCheck={false}
               autoCapitalize="off"
               autoCorrect="off"
@@ -283,8 +294,8 @@ export function UrlSourceBar() {
               className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
               onClick={() => void handlePasteFromClipboard()}
               disabled={resolving}
-              title="Panodan yapıştır"
-              aria-label="Panodan yapıştır"
+              title={t("source.paste")}
+              aria-label={t("source.paste")}
             >
               <ClipboardPaste />
             </Button>
@@ -295,7 +306,7 @@ export function UrlSourceBar() {
             disabled={!inputUrl.trim() || resolving}
           >
             {resolving ? <Loader2 className="animate-spin" /> : <Download />}
-            {resolving ? "Çözümleniyor" : "Yükle"}
+            {resolving ? t("source.resolving") : t("source.load")}
           </Button>
         </div>
 
@@ -318,10 +329,12 @@ export function UrlSourceBar() {
                 <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
                 <span className="truncate text-[11px]">
                   {picking
-                    ? "Dosya seçiliyor…"
+                    ? t("source.picking")
                     : importProcessing
-                      ? "Tarayıcıya hazırlanıyor…"
-                      : `Yükleniyor %${Math.round((importProgress ?? 0) * 100)}`}
+                      ? t("source.preparingBrowser")
+                      : t("source.uploading", {
+                          percent: Math.round((importProgress ?? 0) * 100),
+                        })}
                 </span>
               </span>
               <Button
@@ -331,7 +344,7 @@ export function UrlSourceBar() {
                 onClick={cancelImport}
               >
                 <X />
-                İptal
+                {t("common.cancel")}
               </Button>
             </div>
             {!picking && (
@@ -356,7 +369,7 @@ export function UrlSourceBar() {
             )}
             {picking && (
               <p className="text-[10px] text-muted-foreground">
-                Pencere açık; istediğin an iptal edebilirsin.
+                {t("source.pickWindowOpen")}
               </p>
             )}
           </div>
@@ -374,12 +387,12 @@ export function UrlSourceBar() {
               disabled={resolving}
               title={
                 nativeUnavailable
-                  ? "Tarayıcıdan yükle (geçici kopya oluşturur)"
-                  : "Kopyasız: dosya olduğu yerden okunur"
+                  ? t("source.pickFileBrowserTitle")
+                  : t("source.pickFileNativeTitle")
               }
             >
               <FolderOpen className="size-3.5" />
-              Dosya seç
+              {t("source.pickFile")}
             </Button>
             <Button
               type="button"
@@ -388,10 +401,10 @@ export function UrlSourceBar() {
               className="h-8 justify-center gap-1.5 px-2 text-xs font-normal"
               onClick={() => setAdvancedOpen(true)}
               disabled={resolving}
-              title="Korumalı kaynaklar için curl komutu / HTTP başlıkları"
+              title={t("source.curlTitle")}
             >
               <Terminal className="size-3.5" />
-              Curl / başlık
+              {t("source.curl")}
               {appliedHeaderNames.length > 0 && (
                 <span className="rounded-full bg-primary/15 px-1.5 text-[9px] leading-4 font-semibold text-primary">
                   {appliedHeaderNames.length}
@@ -407,7 +420,7 @@ export function UrlSourceBar() {
             <div className="flex items-start gap-2 p-2.5">
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="truncate text-xs font-medium" title={title ?? undefined}>
-                  {title || "Kaynak"}
+                  {title || t("source.source")}
                 </p>
                 <div className="flex flex-wrap items-center gap-1">
                   {platformLabel && (
@@ -438,9 +451,9 @@ export function UrlSourceBar() {
                     <Badge
                       variant="outline"
                       className="h-[17px] border-amber-500/30 px-1.5 text-[10px] text-amber-600 dark:text-amber-400"
-                      title="Bu kaynakta ses akışı yok; dalga formu çizilmez."
+                      title={t("source.noAudioTitle")}
                     >
-                      ses yok
+                      {t("source.noAudio")}
                     </Badge>
                   )}
                   {appliedHeaderNames.length > 0 && (
@@ -449,8 +462,8 @@ export function UrlSourceBar() {
                       className="h-[17px] px-1.5 text-[10px]"
                       title={appliedHeaderNames.join(", ")}
                     >
-                      {appliedHeaderNames.length} başlık
-                      {appliedCookie ? " · cookie" : ""}
+                      {t("source.headers", { count: appliedHeaderNames.length })}
+                      {appliedCookie ? ` · ${t("source.cookie")}` : ""}
                     </Badge>
                   )}
                 </div>
@@ -467,10 +480,10 @@ export function UrlSourceBar() {
                 className="-mt-0.5 -mr-0.5 shrink-0 text-muted-foreground"
                 onClick={() => {
                   clearSource()
-                  log("info", "Kaynak temizlendi.")
+                  log("info", t("log.sourceCleared"))
                 }}
-                title="Kaynağı temizle"
-                aria-label="Kaynağı temizle"
+                title={t("source.clearSource")}
+                aria-label={t("source.clearSource")}
               >
                 <X />
               </Button>
@@ -480,23 +493,23 @@ export function UrlSourceBar() {
               <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
                 <span
                   className="text-[11px] text-muted-foreground"
-                  title="Kalite yalnızca önizlemeyi etkiler; dışa aktarma 1080p'yi aşmayan en yüksek kaliteyi kullanır."
+                  title={t("source.previewQualityTitle")}
                 >
-                  Önizleme kalitesi
+                  {t("source.previewQuality")}
                 </span>
                 <Select
                   value={String(previewHeight ?? defaultVariant?.height ?? variants[0].height)}
                   onValueChange={(value) => {
                     const height = Number(value)
                     setPreviewHeight(height)
-                    log("info", `Önizleme kalitesi: ${height}p.`)
+                    log("info", t("log.previewQuality", { height }))
                   }}
                 >
                   <SelectTrigger
                     size="sm"
                     className="w-[132px] text-xs tabular-nums"
-                    aria-label="Önizleme kalitesi"
-                    title="Oynatma kalitesi (dışa aktarma etkilenmez)"
+                    aria-label={t("source.previewQualityAria")}
+                    title={t("source.qualityTitle")}
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -508,7 +521,7 @@ export function UrlSourceBar() {
                         className="text-xs tabular-nums"
                       >
                         {item.label}
-                        {item.default ? " (önerilen)" : ""}
+                        {item.default ? t("source.recommended") : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -523,13 +536,13 @@ export function UrlSourceBar() {
                   size="xs"
                   className="-ml-1.5 h-6 px-1.5 text-[11px] font-normal text-muted-foreground"
                   onClick={handleOpenLocalInNewTab}
-                  title="Dosyayı tarayıcının kendi oynatıcısıyla aç"
+                  title={t("source.openNewTabTitle")}
                 >
                   <ExternalLink />
-                  Yeni sekmede aç
+                  {t("source.openNewTab")}
                 </Button>
                 <span className="text-[10px] text-muted-foreground/70">
-                  {sourcePath ? "kopyasız" : "geçici kopya"}
+                  {sourcePath ? t("source.noCopy") : t("source.tempCopy")}
                 </span>
               </div>
             ) : (
@@ -537,16 +550,16 @@ export function UrlSourceBar() {
                 <label
                   htmlFor="proxy-switch"
                   className="flex cursor-pointer items-center gap-1 text-[11px] text-muted-foreground"
-                  title="CORS engelli kaynaklarda oynatma istekleri sunucu üzerinden geçer."
+                  title={t("source.corsProxyTitle")}
                 >
-                  CORS proxy
+                  {t("source.corsProxy")}
                 </label>
                 <Switch
                   id="proxy-switch"
                   checked={useProxy}
                   onCheckedChange={(checked) => {
                     setUseProxy(checked)
-                    log("info", `CORS proxy ${checked ? "açıldı" : "kapatıldı"}.`)
+                    log("info", t(checked ? "log.proxyEnabled" : "log.proxyDisabled"))
                   }}
                 />
               </div>
@@ -556,7 +569,7 @@ export function UrlSourceBar() {
 
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground/70">
-            {!streamUrl ? "Sürükle-bırak da çalışır" : ""}
+            {!streamUrl ? t("source.dragDropHint") : ""}
           </span>
           <Button
             variant="ghost"
@@ -565,7 +578,7 @@ export function UrlSourceBar() {
             onClick={() => void handleLoad(DEMO_URL)}
             disabled={resolving}
           >
-            Demo yayın
+            {t("source.demo")}
           </Button>
         </div>
       </div>
@@ -574,14 +587,9 @@ export function UrlSourceBar() {
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Gelişmiş bağlantı</DialogTitle>
+            <DialogTitle>{t("source.advancedTitle")}</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
-              Korumalı kaynaklarda Chrome’da{" "}
-              <span className="whitespace-nowrap font-medium text-foreground">
-                Copy → Copy as cURL
-              </span>{" "}
-              ile kopyaladığın komutu yapıştır. Cookie, referer ve
-              authorization başlıkları oynatma, analiz ve dışa aktarmada kullanılır.
+              {t("source.advancedDescription")}
             </DialogDescription>
           </DialogHeader>
 
@@ -595,7 +603,7 @@ export function UrlSourceBar() {
             spellCheck={false}
             rows={5}
             disabled={resolving}
-            aria-label="curl komutu"
+            aria-label={t("source.curlAria")}
             className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-2.5 font-mono text-xs leading-relaxed outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
           />
 
@@ -612,7 +620,7 @@ export function UrlSourceBar() {
                 </div>
               ) : (
                 <p className="text-[10px] text-destructive">
-                  Bağlantı bulunamadı — curl komutunu eksiksiz yapıştır.
+                  {t("source.noUrlFound")}
                 </p>
               )}
               {parsedCurl && Object.keys(parsedCurl.headers).length > 0 && (
@@ -643,7 +651,7 @@ export function UrlSourceBar() {
               onClick={() => setCurlText("")}
               disabled={!curlText || resolving}
             >
-              Temizle
+              {t("common.clear")}
             </Button>
             <Button
               type="button"
@@ -651,7 +659,7 @@ export function UrlSourceBar() {
               disabled={!parsedCurl?.url || resolving}
             >
               {resolving ? <Loader2 className="animate-spin" /> : <Terminal />}
-              Bağlantıyı yükle
+              {t("source.loadUrl")}
             </Button>
           </DialogFooter>
         </DialogContent>

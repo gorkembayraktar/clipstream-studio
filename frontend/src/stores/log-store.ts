@@ -5,6 +5,8 @@
  */
 import { create } from "zustand"
 
+import { translate } from "@/i18n"
+
 export type LogLevel = "info" | "success" | "warn" | "error"
 
 export interface LogEntry {
@@ -50,7 +52,7 @@ const STARTUP_ENTRY: LogEntry = {
   id: 1,
   time: stamp(),
   level: "info",
-  message: "ClipStream Studio hazır. Bir m3u8 / mp4 / YouTube bağlantısı girerek başlayın.",
+  message: translate("logs.startup"),
 }
 
 export const useLogStore = create<LogState>((set, get) => ({
@@ -88,7 +90,7 @@ export const useLogStore = create<LogState>((set, get) => ({
 
   clear: () => {
     set({ entries: [], errorCount: 0 })
-    get().log("info", "Log ekranı temizlendi.")
+    get().log("info", translate("log.cleared"))
   },
 
   setOpen: (open) => set({ open }),

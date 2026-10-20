@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { toast } from "sonner"
 
+import { translate } from "@/i18n"
 import { api } from "@/lib/api"
 import { log } from "@/stores/log-store"
 
@@ -22,13 +23,13 @@ export function useDeleteLibraryFile() {
   return useMutation({
     mutationFn: (name: string) => api.deleteLibraryFile(name),
     onSuccess: (_data, name) => {
-      log("success", `Dosya silindi: ${name}`)
-      toast.success("Dosya silindi.")
+      log("success", translate("log.fileDeleted", { name }))
+      toast.success(translate("gallery.deleted"))
       void queryClient.invalidateQueries({ queryKey: libraryKeys.all })
     },
     onError: (error: Error, name) => {
-      log("error", "Dosya silinemedi", `${name} — ${error.message}`)
-      toast.error("Dosya silinemedi", { description: error.message })
+      log("error", translate("log.fileDeleteFailed"), `${name} — ${error.message}`)
+      toast.error(translate("gallery.deleteFailed"), { description: error.message })
     },
   })
 }
@@ -36,15 +37,13 @@ export function useDeleteLibraryFile() {
 export function useRevealInExplorer() {
   return useMutation({
     mutationFn: (filename?: string) => api.revealInExplorer(filename),
-    onSuccess: (data) => {
-      if (data.message) {
-        log("info", data.message)
-        toast.success(data.message)
-      }
+    onSuccess: () => {
+      log("info", translate("gallery.revealSuccess"))
+      toast.success(translate("gallery.revealSuccess"))
     },
     onError: (error: Error) => {
-      log("error", "Klasör açılamadı", error.message)
-      toast.error("Klasör açılamadı", { description: error.message })
+      log("error", translate("log.folderOpenFailed"), error.message)
+      toast.error(translate("gallery.revealFailed"), { description: error.message })
     },
   })
 }

@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
+import { translate } from "@/i18n"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -61,7 +62,7 @@ export function useWaveform(
     retry: 0,
     queryFn: async (): Promise<WaveformData> => {
       const started = performance.now()
-      log("info", "Dalga formu hazırlanıyor...", audioUrl ?? url ?? undefined)
+      log("info", translate("log.waveformPreparing"), audioUrl ?? url ?? undefined)
 
       const response = await api.waveform({
         url: url as string,
@@ -73,19 +74,24 @@ export function useWaveform(
 
       // Sessiz kaynak: hata değil; boş dalga formu çizilir.
       if (response.silent || !response.buckets) {
-        log("info", "Kaynakta ses akışı yok: dalga formu çizilmiyor.")
+        log("info", translate("log.waveformSilent"))
         return { buckets: new Uint8Array(0), bucketSeconds: response.bucket_seconds || 0.25 }
       }
 
       const buckets = decodeBuckets(response.buckets)
       const elapsed = Math.round(performance.now() - started)
       if (response.cached) {
-        log("info", `Dalga formu önbellekten geldi (${elapsed} ms).`)
+        log("info", translate("log.waveformCached", { ms: elapsed }))
       } else {
-        const note = response.optimized ? " — hafif kaynak kullanıldı" : ""
+        const note = response.optimized ? translate("log.waveformOptimized") : ""
         log(
           "success",
-          `Dalga formu hazır: ${response.bucket_count} kova (${response.bucket_seconds} sn), ${elapsed} ms${note}.`,
+          translate("log.waveformReady", {
+            count: response.bucket_count,
+            seconds: response.bucket_seconds,
+            ms: elapsed,
+            note,
+          }),
         )
       }
 
@@ -97,7 +103,7 @@ export function useWaveform(
     if (!query.error) return
     log(
       "warn",
-      "Dalga formu alınamadı",
+      translate("log.waveformFailed"),
       query.error instanceof Error ? query.error.message : undefined,
     )
   }, [query.error])

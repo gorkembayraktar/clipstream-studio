@@ -18,7 +18,8 @@ import { toast } from "sonner"
 import { create } from "zustand"
 
 import { ApiError, api } from "@/lib/api"
-import { formatBytes, formatTime, stripExtension } from "@/lib/format"
+import { translate } from "@/i18n"
+import { formatBytes, formatMegabytes, formatTime, stripExtension } from "@/lib/format"
 import { writeProjectHandoff } from "@/lib/project-handoff"
 import type { LocalFileResponse } from "@/lib/types"
 import { log } from "@/stores/log-store"
@@ -95,7 +96,7 @@ function newProjectId(): string {
 /** Bildirimdeki İptal düğmesi: hangi aşamada olursa olsun işlemi durdurur. */
 function cancelAction() {
   return {
-    label: "İptal",
+    label: translate("common.cancel"),
     onClick: () => useLocalImportStore.getState().cancel(),
   }
 }
@@ -126,16 +127,13 @@ function applyLocalSource(result: LocalFileResponse, sourcePath: string | null):
 
   log(
     "success",
-    `Yerel dosya hazır: ${result.name}`,
-    `${result.width}×${result.height} · ${formatTime(result.duration)} · ${result.size_mb} MB`,
+    translate("import.localReadyLog", { name: result.name }),
+    `${result.width}×${result.height} · ${formatTime(result.duration)} · ${formatMegabytes(result.size_mb)}`,
   )
   if (result.remuxed) {
-    log(
-      "info",
-      "Dosya tarayıcının çalamadığı bir kaptaydı; yeniden kodlanmadan (kayıpsız) MP4/WebM'e dönüştürüldü.",
-    )
+    log("info", translate("import.remuxed"))
   }
-  toast.success("Dosya hazır", {
+  toast.success(translate("import.fileReady"), {
     description: `${result.name} · ${result.width}×${result.height} · ${formatTime(result.duration)}`,
   })
 }
@@ -149,22 +147,22 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
   /** Yüklemeyi iki hedef için ortak yürütür. */
   const runImport = async (file: File, target: LocalImportTarget): Promise<void> => {
     if (get().busy || get().picking) {
-      toast.info("Zaten bir dosya hazırlanıyor", {
-        description: "Bitmesini bekleyin ya da iptal edin.",
+      toast.info(translate("import.alreadyBusyTitle"), {
+        description: translate("import.alreadyBusyDesc"),
       })
       return
     }
 
     if (!isSupportedVideo(file)) {
-      toast.error("Bu dosya video değil", {
-        description: "MP4, WebM, MOV, MKV, AVI gibi bir video dosyası seçin.",
+      toast.error(translate("import.notVideoTitle"), {
+        description: translate("import.notVideoDesc"),
       })
-      log("warn", `Desteklenmeyen dosya: ${file.name}`)
+      log("warn", translate("log.unsupportedFile", { name: file.name }))
       return
     }
 
     if (file.size === 0) {
-      toast.error("Dosya boş", { description: file.name })
+      toast.error(translate("import.emptyTitle"), { description: file.name })
       return
     }
 
@@ -178,10 +176,14 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
         createdAt: Date.now(),
       })
       if (!wrote) {
-        toast.error("Yeni proje açılamadı", {
-          description: "Tarayıcı yerel depolamaya yazamıyor; geçici kopya için izin gerekli.",
+        toast.error(translate("import.newProjectFailedTitle"), {
+          description: translate("import.newProjectFailedDesc"),
         })
-        log("error", "Yeni proje kaydı oluşturulamadı", "localStorage kullanılamıyor")
+        log(
+          "error",
+          translate("import.handoffWriteFailed"),
+          translate("import.localStorageUnavailable"),
+        )
         return
       }
 
@@ -197,13 +199,16 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
           status: "error",
           name: file.name,
           createdAt: Date.now(),
-          error:
-            "Tarayıcı yeni sekmeyi engelledi. Adres çubuğundaki açılır pencere iznini verip tekrar dene.",
+          error: translate("import.popupBlockedError"),
         })
-        toast.error("Yeni sekme açılamadı", {
-          description: "Tarayıcı açılır pencereyi engelledi. İzin verip tekrar dene.",
+        toast.error(translate("import.popupBlockedTitle"), {
+          description: translate("import.popupBlockedDesc"),
         })
-        log("error", "Yeni proje sekmesi açılamadı", "window.open engellendi")
+        log(
+          "error",
+          translate("import.newProjectTabFailed"),
+          translate("import.windowOpenBlocked"),
+        )
         return
       }
       try {
@@ -225,12 +230,14 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
     })
     log(
       "info",
-      target === "new-tab"
-        ? `Yeni proje için dosya yükleniyor: ${file.name}`
-        : `Yerel dosya yükleniyor: ${file.name}`,
-      target === "new-tab"
-        ? `${formatBytes(file.size)} · mevcut proje korunuyor, yeni sekmede açılacak`
-        : `${formatBytes(file.size)} · tarayıcı dosyanın yolunu vermediği için geçici kopya oluşturuluyor`,
+      translate(
+        target === "new-tab" ? "import.uploadingForNew" : "import.uploadingLocal",
+        { name: file.name },
+      ),
+      translate(
+        target === "new-tab" ? "import.uploadingForNewExtra" : "import.uploadingLocalExtra",
+        { size: formatBytes(file.size) },
+      ),
     )
 
     let lastPercent = -1
@@ -239,12 +246,18 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       if (percent === lastPercent) return
       lastPercent = percent
       toast.loading(
-        target === "new-tab" ? `Yeni projeye aktarılıyor %${percent}` : `Yükleniyor %${percent}`,
+        translate(
+          target === "new-tab" ? "import.progressNew" : "import.progressUpload",
+          { percent },
+        ),
         {
           id: IMPORT_TOAST_ID,
           description:
-            `${formatBytes(file.size * ratio)} / ${formatBytes(file.size)} · ${file.name}` +
-            (target === "new-tab" ? " · mevcut projen korunuyor" : ""),
+            translate("import.progressDesc", {
+              current: formatBytes(file.size * ratio),
+              total: formatBytes(file.size),
+              name: file.name,
+            }) + (target === "new-tab" ? translate("import.currentProtected") : ""),
           action: cancelAction(),
           duration: Infinity,
         },
@@ -262,7 +275,9 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
         onUploaded: () => {
           set({ progress: 1, processing: true })
           toast.loading(
-            target === "new-tab" ? "Yeni proje hazırlanıyor…" : "Tarayıcıya hazırlanıyor…",
+            translate(
+              target === "new-tab" ? "import.preparingNew" : "import.preparingBrowser",
+            ),
             {
               id: IMPORT_TOAST_ID,
               description: `${formatBytes(file.size)} · ${file.name}`,
@@ -281,10 +296,16 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
             createdAt: Date.now(),
           })
         }
-        log("warn", "Dosya hazırlığı iptal edildi.")
-        toast.info(target === "new-tab" ? "Yeni proje iptal edildi" : "Dosya hazırlığı iptal edildi", {
-          description: target === "new-tab" ? "Açılan sekme kapatılabilir." : undefined,
-        })
+        log("warn", translate("log.filePrepCancelled"))
+        toast.info(
+          translate(
+            target === "new-tab" ? "import.newProjectCancelled" : "import.cancelledPrep",
+          ),
+          {
+            description:
+              target === "new-tab" ? translate("import.newTabClosable") : undefined,
+          },
+        )
         return
       }
 
@@ -296,19 +317,25 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
           result,
         })
         if (!wrote) {
-          log("error", "Yeni proje sonucu aktarılamadı", "localStorage kullanılamıyor")
-          toast.error("Yeni proje aktarılamadı", {
-            description: "Dosya yüklendi ancak yeni sekmeye bilgi geçilemedi. Dosyayı yeniden içe aktar.",
+          log(
+            "error",
+            translate("import.handoffReadFailed"),
+            translate("import.localStorageUnavailable"),
+          )
+          toast.error(translate("import.transferFailedTitle"), {
+            description: translate("import.transferFailedDesc"),
           })
           return
         }
         log(
           "success",
-          `Yeni proje hazır: ${result.name}`,
-          `${result.width}×${result.height} · yeni sekmede açıldı`,
+          translate("import.newProjectReadyLog", { name: result.name }),
+          translate("import.newProjectReadyExtra", {
+            size: `${result.width}×${result.height}`,
+          }),
         )
-        toast.success("Yeni proje açıldı", {
-          description: `${result.name} · yeni sekmede`,
+        toast.success(translate("import.newProjectOpened"), {
+          description: translate("import.newProjectOpenedDesc", { name: result.name }),
         })
       } else {
         applyLocalSource(result, null)
@@ -322,10 +349,23 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
             createdAt: Date.now(),
           })
         }
-        log("warn", target === "new-tab" ? "Yeni proje yüklemesi iptal edildi." : "Dosya yüklemesi iptal edildi.")
-        toast.info(target === "new-tab" ? "Yeni proje iptal edildi" : "Yükleme iptal edildi", {
-          description: target === "new-tab" ? "Açılan sekme kapatılabilir." : undefined,
-        })
+        log(
+          "warn",
+          translate(
+            target === "new-tab"
+              ? "import.uploadCancelledLog"
+              : "import.localUploadCancelledLog",
+          ),
+        )
+        toast.info(
+          translate(
+            target === "new-tab" ? "import.newProjectCancelled" : "import.uploadCancelledToast",
+          ),
+          {
+            description:
+              target === "new-tab" ? translate("import.newTabClosable") : undefined,
+          },
+        )
       } else {
         const message = error instanceof Error ? error.message : String(error)
         if (projectId) {
@@ -336,10 +376,21 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
             error: message,
           })
         }
-        log("error", target === "new-tab" ? "Yeni proje hazırlanamadı" : "Yerel dosya hazırlanamadı", message)
-        toast.error(target === "new-tab" ? "Yeni proje hazırlanamadı" : "Dosya yüklenemedi", {
-          description: message,
-        })
+        log(
+          "error",
+          translate(
+            target === "new-tab" ? "import.prepFailedLog" : "import.localPrepFailedLog",
+          ),
+          message,
+        )
+        toast.error(
+          translate(
+            target === "new-tab" ? "import.prepFailedToast" : "import.uploadFailedToast",
+          ),
+          {
+            description: message,
+          },
+        )
       }
     } finally {
       toast.dismiss(IMPORT_TOAST_ID)
@@ -374,10 +425,10 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       const controller = new AbortController()
       pickController = controller
       set({ picking: true })
-      log("info", "Dosya seçim penceresi açılıyor (kopyasız)…")
-      toast.loading("Dosya seçiliyor…", {
+      log("info", translate("import.pickerOpening"))
+      toast.loading(translate("import.pickerLoading"), {
         id: PICK_TOAST_ID,
-        description: "Pencere açık · işlem bitene kadar iptal edebilirsin",
+        description: translate("import.pickerDesc"),
         action: cancelAction(),
         duration: Infinity,
       })
@@ -385,25 +436,24 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       try {
         const result = await api.pickLocalFile(controller.signal)
         if (!result.success) {
-          log("info", "Dosya seçimi iptal edildi.")
+          log("info", translate("log.fileSelectionCancelled"))
           return
         }
         applyLocalSource(result, result.path ?? result.name)
       } catch (error) {
         if (isAbort(error)) {
-          log("warn", "Dosya seçimi iptal edildi.")
-          toast.info("Dosya seçimi iptal edildi")
+          log("warn", translate("log.fileSelectionCancelled"))
+          toast.info(translate("import.pickerCancelled"))
         } else if (error instanceof ApiError && error.status === 501) {
           set({ nativeUnavailable: true })
-          log("warn", "Kopyasız dosya seçimi kullanılamıyor", error.message)
-          toast.warning("Dosya penceresi açılamadı", {
-            description:
-              "Tarayıcıdan yükle seçeneğini kullanabilirsin (geçici kopya oluşturur).",
+          log("warn", translate("log.nativeUnavailable"), error.message)
+          toast.warning(translate("import.nativeUnavailableTitle"), {
+            description: translate("import.nativeUnavailableDesc"),
           })
         } else {
           const message = error instanceof Error ? error.message : String(error)
-          log("error", "Dosya seçilemedi", message)
-          toast.error("Dosya seçilemedi", { description: message })
+          log("error", translate("import.pickFailedTitle"), message)
+          toast.error(translate("import.pickFailedTitle"), { description: message })
         }
       } finally {
         toast.dismiss(PICK_TOAST_ID)
@@ -421,7 +471,7 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
 
       // Yükleme zaten bağlantıyı keser; dosya penceresi ve remux sunucuda ayrıca durdurulur.
       stopServerWork()
-      log("info", "İşlem iptal ediliyor…")
+      log("info", translate("log.cancelling"))
     },
   }
 })

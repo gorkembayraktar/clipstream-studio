@@ -2,6 +2,7 @@
 import { AlertCircle, Clapperboard, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useI18n } from "@/i18n"
 
 interface IncomingProjectScreenProps {
   fileName: string | null
@@ -15,6 +16,7 @@ function closeTab() {
 }
 
 export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreenProps) {
+  const { t } = useI18n()
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
       <div className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-8 text-center shadow-2xl">
@@ -24,7 +26,7 @@ export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreen
               <AlertCircle className="size-6" />
             </div>
             <div className="space-y-1.5">
-              <h1 className="text-lg font-semibold">Yeni proje hazırlanamadı</h1>
+              <h1 className="text-lg font-semibold">{t("incoming.errorTitle")}</h1>
               <p className="text-sm leading-relaxed text-muted-foreground">{error}</p>
               {fileName && (
                 <p className="truncate text-xs text-muted-foreground/80" title={fileName}>
@@ -33,7 +35,7 @@ export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreen
               )}
             </div>
             <Button className="w-full" onClick={closeTab}>
-              Kapat
+              {t("incoming.close")}
             </Button>
           </>
         ) : (
@@ -43,15 +45,15 @@ export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreen
               <Loader2 className="absolute -right-1 -bottom-1 size-5 animate-spin rounded-full bg-card" />
             </div>
             <div className="space-y-1.5">
-              <h1 className="text-lg font-semibold">Yeni proje hazırlanıyor</h1>
+              <h1 className="text-lg font-semibold">{t("incoming.preparingTitle")}</h1>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {fileName ? (
                   <>
-                    <span className="font-medium text-foreground">{fileName}</span> yeni sekmeye
-                    aktarılıyor. Hazır olduğunda bu sekme kendiliğinden açılacak.
+                    <span className="font-medium text-foreground">{fileName}</span>{" "}
+                    {t("incoming.transferring")}
                   </>
                 ) : (
-                  "Dosya yeni sekmeye aktarılıyor. Hazır olduğunda bu sekme kendiliğinden açılacak."
+                  t("incoming.transferringNoFile")
                 )}
               </p>
             </div>
@@ -59,8 +61,7 @@ export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreen
               <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground/70">
-              Mevcut projen diğer sekmede açık kalıyor. Aktarımı iptal etmek için oradaki
-              bildirimi kullanabilirsin.
+              {t("incoming.keepOpen")}
             </p>
           </>
         )}

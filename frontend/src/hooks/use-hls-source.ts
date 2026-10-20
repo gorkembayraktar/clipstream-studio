@@ -8,6 +8,7 @@ import { useEffect, type RefObject } from "react"
 import type HlsJs from "hls.js"
 import { toast } from "sonner"
 
+import { translate } from "@/i18n"
 import { isHlsUrl } from "@/lib/media"
 import { log } from "@/stores/log-store"
 
@@ -24,14 +25,18 @@ export function useHlsSource(
 
     const setup = async () => {
       if (isHlsUrl(src)) {
-        log("info", "Hls.js oynatıcı motoru başlatılıyor...")
+        log("info", translate("hls.engineStarting"))
         const { default: Hls } = await import("hls.js")
         if (disposed) return
 
         if (Hls.isSupported()) {
           hls = new Hls({ enableWorker: true, backBufferLength: 90 })
           hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
-            log("success", `HLS manifest yüklendi (seviye sayısı: ${data.levels.length})`, src)
+            log(
+              "success",
+              translate("hls.manifestLoaded", { levels: data.levels.length }),
+              src,
+            )
           })
           hls.on(Hls.Events.ERROR, (_event, data) => {
             if (!data.fatal || !hls) return
@@ -39,7 +44,7 @@ export function useHlsSource(
               case Hls.ErrorTypes.NETWORK_ERROR:
                 log(
                   "warn",
-                  "Ağ hatası: segment veya m3u8 indirilemedi (403/404/CORS olabilir), yeniden deneniyor.",
+                  translate("hls.networkError"),
                   String(data.details),
                 )
                 hls.startLoad()
@@ -47,14 +52,16 @@ export function useHlsSource(
               case Hls.ErrorTypes.MEDIA_ERROR:
                 log(
                   "warn",
-                  "Medya hatası: kod çözme sorunu, kurtarma deneniyor.",
+                  translate("hls.mediaError"),
                   String(data.details),
                 )
                 hls.recoverMediaError()
                 break
               default:
-                log("error", "Akış oynatılamadı (kurtarılamayan Hls.js hatası).", String(data.details))
-                toast.error("Akış oynatılamadı", { description: String(data.details) })
+                log("error", translate("hls.fatal"), String(data.details))
+                toast.error(translate("hls.fatalTitle"), {
+                  description: String(data.details),
+                })
                 hls.destroy()
             }
           })
@@ -62,14 +69,14 @@ export function useHlsSource(
           hls.attachMedia(el)
         } else if (el.canPlayType("application/vnd.apple.mpegurl")) {
           // Safari: yerel HLS desteği
-          log("info", "Tarayıcının yerel HLS desteği kullanılıyor.")
+          log("info", translate("hls.native"))
           el.src = src
         } else {
-          log("error", "Tarayıcı HLS oynatmayı desteklemiyor.")
-          toast.error("Tarayıcı HLS oynatmayı desteklemiyor.")
+          log("error", translate("hls.unsupported"))
+          toast.error(translate("hls.unsupportedTitle"))
         }
       } else {
-        log("info", `Video nesnesi yükleniyor: ${src}`)
+        log("info", translate("hls.loadingMedia", { src }))
         el.src = src
       }
     }

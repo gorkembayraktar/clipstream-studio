@@ -6,6 +6,7 @@ import { RepeatIcon, RotateCcwIcon, ScissorsIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "cn"
+import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -44,6 +45,7 @@ function TimeInput({ value, onCommit, disabled }: TimeInputProps) {
 }
 
 export function TrimBar() {
+  const { t } = useI18n()
   const trim = useStudioStore((s) => s.trim)
   const setTrim = useStudioStore((s) => s.setTrim)
   const loop = useStudioStore((s) => s.loop)
@@ -58,21 +60,21 @@ export function TrimBar() {
       <div className="flex items-center gap-1.5">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
-          Giriş
+          {t("trim.in")}
         </span>
         <TimeInput
           value={trim.start}
           onCommit={(value) => setTrim({ start: value })}
         />
         <Button variant="ghost" size="xs" onClick={() => setTrim({ start: 0 })}>
-          Baştan
+          {t("trim.fromStart")}
         </Button>
       </div>
 
       <div className="flex items-center gap-1.5">
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-          Çıkış
+          {t("trim.out")}
         </span>
         <TimeInput
           value={trim.end}
@@ -84,7 +86,7 @@ export function TrimBar() {
           onClick={() => setTrim({ end: duration })}
           disabled={duration <= 0}
         >
-          Sona
+          {t("trim.toEnd")}
         </Button>
       </div>
 
@@ -102,7 +104,7 @@ export function TrimBar() {
           variant={loop ? "secondary" : "ghost"}
           size="icon-xs"
           onClick={() => setLoop(!loop)}
-          title="Döngü (L)"
+          title={t("trim.loop")}
         >
           <RepeatIcon />
         </Button>
@@ -111,7 +113,7 @@ export function TrimBar() {
           size="icon-xs"
           onClick={() => setTrim({ start: 0, end: duration })}
           disabled={duration <= 0}
-          title="Seçimi tüm videoya yay"
+          title={t("trim.fullRange")}
         >
           <RotateCcwIcon />
         </Button>

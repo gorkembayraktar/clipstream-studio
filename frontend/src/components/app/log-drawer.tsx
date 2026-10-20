@@ -6,6 +6,7 @@ import { ChevronDownIcon, TerminalIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "cn"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { clamp } from "@/lib/format"
 import { useLogStore, type LogLevel } from "@/stores/log-store"
 
@@ -61,11 +62,11 @@ function releasePointer(element: Element | null, pointerId: number) {
   }
 }
 
-const TAG_TEXT: Record<LogLevel, string> = {
-  info: "BİLGİ",
-  success: "BAŞARI",
-  warn: "UYARI",
-  error: "HATA",
+const TAG_KEYS: Record<LogLevel, TranslationKey> = {
+  info: "logs.tagInfo",
+  success: "logs.tagSuccess",
+  warn: "logs.tagWarn",
+  error: "logs.tagError",
 }
 
 const TAG_CLASSES: Record<LogLevel, string> = {
@@ -76,6 +77,7 @@ const TAG_CLASSES: Record<LogLevel, string> = {
 }
 
 export function LogDrawer() {
+  const { t } = useI18n()
   const entries = useLogStore((s) => s.entries)
   const errorCount = useLogStore((s) => s.errorCount)
   const open = useLogStore((s) => s.open)
@@ -152,7 +154,7 @@ export function LogDrawer() {
     const text = entries
       .map(
         (entry) =>
-          `[${entry.time}] ${TAG_TEXT[entry.level]} ${entry.message}${
+          `[${entry.time}] ${t(TAG_KEYS[entry.level])} ${entry.message}${
             entry.extra ? ` (${entry.extra})` : ""
           }`,
       )
@@ -160,9 +162,9 @@ export function LogDrawer() {
 
     try {
       await navigator.clipboard.writeText(text)
-      log("success", "Tüm loglar panoya kopyalandı.")
+      log("success", t("logs.copied"))
     } catch {
-      log("error", "Loglar panoya kopyalanamadı.")
+      log("error", t("logs.copyFailed"))
     }
   }
 
@@ -178,12 +180,12 @@ export function LogDrawer() {
           <div
             role="separator"
             aria-orientation="horizontal"
-            aria-label="Log panelini yeniden boyutlandır"
+            aria-label={t("logs.resizeAria")}
             aria-valuenow={height === null ? undefined : Math.round(height)}
             aria-valuemin={MIN_HEIGHT}
             tabIndex={0}
             data-slot="log-resize-handle"
-            title="Sürükleyerek boyutlandır · Çift tıkla sıfırla"
+            title={t("logs.resizeTitle")}
             onPointerDown={startResize}
             onPointerMove={moveResize}
             onPointerUp={endResize}
@@ -210,28 +212,28 @@ export function LogDrawer() {
               type="button"
               onClick={toggle}
               aria-expanded={open}
-              title={open ? "Günlüğü kapat" : "Günlüğü aç"}
+              title={open ? t("logs.closeTitle") : t("logs.openTitle")}
               className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
             >
               <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate text-xs font-medium">Sistem &amp; Hata Logları</span>
+              <span className="truncate text-xs font-medium">{t("logs.title")}</span>
               <Badge
                 variant={errorCount > 0 ? "destructive" : "secondary"}
                 className="shrink-0 font-mono text-[10px]"
               >
                 {errorCount > 0
-                  ? `${errorCount} Hata / ${entries.length} Log`
-                  : `${entries.length} Log`}
+                  ? t("logs.errorsAndTotal", { errors: errorCount, total: entries.length })
+                  : t("logs.total", { total: entries.length })}
               </Badge>
             </button>
 
             {open && (
               <>
                 <Button variant="ghost" size="xs" onClick={() => void copyLogs()}>
-                  Kopyala
+                  {t("logs.copy")}
                 </Button>
                 <Button variant="ghost" size="xs" onClick={clear}>
-                  Temizle
+                  {t("logs.clear")}
                 </Button>
               </>
             )}
@@ -240,7 +242,7 @@ export function LogDrawer() {
               variant="ghost"
               size="icon-xs"
               onClick={toggle}
-              title={open ? "Kapat" : "Aç"}
+              title={open ? t("logs.close") : t("logs.open")}
               data-slot="log-drawer-toggle"
             >
               <ChevronDownIcon className={cn("transition-transform", !open && "rotate-180")} />
@@ -255,13 +257,13 @@ export function LogDrawer() {
               className="overflow-y-auto border-t border-border/60 bg-muted/60 px-3 py-2 font-mono text-[11px] leading-relaxed dark:bg-black/40"
             >
               {entries.length === 0 ? (
-                <p className="text-muted-foreground">Kayıt yok.</p>
+                <p className="text-muted-foreground">{t("logs.empty")}</p>
               ) : (
                 entries.map((entry) => (
                   <div key={entry.id} className="flex flex-wrap gap-x-1.5">
                     <span className="text-muted-foreground">[{entry.time}]</span>
                     <span className={cn("font-semibold", TAG_CLASSES[entry.level])}>
-                      {TAG_TEXT[entry.level]}
+                      {t(TAG_KEYS[entry.level])}
                     </span>
                     <span className="min-w-0 break-words text-foreground/90">
                       {entry.message}

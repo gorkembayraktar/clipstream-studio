@@ -11,6 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useI18n } from "@/i18n"
+import { formatMegabytes } from "@/lib/format"
 import type { ExportFile } from "@/lib/types"
 
 type PreviewKind = "video" | "audio" | "image" | "other"
@@ -28,6 +30,7 @@ function previewKind(name: string): PreviewKind {
 }
 
 function PreviewMedia({ file }: { file: ExportFile }) {
+  const { t } = useI18n()
   const [mediaError, setMediaError] = useState(false)
   const kind = previewKind(file.name)
   const previewable = kind !== "other"
@@ -43,12 +46,12 @@ function PreviewMedia({ file }: { file: ExportFile }) {
           )}
           <div className="space-y-1">
             <p className="text-sm text-white/85">
-              {mediaError ? "Dosya oynatılamadı." : "Bu dosya tarayıcıda önizlenemiyor."}
+              {mediaError ? t("gallery.previewFailed") : t("gallery.previewUnsupported")}
             </p>
             <p className="max-w-md text-xs text-white/55">
               {mediaError
-                ? "Dosya taşınmış veya tarayıcı bu codec'i desteklemiyor olabilir. İndirip harici bir oynatıcıda açabilirsin."
-                : "İndirip harici bir oynatıcıda açabilirsin."}
+                ? t("gallery.previewFailedHint")
+                : t("gallery.previewUnsupportedHint")}
             </p>
           </div>
         </div>
@@ -78,7 +81,7 @@ function PreviewMedia({ file }: { file: ExportFile }) {
             className="w-full max-w-xl"
             onError={() => setMediaError(true)}
           />
-          <p className="text-xs text-white/45">Ses kaydı</p>
+          <p className="text-xs text-white/45">{t("gallery.audioTrack")}</p>
         </div>
       )}
     </div>
@@ -92,6 +95,7 @@ interface GalleryPreviewDialogProps {
 }
 
 export function GalleryPreviewDialog({ file, onClose, onReveal }: GalleryPreviewDialogProps) {
+  const { t } = useI18n()
   return (
     <Dialog
       open={Boolean(file)}
@@ -104,7 +108,7 @@ export function GalleryPreviewDialog({ file, onClose, onReveal }: GalleryPreview
           <DialogHeader className="border-b px-4 py-3 pr-12">
             <DialogTitle className="truncate font-mono text-sm">{file.name}</DialogTitle>
             <DialogDescription>
-              {file.size_mb} MB · {file.modified_str}
+              {formatMegabytes(file.size_mb)} · {file.modified_str}
             </DialogDescription>
           </DialogHeader>
 
@@ -114,15 +118,15 @@ export function GalleryPreviewDialog({ file, onClose, onReveal }: GalleryPreview
             <Button variant="outline" size="sm" asChild>
               <a href={file.url} download>
                 <DownloadIcon />
-                İndir
+                {t("common.download")}
               </a>
             </Button>
             <Button variant="outline" size="sm" onClick={() => onReveal(file.name)}>
               <FolderOpenIcon />
-              Klasörde göster
+              {t("common.reveal")}
             </Button>
             <Button size="sm" onClick={onClose}>
-              Kapat
+              {t("common.close")}
             </Button>
           </div>
         </DialogContent>

@@ -8,11 +8,13 @@ import { Gallery } from "@/components/app/gallery"
 import { UrlSourceBar } from "@/components/app/url-source-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLibrary } from "@/hooks/use-library"
+import { useI18n } from "@/i18n"
 import { useStudioStore } from "@/stores/studio-store"
 
 type PanelTab = "source" | "export" | "gallery"
 
 export function SidePanel() {
+  const { t } = useI18n()
   const streamUrl = useStudioStore((s) => s.streamUrl)
   const [tab, setTab] = useState<PanelTab>("source")
 
@@ -34,15 +36,15 @@ export function SidePanel() {
       <TabsList className="w-full">
         <TabsTrigger value="source">
           <Link2Icon />
-          Kaynak
+          {t("tabs.source")}
         </TabsTrigger>
         <TabsTrigger value="export">
           <ScissorsIcon />
-          Dışa Aktar
+          {t("tabs.export")}
         </TabsTrigger>
         <TabsTrigger value="gallery">
           <FilmIcon />
-          Galeri
+          {t("tabs.gallery")}
           {clipCount > 0 && (
             <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
               {clipCount}

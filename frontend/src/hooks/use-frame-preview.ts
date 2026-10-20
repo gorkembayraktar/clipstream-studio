@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { api } from "@/lib/api"
+import { translate } from "@/i18n"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -110,7 +111,7 @@ export function useFramePreview(url: string | null, origin: string, duration: nu
               failureLoggedRef.current = true
               log(
                 "warn",
-                "Önizleme karesi alınamadı",
+                translate("log.previewFrameFailed"),
                 error instanceof Error ? error.message : undefined,
               )
             }

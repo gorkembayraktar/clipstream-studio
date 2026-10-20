@@ -1,6 +1,7 @@
 /** Oynatma durumu rozeti: canlı durumu ve anlık çözünürlüğü gösterir. */
 import { cn } from "cn"
 
+import { useI18n } from "@/i18n"
 import type { StatusTone } from "@/stores/player-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useStudioStore } from "@/stores/studio-store"
@@ -20,6 +21,7 @@ const DOT_CLASSES: Record<StatusTone, string> = {
 }
 
 export function StreamStatusBadge({ className }: { className?: string }) {
+  const { t } = useI18n()
   const sourceLoading = useStudioStore((s) => s.sourceLoading)
   const hasSource = useStudioStore((s) => s.streamUrl !== null)
   const playing = usePlayerStore((s) => s.playing)
@@ -29,23 +31,23 @@ export function StreamStatusBadge({ className }: { className?: string }) {
   const videoHeight = usePlayerStore((s) => s.videoHeight)
 
   let tone: StatusTone = "idle"
-  let label = "Kaynak yok"
+  let label = t("status.noSource")
 
   if (sourceLoading) {
     tone = "buffering"
-    label = "Yayın Yükleniyor..."
+    label = t("status.loading")
   } else if (!hasSource) {
     tone = "idle"
-    label = "Kaynak yok"
+    label = t("status.noSource")
   } else if (note) {
     tone = note.tone
     label = note.label
   } else if (buffering) {
     tone = "buffering"
-    label = "Arabelleğe Alınıyor..."
+    label = t("status.buffering")
   } else {
     tone = "ready"
-    label = playing ? "Oynatılıyor" : "Hazır"
+    label = playing ? t("status.playing") : t("status.ready")
   }
 
   const detail = tone === "ready" && videoWidth > 0 ? `${videoWidth}×${videoHeight}` : null

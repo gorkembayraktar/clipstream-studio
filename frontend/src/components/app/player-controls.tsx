@@ -27,10 +27,10 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { useFullscreen } from "@/hooks/use-fullscreen"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import {
   getVideoElement,
-  STEP_LABELS,
   STEP_MODES,
   usePlayerStore,
   type StepMode,
@@ -41,7 +41,17 @@ import { useThemeStore } from "@/stores/theme-store"
 /** Hız menüsündeki hazır oynatma hızları. */
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3]
 
+const STEP_LABEL_KEYS: Record<StepMode, TranslationKey> = {
+  frame: "step.frame",
+  ms10: "step.ms10",
+  ms50: "step.ms50",
+  ms100: "step.ms100",
+  ms250: "step.ms250",
+  ms500: "step.ms500",
+}
+
 export function PlayerControls() {
+  const { t } = useI18n()
   const playing = usePlayerStore((s) => s.playing)
   const currentTime = usePlayerStore((s) => s.currentTime)
   const duration = usePlayerStore((s) => s.duration)
@@ -82,13 +92,13 @@ export function PlayerControls() {
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Button variant="ghost" size="icon-sm" onClick={() => seekBy(-1)} title="1 sn geri (←)">
+      <Button variant="ghost" size="icon-sm" onClick={() => seekBy(-1)} title={t("player.seekBack")}>
         <SkipBackIcon />
       </Button>
-      <Button size="icon-sm" onClick={toggle} title="Oynat / Durdur (Boşluk)">
+      <Button size="icon-sm" onClick={toggle} title={t("player.playPause")}>
         {playing ? <PauseIcon /> : <PlayIcon />}
       </Button>
-      <Button variant="ghost" size="icon-sm" onClick={() => seekBy(1)} title="1 sn ileri (→)">
+      <Button variant="ghost" size="icon-sm" onClick={() => seekBy(1)} title={t("player.seekForward")}>
         <SkipForwardIcon />
       </Button>
 
@@ -100,7 +110,7 @@ export function PlayerControls() {
         size="icon-sm"
         onClick={() => step(-1)}
         data-slot="step-back"
-        title={`Bir adım geri (,) — ${STEP_LABELS[stepMode]}`}
+        title={t("player.stepBack", { step: t(STEP_LABEL_KEYS[stepMode]) })}
       >
         <StepBackIcon />
       </Button>
@@ -109,7 +119,7 @@ export function PlayerControls() {
         size="icon-sm"
         onClick={() => step(1)}
         data-slot="step-forward"
-        title={`Bir adım ileri (.) — ${STEP_LABELS[stepMode]}`}
+        title={t("player.stepForward", { step: t(STEP_LABEL_KEYS[stepMode]) })}
       >
         <StepForwardIcon />
       </Button>
@@ -117,15 +127,15 @@ export function PlayerControls() {
         <SelectTrigger
           size="sm"
           className="w-[92px] text-xs tabular-nums"
-          aria-label="Hassas adım büyüklüğü"
-          title="Hassas adım büyüklüğü (Shift ile ×10)"
+          aria-label={t("player.stepSize")}
+          title={t("player.stepSizeTitle")}
         >
           <SelectValue />
         </SelectTrigger>
         <SelectContent position="popper" align="start" className="min-w-[92px]">
           {STEP_MODES.map((mode) => (
             <SelectItem key={mode} value={mode} className="text-xs tabular-nums">
-              {STEP_LABELS[mode]}
+              {t(STEP_LABEL_KEYS[mode])}
             </SelectItem>
           ))}
         </SelectContent>
@@ -143,8 +153,8 @@ export function PlayerControls() {
           <SelectTrigger
             size="sm"
             className="w-[72px] text-xs tabular-nums"
-            aria-label="Oynatma hızı"
-            title="Oynatma hızı"
+            aria-label={t("player.playbackRate")}
+            title={t("player.playbackRate")}
           >
             <SelectValue />
           </SelectTrigger>
@@ -163,7 +173,7 @@ export function PlayerControls() {
           variant={loop ? "secondary" : "ghost"}
           size="icon-sm"
           onClick={() => setLoop(!loop)}
-          title="Seçimi döngüde oynat (L)"
+          title={t("player.loop")}
         >
           <RepeatIcon />
         </Button>
@@ -172,7 +182,7 @@ export function PlayerControls() {
           variant="ghost"
           size="icon-sm"
           onClick={toggleMute}
-          title={muted ? "Sesi aç (M)" : "Sesi kapat (M)"}
+          title={muted ? t("player.unmute") : t("player.mute")}
         >
           {muted || volume === 0 ? <VolumeXIcon /> : <Volume2Icon />}
         </Button>
@@ -181,22 +191,22 @@ export function PlayerControls() {
           value={[Math.round(volume * 100)]}
           max={100}
           step={1}
-          aria-label="Ses düzeyi"
-          title="Ses düzeyi (↑/↓)"
+          aria-label={t("player.volume")}
+          title={t("player.volumeTitle")}
           onValueChange={(values) => setVolume((values[0] ?? 0) / 100)}
         />
 
         <div className="mx-0.5 h-4 w-px bg-border" />
 
-        <Button variant="outline" size="xs" onClick={markIn} title="Giriş noktası (I)" className="text-emerald-600 dark:text-emerald-400">
-          Giriş
+        <Button variant="outline" size="xs" onClick={markIn} title={t("player.markIn")} className="text-emerald-600 dark:text-emerald-400">
+          {t("player.in")}
         </Button>
-        <Button variant="outline" size="xs" onClick={markOut} title="Çıkış noktası (O)" className="text-amber-600 dark:text-amber-400">
-          Çıkış
+        <Button variant="outline" size="xs" onClick={markOut} title={t("player.markOut")} className="text-amber-600 dark:text-amber-400">
+          {t("player.out")}
         </Button>
-        <Button size="xs" onClick={playSelection} title="Seçimi baştan oynat">
+        <Button size="xs" onClick={playSelection} title={t("player.playSelection")}>
           <CirclePlayIcon />
-          Seçimi Oynat
+          {t("player.playSelection")}
         </Button>
 
         <div className="mx-0.5 h-4 w-px bg-border" />
@@ -206,11 +216,11 @@ export function PlayerControls() {
           size="icon-sm"
           onClick={togglePip}
           disabled={!pipSupported}
-          title="Pencere içinde pencere (P)"
+          title={t("player.pip")}
         >
           <PictureInPicture2Icon />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={toggleFullscreen} title="Tam ekran (F)">
+        <Button variant="ghost" size="icon-sm" onClick={toggleFullscreen} title={t("player.fullscreen")}>
           {isFullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
         </Button>
         <Button
@@ -218,7 +228,7 @@ export function PlayerControls() {
           size="icon-sm"
           onClick={toggleTheme}
           data-slot="theme-toggle"
-          title={theme === "dark" ? "Aydınlık temaya geç (T)" : "Karanlık temaya geç (T)"}
+          title={theme === "dark" ? t("player.themeLight") : t("player.themeDark")}
         >
           {theme === "dark" ? <SunIcon /> : <MoonIcon />}
         </Button>

@@ -3,6 +3,7 @@ import { useRef, useState } from "react"
 
 import { cn } from "cn"
 
+import { useI18n } from "@/i18n"
 import { clamp, formatTime } from "@/lib/format"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -10,6 +11,7 @@ import { usePlayerStore } from "@/stores/player-store"
 const EDGE_PADDING = 32
 
 export function SeekBar({ className }: { className?: string }) {
+  const { t } = useI18n()
   const currentTime = usePlayerStore((s) => s.currentTime)
   const duration = usePlayerStore((s) => s.duration)
   const bufferedEnd = usePlayerStore((s) => s.bufferedEnd)
@@ -71,11 +73,11 @@ export function SeekBar({ className }: { className?: string }) {
   return (
     <div
       role="slider"
-      aria-label="Video ilerleme çubuğu"
+      aria-label={t("seek.aria")}
       aria-valuemin={0}
       aria-valuemax={Math.round(duration)}
       aria-valuenow={Math.round(currentTime)}
-      title="Tıkla ya da sürükle: videoda o konuma atla"
+      title={t("seek.title")}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

@@ -16,18 +16,20 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useStartExport } from "@/hooks/use-export-job"
+import { useI18n, type TranslationKey } from "@/i18n"
 import { compactDuration, formatTime } from "@/lib/format"
 import type { CropPayload, CutMode, OutputFormat } from "@/lib/types"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
 
-const FORMAT_LABELS: Record<OutputFormat, string> = {
-  mp4: "MP4 — video",
-  gif: "GIF — animasyon",
-  mp3: "MP3 — ses",
+const FORMAT_KEYS: Record<OutputFormat, TranslationKey> = {
+  mp4: "export.format.mp4",
+  gif: "export.format.gif",
+  mp3: "export.format.mp3",
 }
 
 export function ExportPanel() {
+  const { t } = useI18n()
   const streamUrl = useStudioStore((s) => s.streamUrl)
   const audioUrl = useStudioStore((s) => s.audioUrl)
   const meta = useStudioStore((s) => s.meta)
@@ -78,23 +80,32 @@ export function ExportPanel() {
 
     log(
       "info",
-      `Dışa aktarım isteniyor: ${filename.trim() || "otomatik ad"} · ${
-        cutMode === "fast" ? "hızlı" : "hassas"
-      } · ${outputFormat.toUpperCase()} · ${formatTime(trim.start, true)} → ${formatTime(trim.end, true)}`,
+      t("log.exportRequested", {
+        name: filename.trim() || t("log.autoName"),
+        mode: cutMode === "fast" ? t("export.modeFast") : t("export.modeExact"),
+        format: outputFormat.toUpperCase(),
+        start: formatTime(trim.start, true),
+        end: formatTime(trim.end, true),
+      }),
       cropPayload
-        ? `kırpma ${cropPayload.width}×${cropPayload.height} @ ${cropPayload.x},${cropPayload.y}`
+        ? t("log.exportRequestedCrop", {
+            width: cropPayload.width,
+            height: cropPayload.height,
+            x: cropPayload.x,
+            y: cropPayload.y,
+          })
         : separateAudio
-          ? "ses ayrı akıştan birleştirilecek"
+          ? t("log.exportRequestedAudio")
           : undefined,
     )
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">Seçili aralığı klip olarak kaydet</p>
+      <p className="text-xs text-muted-foreground">{t("export.selectRange")}</p>
 
       <div className="space-y-2">
-        <Label className="text-xs">Kesim modu</Label>
+        <Label className="text-xs">{t("export.cutMode")}</Label>
         <ToggleGroup
           type="single"
           variant="outline"
@@ -106,21 +117,19 @@ export function ExportPanel() {
           className="w-full"
         >
           <ToggleGroupItem value="fast" className="flex-1">
-            Hızlı
+            {t("export.fast")}
           </ToggleGroupItem>
           <ToggleGroupItem value="exact" className="flex-1">
-            Hassas
+            {t("export.exact")}
           </ToggleGroupItem>
         </ToggleGroup>
         <p className="text-[11px] leading-snug text-muted-foreground">
-          {cutMode === "fast"
-            ? "Stream copy — saniyeler sürer, kesim en yakın anahtar kareye hizalanır."
-            : "Yeniden kodlama — kare hassasiyetinde, biraz daha yavaş."}
+          {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs">Çıktı formatı</Label>
+        <Label className="text-xs">{t("export.outputFormat")}</Label>
         <Select
           value={outputFormat}
           onValueChange={(value) => setOutputFormat(value as OutputFormat)}
@@ -129,24 +138,22 @@ export function ExportPanel() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(Object.entries(FORMAT_LABELS) as [OutputFormat, string][]).map(
-              ([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ),
-            )}
+            {(Object.keys(FORMAT_KEYS) as OutputFormat[]).map((value) => (
+              <SelectItem key={value} value={value}>
+                {t(FORMAT_KEYS[value])}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
         <Label className="text-xs" htmlFor="filename">
-          Dosya adı (opsiyonel)
+          {t("export.filename")}
         </Label>
         <Input
           id="filename"
-          placeholder="otomatik: clip_TARIH_SAAT"
+          placeholder={t("export.filenamePlaceholder")}
           value={filename}
           onChange={(event) => setFilename(event.target.value)}
         />
@@ -154,9 +161,9 @@ export function ExportPanel() {
 
       <div className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-2">
         <span className="text-xs">
-          Kırpma {crop.enabled ? "açık" : "kapalı"}
+          {crop.enabled ? t("export.cropOn") : t("export.cropOff")}
           <span className="block text-[10px] text-muted-foreground">
-            Kırpma açıkken hassas kesim uygulanır
+            {t("export.cropHint")}
           </span>
         </span>
         <Switch checked={crop.enabled} onCheckedChange={setCropEnabled} />
@@ -166,18 +173,18 @@ export function ExportPanel() {
 
       <dl className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Aralık</dt>
+          <dt className="text-muted-foreground">{t("export.range")}</dt>
           <dd className="font-mono">
             {formatTime(trim.start, true)} → {formatTime(trim.end, true)}
           </dd>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">Süre</dt>
+          <dt className="text-muted-foreground">{t("export.duration")}</dt>
           <dd className="font-mono">{compactDuration(Math.max(0, clipDuration))}</dd>
         </div>
         {crop.enabled && crop.rect && (
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-muted-foreground">Kırpma</dt>
+            <dt className="text-muted-foreground">{t("export.crop")}</dt>
             <dd className="font-mono">
               {crop.rect.width}×{crop.rect.height} @ {crop.rect.x},{crop.rect.y}
             </dd>
@@ -185,7 +192,7 @@ export function ExportPanel() {
         )}
         {meta && meta.width > 0 && (
           <div className="flex items-center justify-between gap-2">
-            <dt className="text-muted-foreground">Kaynak</dt>
+            <dt className="text-muted-foreground">{t("export.source")}</dt>
             <dd className="font-mono">
               {meta.width}×{meta.height}
             </dd>
@@ -197,17 +204,17 @@ export function ExportPanel() {
         className="w-full"
         onClick={handleExport}
         disabled={invalidRange || startExport.isPending}
-        title="Süren işlemler varken de yeni klip başlatabilirsin"
+        title={t("export.startTitle")}
       >
         {startExport.isPending ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
-        {activeJobIds.length > 0 ? "Yeni Klip Dışa Aktar" : "Dışa Aktar"}
+        {activeJobIds.length > 0 ? t("export.exportNew") : t("export.export")}
       </Button>
 
       {activeJobIds.length > 0 && (
         <div className="space-y-2">
           {activeJobIds.length > 1 && (
             <p className="text-[11px] text-muted-foreground">
-              {activeJobIds.length} klip işleniyor — aralarından yeni iş başlatılabilir.
+              {t("export.processing", { count: activeJobIds.length })}
             </p>
           )}
           {activeJobIds.map((jobId) => (

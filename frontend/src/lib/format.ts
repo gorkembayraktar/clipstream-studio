@@ -1,17 +1,34 @@
 /** Biçimlendirme ve sayı yardımcıları. */
+import { getLocale } from "@/i18n"
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-/** Baytı okunur biçime çevirir: "950 KB", "4,3 GB" (Türkçe ondalık virgül). */
+function localeTag(): string {
+  return getLocale() === "tr" ? "tr-TR" : "en-US"
+}
+
+function formatDecimal(value: number, digits: number): string {
+  return new Intl.NumberFormat(localeTag(), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)
+}
+
+/** MB cinsinden boyutu yerel sayı biçimiyle yazar: "4,99 MB" / "4.99 MB". */
+export function formatMegabytes(megabytes: number): string {
+  return `${formatDecimal(megabytes, 2)} MB`
+}
+
+/** Baytı okunur biçime çevirir: "950 KB", "4,3 GB" / "4.3 GB". */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
   const units = ["B", "KB", "MB", "GB", "TB"]
   const exponent = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
   const value = bytes / 1024 ** exponent
   const digits = exponent === 0 ? 0 : value >= 100 ? 0 : 1
-  return `${value.toFixed(digits).replace(".", ",")} ${units[exponent]}`
+  return `${formatDecimal(value, digits)} ${units[exponent]}`
 }
 
 /** Dosya adından uzantıyı atar: "klip.mp4" → "klip". */
@@ -43,13 +60,16 @@ export function formatClock(seconds: number): string {
   return `${minutes}:${String(secs).padStart(2, "0")}`
 }
 
-/** "21.4 sn" / "1 dk 05 sn" gibi kompakt süre metni. */
+/** "21.4 sn" / "1 dk 05 sn" or "21.4s" / "1m 05s" compact duration text. */
 export function compactDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return "0 sn"
-  if (seconds < 60) return `${seconds.toFixed(1)} sn`
+  const turkish = getLocale() === "tr"
+  if (!Number.isFinite(seconds) || seconds < 0) return turkish ? "0 sn" : "0s"
+  if (seconds < 60) return `${formatDecimal(seconds, 1)}${turkish ? " sn" : "s"}`
   const minutes = Math.floor(seconds / 60)
   const secs = Math.round(seconds % 60)
-  return `${minutes} dk ${String(secs).padStart(2, "0")} sn`
+  return turkish
+    ? `${minutes} dk ${String(secs).padStart(2, "0")} sn`
+    : `${minutes}m ${String(secs).padStart(2, "0")}s`
 }
 
 /** Kullanıcı girdisini ("01:23:45.678", "12.5", "1:30") saniyeye çevirir. */

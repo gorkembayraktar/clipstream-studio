@@ -7,6 +7,7 @@ import { cn } from "cn"
 
 import { WaveformLayer } from "@/components/app/waveform-layer"
 import { useFramePreview } from "@/hooks/use-frame-preview"
+import { useI18n } from "@/i18n"
 import { clamp, formatClock, formatTime } from "@/lib/format"
 import { usePlayerStore } from "@/stores/player-store"
 import { useStudioStore } from "@/stores/studio-store"
@@ -44,6 +45,7 @@ function tickStep(duration: number): number {
 }
 
 export function Timeline() {
+  const { t } = useI18n()
   const trim = useStudioStore((s) => s.trim)
   const setTrim = useStudioStore((s) => s.setTrim)
   const metaDuration = useStudioStore((s) => s.meta?.duration ?? 0)
@@ -224,7 +226,7 @@ export function Timeline() {
         {duration > 0 && (
           <div
             data-slot="timeline-range"
-            title="Klip aralığı — sürükle: taşı, tıkla: imleci getir"
+            title={t("timeline.rangeTitle")}
             onPointerDown={beginRangeDrag}
             className="absolute inset-y-0 cursor-grab touch-none border-l-2 border-r-2 border-emerald-400 border-r-amber-400 bg-linear-to-r from-emerald-400/20 to-amber-400/20 active:cursor-grabbing"
             style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
@@ -263,9 +265,9 @@ export function Timeline() {
           <>
             <div
               role="slider"
-              aria-label="Giriş noktası"
+              aria-label={t("timeline.inPoint")}
               data-slot="timeline-start"
-              title="Giriş noktası — sürükle"
+              title={t("timeline.inPointDrag")}
               onPointerDown={beginHandleDrag("start")}
               className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
               style={{ left: `${startPct}%` }}
@@ -275,9 +277,9 @@ export function Timeline() {
             </div>
             <div
               role="slider"
-              aria-label="Çıkış noktası"
+              aria-label={t("timeline.outPoint")}
               data-slot="timeline-end"
-              title="Çıkış noktası — sürükle"
+              title={t("timeline.outPointDrag")}
               onPointerDown={beginHandleDrag("end")}
               className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
               style={{ left: `${endPct}%` }}
@@ -310,7 +312,7 @@ export function Timeline() {
               )}
               {!preview && previewFailed && (
                 <div className="flex h-full w-full items-center justify-center text-[10px] text-white/50">
-                  önizleme yok
+                  {t("timeline.noPreview")}
                 </div>
               )}
               {previewLoading && (
@@ -328,7 +330,7 @@ export function Timeline() {
 
       {duration <= 0 && (
         <p className="mt-1.5 text-center text-xs text-muted-foreground">
-          Zaman çizelgesi için bir kaynak yükle
+          {t("timeline.loadSource")}
         </p>
       )}
     </div>

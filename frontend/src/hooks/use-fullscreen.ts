@@ -1,6 +1,7 @@
 /** Tam ekran yardımcıları: sahne kartını (video + kontrol şeridi) tam ekranda gösterir. */
 import { useCallback, useEffect, useState } from "react"
 
+import { translate } from "@/i18n"
 import { log } from "@/stores/log-store"
 
 /** Tam ekranda gösterilecek sahne kökü — video ve kontroller birlikte görünür. */
@@ -12,19 +13,23 @@ export function getStageElement(): HTMLElement | null {
 export function toggleStageFullscreen() {
   if (document.fullscreenElement) {
     void document.exitFullscreen().catch(() => {
-      log("warn", "Tam ekrandan çıkılamadı.")
+      log("warn", translate("log.fullscreenExitFailed"))
     })
     return
   }
 
   const stage = getStageElement()
   if (!stage?.requestFullscreen) {
-    log("warn", "Tam ekran bu tarayıcıda desteklenmiyor.")
+    log("warn", translate("log.fullscreenUnsupported"))
     return
   }
 
   void stage.requestFullscreen().catch((error: unknown) => {
-    log("warn", "Tam ekran açılamadı", error instanceof Error ? error.message : undefined)
+    log(
+      "warn",
+      translate("log.fullscreenOpenFailed"),
+      error instanceof Error ? error.message : undefined,
+    )
   })
 }
 
@@ -36,7 +41,10 @@ export function useFullscreen() {
     const onChange = () => {
       const active = Boolean(document.fullscreenElement)
       setIsFullscreen(active)
-      log("info", active ? "Tam ekran açıldı." : "Tam ekrandan çıkıldı.")
+      log(
+        "info",
+        translate(active ? "log.fullscreenOpened" : "log.fullscreenExited"),
+      )
     }
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)

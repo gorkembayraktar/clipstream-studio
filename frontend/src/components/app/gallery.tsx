@@ -32,6 +32,8 @@ import {
   useLibrary,
   useRevealInExplorer,
 } from "@/hooks/use-library"
+import { useI18n } from "@/i18n"
+import { formatMegabytes } from "@/lib/format"
 import type { ExportFile } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -43,6 +45,7 @@ function FileIcon({ name, className }: { name: string; className?: string }) {
 }
 
 export function Gallery() {
+  const { t } = useI18n()
   const { data, isLoading, isFetching, refetch } = useLibrary()
   const deleteFile = useDeleteLibraryFile()
   const reveal = useRevealInExplorer()
@@ -59,16 +62,18 @@ export function Gallery() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">{files.length} klip · exports/</p>
+        <p className="text-xs text-muted-foreground">
+          {t("gallery.count", { count: files.length })}
+        </p>
         <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="icon-xs" onClick={() => void refetch()} title="Yenile">
+          <Button variant="ghost" size="icon-xs" onClick={() => void refetch()} title={t("gallery.refresh")}>
             <RefreshCwIcon className={isFetching ? "animate-spin" : undefined} />
           </Button>
           <Button
             variant="ghost"
             size="icon-xs"
             onClick={() => reveal.mutate(undefined)}
-            title="Klasörü aç"
+            title={t("gallery.openFolder")}
           >
             <FolderOpenIcon />
           </Button>
@@ -83,7 +88,7 @@ export function Gallery() {
         </div>
       ) : files.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
-          Henüz klip yok. Dışa Aktar sekmesinden ilk klibini oluştur.
+          {t("gallery.empty")}
         </p>
       ) : (
         <ScrollArea className="h-[360px]">
@@ -120,6 +125,7 @@ interface GalleryItemProps {
 }
 
 function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryItemProps) {
+  const { t } = useI18n()
   return (
     <li className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5">
       <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
@@ -127,20 +133,20 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
       <div className="min-w-0 flex-1">
         <p className="truncate font-mono text-[11px]">{file.name}</p>
         <p className="text-[10px] text-muted-foreground">
-          {file.size_mb} MB · {file.modified_str}
+          {formatMegabytes(file.size_mb)} · {file.modified_str}
         </p>
       </div>
 
       <div className="flex shrink-0 items-center">
-        <Button variant="ghost" size="icon-xs" onClick={onPreview} title="Oynat">
+        <Button variant="ghost" size="icon-xs" onClick={onPreview} title={t("gallery.preview")}>
           <PlayIcon />
         </Button>
-        <Button variant="ghost" size="icon-xs" asChild title="İndir">
+        <Button variant="ghost" size="icon-xs" asChild title={t("gallery.download")}>
           <a href={file.url} download>
             <DownloadIcon />
           </a>
         </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onReveal} title="Klasörde göster">
+        <Button variant="ghost" size="icon-xs" onClick={onReveal} title={t("gallery.reveal")}>
           <FolderOpenIcon />
         </Button>
 
@@ -150,7 +156,7 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
               variant="ghost"
               size="icon-xs"
               className="text-destructive hover:text-destructive"
-              title="Sil"
+              title={t("gallery.delete")}
               disabled={deleting}
             >
               <Trash2Icon />
@@ -158,16 +164,15 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Dosya silinsin mi?</AlertDialogTitle>
+              <AlertDialogTitle>{t("gallery.deleteTitle")}</AlertDialogTitle>
               <AlertDialogDescription>
-                <span className="break-all font-mono text-xs">{file.name}</span> kalıcı
-                olarak silinecek. Bu işlem geri alınamaz.
+                {t("gallery.deleteDescription", { name: file.name })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+              <AlertDialogCancel>{t("gallery.deleteCancel")}</AlertDialogCancel>
               <AlertDialogAction variant="destructive" onClick={onDelete}>
-                Sil
+                {t("gallery.delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

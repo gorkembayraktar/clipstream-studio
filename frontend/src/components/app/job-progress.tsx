@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useCancelJob, useJob } from "@/hooks/use-export-job"
 import { libraryKeys, useRevealInExplorer } from "@/hooks/use-library"
-import { formatTime } from "@/lib/format"
+import { translate, useI18n } from "@/i18n"
+import { formatTime, formatMegabytes } from "@/lib/format"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -26,6 +27,7 @@ const FORMAT_LABELS: Record<string, string> = { mp4: "MP4", gif: "GIF", mp3: "MP
 const notifiedStates = new Set<string>()
 
 export function JobProgress({ jobId }: { jobId: string }) {
+  const { t } = useI18n()
   const { data: job } = useJob(jobId)
   const cancelJob = useCancelJob(jobId)
   const reveal = useRevealInExplorer()
@@ -42,14 +44,18 @@ export function JobProgress({ jobId }: { jobId: string }) {
     if (job.status === "done") {
       log(
         "success",
-        `Klip oluşturuldu: ${job.output_filename} (${job.size_mb} MB, süre: ${job.elapsed_sec} sn)`,
+        translate("job.doneLog", {
+          name: job.output_filename ?? "",
+          size: job.size_mb === undefined ? "—" : formatMegabytes(job.size_mb),
+          seconds: job.elapsed_sec ?? 0,
+        }),
       )
-      toast.success("Klip hazır", { description: job.output_filename })
+      toast.success(translate("job.ready"), { description: job.output_filename })
     } else if (job.status === "error") {
-      log("error", "Dışa aktarma başarısız", job.error?.slice(0, 300))
-      toast.error("Dışa aktarma başarısız", { description: job.error?.slice(0, 140) })
+      log("error", translate("job.failedLog"), job.error?.slice(0, 300))
+      toast.error(translate("job.failedLog"), { description: job.error?.slice(0, 140) })
     } else if (job.status === "cancelled") {
-      log("warn", "Dışa aktarma iptal edildi.")
+      log("warn", translate("log.exportCancelled"))
     }
     if (job.status === "done" || job.status === "error") {
       void queryClient.invalidateQueries({ queryKey: libraryKeys.all })
@@ -71,13 +77,13 @@ export function JobProgress({ jobId }: { jobId: string }) {
           {FORMAT_LABELS[job?.output_format ?? "mp4"] ?? "MP4"}
         </span>
         <span>·</span>
-        <span>{job?.mode === "fast" ? "hızlı" : "hassas"}</span>
+        <span>{job?.mode === "fast" ? t("export.modeFast") : t("export.modeExact")}</span>
         <Button
           variant="ghost"
           size="icon"
           className="size-5"
-          aria-label="Kartı kapat"
-          title="Kartı kapat (işlem başladıysa sürer)"
+          aria-label={t("job.closeCard")}
+          title={t("job.closeCardTitle")}
           onClick={() => removeActiveJobId(jobId)}
         >
           <XIcon className="size-3" />
@@ -90,7 +96,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
     return (
       <div className="flex items-center gap-2 rounded-lg border p-2.5 text-xs text-muted-foreground">
         <Loader2Icon className="size-3.5 animate-spin" />
-        İş hazırlanıyor…
+        {t("job.preparing")}
       </div>
     )
   }
@@ -103,7 +109,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
         <div className="flex items-center justify-between text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <Loader2Icon className="size-3.5 animate-spin" />
-            {job.status === "pending" ? "Başlatılıyor…" : "İşleniyor…"}
+            {job.status === "pending" ? t("job.starting") : t("job.processing")}
           </span>
           <span className="font-mono tabular-nums">{Math.round(progress)}%</span>
         </div>
@@ -118,7 +124,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
                 {job.current_sec.toFixed(0)}s / {job.clip_duration.toFixed(0)}s
               </span>
             )}
-            {job.speed && <span>hız {job.speed}</span>}
+            {job.speed && <span>{t("job.speed", { speed: job.speed })}</span>}
             <Button
               variant="ghost"
               size="xs"
@@ -126,7 +132,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
               disabled={cancelJob.isPending}
             >
               <XIcon />
-              İptal
+              {t("job.cancel")}
             </Button>
           </span>
         </div>
@@ -140,13 +146,13 @@ export function JobProgress({ jobId }: { jobId: string }) {
         {header}
         <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-500">
           <CircleCheckIcon className="size-3.5" />
-          Klip hazır
+          {t("job.ready")}
         </div>
         <p className="truncate font-mono text-[11px] text-muted-foreground">
           {job.output_filename}
         </p>
         <p className="text-[11px] text-muted-foreground">
-          {job.size_mb} MB · {job.elapsed_sec} sn
+          {formatMegabytes(job.size_mb ?? 0)} · {t("job.elapsed", { seconds: job.elapsed_sec ?? 0 })}
         </p>
         <div className="flex flex-wrap gap-1.5">
           <Button size="xs" asChild>
@@ -155,7 +161,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
               download
             >
               <DownloadIcon />
-              İndir
+              {t("common.download")}
             </a>
           </Button>
           <Button
@@ -164,7 +170,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
             onClick={() => reveal.mutate(job.output_filename)}
           >
             <FolderOpenIcon />
-            Klasörde Göster
+            {t("common.reveal")}
           </Button>
         </div>
       </div>
@@ -177,7 +183,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
         {header}
         <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
           <TriangleAlertIcon className="size-3.5" />
-          Dışa aktarma başarısız
+          {t("job.failed")}
         </div>
         <pre className="max-h-28 overflow-auto text-[10px] whitespace-pre-wrap break-all text-muted-foreground">
           {job.error}
@@ -189,7 +195,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
   return (
     <div className={widthClass}>
       {header}
-      <p className="text-xs text-muted-foreground">İşlem iptal edildi.</p>
+      <p className="text-xs text-muted-foreground">{t("job.cancelled")}</p>
     </div>
   )
 }

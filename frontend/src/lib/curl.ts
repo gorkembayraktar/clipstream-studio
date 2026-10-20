@@ -6,6 +6,8 @@
  * Ek olarak curl olmadan satır satır `ad: değer` bloğu da kabul edilir.
  */
 
+import { translate } from "@/i18n"
+
 export interface ParsedCurl {
   /** Komuttan çıkarılan bağlantı (bulunamazsa boş). */
   url: string
@@ -237,7 +239,7 @@ export function parseCurl(raw: string): ParsedCurl | null {
 
     if (FLAGS_WITH_VALUE.has(lower)) {
       if (["-d", "--data", "--data-raw", "--data-binary", "--data-urlencode", "--json"].includes(lower)) {
-        warnings.push("Gönderi verisi (--data) yok sayıldı.")
+        warnings.push(translate("curl.dataIgnored"))
       }
       const [, next] = takeValue(index)
       index = next + 1

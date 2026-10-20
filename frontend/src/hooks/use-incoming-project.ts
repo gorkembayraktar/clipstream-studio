@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 
+import { translate } from "@/i18n"
 import { formatTime, stripExtension } from "@/lib/format"
 import {
   projectKey,
@@ -60,14 +61,13 @@ function applyLocalResult(result: LocalFileResponse): void {
 
   log(
     "success",
-    `Yeni proje hazır: ${result.name}`,
-    `${result.width}×${result.height} · ${formatTime(result.duration)} · yeni sekmede açıldı`,
+    translate("import.newProjectReadyLog", { name: result.name }),
+    translate("import.newProjectReadyExtra", {
+      size: `${result.width}×${result.height} · ${formatTime(result.duration)}`,
+    }),
   )
   if (result.remuxed) {
-    log(
-      "info",
-      "Dosya tarayıcının çalamadığı bir kaptaydı; yeniden kodlanmadan (kayıpsız) MP4/WebM'e dönüştürüldü.",
-    )
+    log("info", translate("import.remuxed"))
   }
 }
 
@@ -98,16 +98,13 @@ export function useIncomingProject(): IncomingProjectState {
       if (settledRef.current) return
 
       if (!data) {
-        settleError(
-          "Proje bilgisi bulunamadı. Dosyayı diğer sekmeden yeniden içe aktar.",
-          null,
-        )
+        settleError(translate("incoming.error.notFound"), null)
         return
       }
 
       if (data.status === "ready") {
         if (!data.result) {
-          settleError("Dosya bilgisi eksik. Dosyayı yeniden içe aktar.", data.name)
+          settleError(translate("incoming.error.missingResult"), data.name)
           return
         }
         settledRef.current = true
@@ -128,12 +125,12 @@ export function useIncomingProject(): IncomingProjectState {
       }
 
       if (data.status === "error") {
-        settleError(data.error ?? "Dosya yeni projeye aktarılamadı.", data.name)
+        settleError(data.error ?? translate("incoming.error.transferFailed"), data.name)
         return
       }
 
       if (data.status === "cancelled") {
-        settleError("Dosya aktarımı iptal edildi. Bu sekmeyi kapatabilirsin.", data.name)
+        settleError(translate("incoming.error.cancelled"), data.name)
         return
       }
 
@@ -158,7 +155,7 @@ export function useIncomingProject(): IncomingProjectState {
     timer = window.setTimeout(() => {
       const handoff = readProjectHandoff(incomingId)
       settleError(
-        "Dosya aktarımı beklenenden uzun sürdü. Diğer sekmedeki işlemin bitmesini bekle ya da dosyayı yeniden içe aktar.",
+        translate("incoming.error.timeout"),
         handoff?.name ?? null,
       )
     }, INCOMING_TIMEOUT_MS)

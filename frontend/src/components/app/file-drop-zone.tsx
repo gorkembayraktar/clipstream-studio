@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react"
 import { UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 
+import { translate, useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -19,6 +20,7 @@ function hasFiles(event: DragEvent): boolean {
 }
 
 export function FileDropZone() {
+  const { t } = useI18n()
   const importFile = useLocalImportStore((s) => s.importFile)
   const importFileInNewTab = useLocalImportStore((s) => s.importFileInNewTab)
   const busy = useLocalImportStore((s) => s.busy)
@@ -60,8 +62,8 @@ export function FileDropZone() {
       const files = Array.from(event.dataTransfer?.files ?? [])
       if (!files.length) return
       if (files.length > 1) {
-        toast.info("Birden fazla dosya bırakıldı", {
-          description: "İlk video kullanılıyor; diğerlerini tek tek ekleyin.",
+        toast.info(translate("drop.multipleTitle"), {
+          description: translate("drop.multipleDesc"),
         })
       }
 
@@ -96,26 +98,21 @@ export function FileDropZone() {
             <p className="text-base font-semibold">
               {processing
                 ? target === "new-tab"
-                  ? "Yeni proje hazırlanıyor…"
-                  : "Tarayıcıya hazırlanıyor…"
-                : `${target === "new-tab" ? "Yeni projeye aktarılıyor" : "Yükleniyor"} %${percent}`}
+                  ? t("drop.preparingNew")
+                  : t("drop.preparingBrowser")
+                : `${target === "new-tab" ? t("drop.uploadingNew") : t("drop.uploading")} %${percent}`}
             </p>
             <p className="max-w-full truncate text-xs text-muted-foreground">{fileName}</p>
             {target === "new-tab" && (
-              <p className="text-[11px] text-muted-foreground/70">Mevcut projen korunuyor.</p>
+              <p className="text-[11px] text-muted-foreground/70">{t("drop.currentProtected")}</p>
             )}
           </>
         ) : (
           <>
-            <p className="text-base font-semibold">Videoyu buraya bırak</p>
-            <p className="text-xs text-muted-foreground">
-              MP4, WebM, MOV, MKV, AVI… · geçici kopya oluşturulur; tarayıcının
-              çalamadığı biçimler otomatik hazırlanır
-            </p>
+            <p className="text-base font-semibold">{t("drop.dropHere")}</p>
+            <p className="text-xs text-muted-foreground">{t("drop.formats")}</p>
             <p className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground">
-              {hasSource
-                ? "Yeni sekmede proje açar · mevcut projen korunur"
-                : "Mevcut projede açılır"}
+              {hasSource ? t("drop.opensNewTab") : t("drop.opensCurrent")}
             </p>
           </>
         )}

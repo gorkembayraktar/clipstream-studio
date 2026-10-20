@@ -1,6 +1,7 @@
 /** Oynatıcı durumu: video elementiyle senkron çalışan ince bir zustand katmanı. */
 import { create } from "zustand"
 
+import { translate } from "@/i18n"
 import { clamp } from "@/lib/format"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
@@ -23,16 +24,6 @@ export const VOLUME_STEP = 0.05
 /** Hassas adım modları: "1 kare" ya da sabit milisaniye değerleri. */
 export const STEP_MODES = ["frame", "ms10", "ms50", "ms100", "ms250", "ms500"] as const
 export type StepMode = (typeof STEP_MODES)[number]
-
-/** Menüde görünen etiketler. */
-export const STEP_LABELS: Record<StepMode, string> = {
-  frame: "1 kare",
-  ms10: "10 ms",
-  ms50: "50 ms",
-  ms100: "100 ms",
-  ms250: "250 ms",
-  ms500: "500 ms",
-}
 
 /** Mod başına milisaniye karşılığı (kare modu fps'e göre hesaplanır). */
 const STEP_MS: Record<Exclude<StepMode, "frame">, number> = {
@@ -282,25 +273,25 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     }
     set({ playbackRate: next })
     persistPrefs(get())
-    log("info", `Oynatma hızı ${next}x olarak ayarlandı.`)
+    log("info", translate("log.rateSet", { rate: next }))
   },
 
   togglePip: () => {
     const el = videoEl
     if (!el || !document.pictureInPictureEnabled) {
-      log("warn", "Pencere içinde pencere bu tarayıcıda desteklenmiyor.")
+      log("warn", translate("log.pipUnsupported"))
       return
     }
     if (document.pictureInPictureElement) {
       void document.exitPictureInPicture().catch(() => {
-        log("warn", "Pencere içinde pencere kapatılamadı.")
+        log("warn", translate("log.pipCloseFailed"))
       })
       return
     }
     void el.requestPictureInPicture().catch((error: unknown) => {
       log(
         "warn",
-        "Pencere içinde pencere açılamadı",
+        translate("log.pipOpenFailed"),
         error instanceof Error ? error.message : undefined,
       )
     })

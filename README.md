@@ -36,6 +36,7 @@
 - **Galeri:** Klipleri modalda oynat, indir, klasörde göster veya sil.
 - **Yerel dosyalar:** Gözat veya sürükle-bırak. Açık proje varken bırakılan video yeni sekmede açılır.
 - **Korumalı bağlantılar:** `curl` komutunu yapıştırarak referer/cookie başlıkları ekle.
+- **Dil:** İngilizce ve Türkçe arayüz; İngilizce varsayılan, Türkçe tarayıcılarda otomatik seçilir. Alt bilgideki dil seçiciyle sayfa yenilenmeden değiştirilir.
 - **Kısayollar:** `Boşluk`, `I`/`O`, `←`/`→`, `M`, `F`, `P`.
 
 ## Hızlı Başlangıç

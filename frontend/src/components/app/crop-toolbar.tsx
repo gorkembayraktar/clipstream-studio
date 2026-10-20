@@ -5,11 +5,12 @@
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "cn"
+import { useI18n, type TranslationKey } from "@/i18n"
 import type { AspectPreset } from "@/lib/types"
 import { useStudioStore } from "@/stores/studio-store"
 
-const PRESETS: { value: AspectPreset; label: string }[] = [
-  { value: "free", label: "Serbest" },
+const PRESETS: { value: AspectPreset; label: string; labelKey?: TranslationKey }[] = [
+  { value: "free", label: "", labelKey: "crop.free" },
   { value: "16:9", label: "16:9" },
   { value: "9:16", label: "9:16" },
   { value: "1:1", label: "1:1" },
@@ -17,6 +18,7 @@ const PRESETS: { value: AspectPreset; label: string }[] = [
 ]
 
 export function CropToolbar() {
+  const { t } = useI18n()
   const crop = useStudioStore((s) => s.crop)
   const setCropEnabled = useStudioStore((s) => s.setCropEnabled)
   const setCropAspect = useStudioStore((s) => s.setCropAspect)
@@ -28,7 +30,7 @@ export function CropToolbar() {
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium">
         <Switch checked={crop.enabled} onCheckedChange={setCropEnabled} />
-        Kırpma
+        {t("crop.label")}
       </label>
 
       {crop.enabled && (
@@ -47,7 +49,7 @@ export function CropToolbar() {
                 )}
                 onClick={() => setCropAspect(preset.value)}
               >
-                {preset.label}
+                {preset.labelKey ? t(preset.labelKey) : preset.label}
               </Button>
             ))}
           </div>
@@ -58,7 +60,7 @@ export function CropToolbar() {
             className="h-6 px-2 text-[11px] text-muted-foreground"
             onClick={() => setCropRect(null)}
           >
-            Tam Kare
+            {t("crop.full")}
           </Button>
 
           {rect && (
