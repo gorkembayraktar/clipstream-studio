@@ -8,6 +8,7 @@ import sys
 import urllib.parse
 from typing import Any, Callable, Optional
 
+from core.i18n import t
 from services.hls import list_variants
 
 #: Varsayılan önizleme kalitesi üst sınırı: oynatma 1080p'de başlar (daha yüksek
@@ -28,7 +29,7 @@ def _variant(
     return {
         "url": url,
         "height": height,
-        "label": f"{height}p" if height else "Kaynak",
+        "label": f"{height}p" if height else t("label.source"),
         "hls": hls,
         "has_audio": has_audio,
         "audio_url": audio_url,
@@ -275,7 +276,7 @@ async def resolve_url(
     command = find_ytdlp_command()
     if not command:
         raise ResolveError(
-            "Sistemde yt-dlp bulunamadı. Kurmak için: pip install -U yt-dlp",
+            t("error.ytdlpMissing"),
             status_code=422,
             ytdlp_missing=True,
         )
@@ -299,19 +300,15 @@ async def resolve_url(
         except Exception:
             pass
         raise ResolveError(
-            "yt-dlp bağlantıyı çözümlerken zaman aşımına uğradı.",
+            t("error.ytdlpTimeout"),
             status_code=504,
         ) from None
 
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="ignore").strip()
         if platform == "instagram" and "empty media response" in message.lower():
-            message = (
-                "Instagram bu gönderiyi oturum açmadan paylaşmıyor. Uygulama hesap "
-                "güvenliği için bilinçli olarak çerez kullanmıyor; yalnızca herkese "
-                "açık gönderiler çözülebilir."
-            )
-        raise ResolveError(message or "yt-dlp video bilgilerini alamadı.")
+            message = t("error.instagramLogin")
+        raise ResolveError(message or t("error.ytdlpNoInfo"))
 
     info = json.loads(stdout.decode("utf-8", errors="ignore"))
     formats = info.get("formats", [])
@@ -326,7 +323,7 @@ async def resolve_url(
         # HLS yoksa: sesli ilerici MP4 ya da herhangi bir video akışı (tek varyant).
         picked = _pick_stream(formats)
         if not picked:
-            raise ResolveError("Oynatılabilir bir video akışı bulunamadı.")
+            raise ResolveError(t("error.noPlayableStream"))
         variants = [
             _variant(
                 picked["url"],

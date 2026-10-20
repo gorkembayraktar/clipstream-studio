@@ -5,6 +5,7 @@ from typing import Optional
 
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
+from core.i18n import t
 from services.header_store import get_headers
 
 BROWSER_HEADERS = {
@@ -58,7 +59,7 @@ def _rewrite_playlist(text: str, base_url: str, token: Optional[str] = None) -> 
 async def proxy_request(request) -> Response:
     raw_url = request.query_params.get("url")
     if not raw_url:
-        return JSONResponse({"error": "Eksik 'url' parametresi."}, status_code=400)
+        return JSONResponse({"error": t("error.proxyMissingUrl")}, status_code=400)
 
     # Starlette sorgu parametrelerini zaten çözer; burada ikinci kez çözmek
     # imzalı YouTube URL'lerini bozar (ör. `%3B` → `;`) ve googlevideo bu
@@ -131,4 +132,4 @@ async def proxy_request(request) -> Response:
             headers=response_headers,
         )
     except Exception as exc:
-        return JSONResponse({"error": f"Proxy isteği başarısız: {exc}"}, status_code=502)
+        return JSONResponse({"error": t("error.proxyFailed", detail=exc)}, status_code=502)

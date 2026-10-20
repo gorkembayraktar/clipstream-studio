@@ -2,6 +2,7 @@
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from core.i18n import t
 from services.library import LibraryError, delete_file, list_files, reveal_in_explorer
 
 
@@ -12,7 +13,7 @@ async def list_files_endpoint(request):
 async def delete_file_endpoint(request):
     try:
         delete_file(request.path_params["filename"])
-        return JSONResponse({"success": True, "message": "Dosya silindi."})
+        return JSONResponse({"success": True, "message": t("message.fileDeleted")})
     except LibraryError as exc:
         return JSONResponse({"success": False, "error": str(exc)}, status_code=404)
 

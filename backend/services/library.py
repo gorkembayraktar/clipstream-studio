@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from config import EXPORTS_DIR, VIDEO_EXTENSIONS
+from core.i18n import t
 
 
 class LibraryError(Exception):
@@ -15,11 +16,11 @@ class LibraryError(Exception):
 def resolve_file(filename: str) -> Path:
     """Güvenli çözümleme: alt klasöre kaçışları (..\\, /) reddeder."""
     if not filename or Path(filename).name != filename:
-        raise LibraryError("Geçersiz dosya adı.")
+        raise LibraryError(t("error.invalidFileName"))
 
     target = (EXPORTS_DIR / filename).resolve()
     if target.parent != EXPORTS_DIR.resolve() or not target.is_file():
-        raise LibraryError("Dosya bulunamadı.")
+        raise LibraryError(t("error.fileNotFound"))
     return target
 
 
@@ -44,17 +45,17 @@ def delete_file(filename: str) -> None:
     try:
         target.unlink()
     except OSError as exc:
-        raise LibraryError(f"Dosya silinemedi: {exc}") from exc
+        raise LibraryError(t("error.deleteFailed", detail=exc)) from exc
 
 
 def reveal_in_explorer(filename: str | None = None) -> str:
     if sys.platform != "win32":
-        raise LibraryError("Bu özellik yalnızca Windows'ta destekleniyor.")
+        raise LibraryError(t("error.windowsOnly"))
 
     if filename:
         target = resolve_file(filename)
         subprocess.Popen(f'explorer /select,"{target}"')
-        return f"{filename} gezginde seçildi."
+        return t("message.revealSelected", name=filename)
 
     os.startfile(str(EXPORTS_DIR.resolve()))  # noqa: S606  (Windows'a özel)
-    return "exports klasörü açıldı."
+    return t("message.exportsOpened")

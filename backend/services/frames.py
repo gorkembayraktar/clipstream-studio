@@ -11,6 +11,7 @@ from collections import OrderedDict
 from typing import Any, Optional
 
 from config import USER_AGENT
+from core.i18n import t
 from services.hls import is_master_playlist, parse_playlist_variants, pick_lightest_variant
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args, header_fingerprint
@@ -49,7 +50,7 @@ async def build_frame(
     playlist ve FFmpeg isteklerine aktarılır.
     """
     if not url:
-        raise FrameError("Kaynak adresi boş.")
+        raise FrameError(t("error.sourceEmpty"))
 
     wanted = max(0.0, float(time or 0.0))
     source, _optimized = await _select_source(client, origin, url, headers)
@@ -70,7 +71,7 @@ async def build_frame(
             hit = _cache.get(key)
             if hit is not None:
                 return hit
-        raise FrameError("Kare isteği kuyruğu dolu, biraz sonra tekrar deneyin.", status_code=429)
+        raise FrameError(t("error.frameQueueFull"), status_code=429)
 
     _inflight.add(key)
     try:
@@ -143,14 +144,14 @@ async def _extract(source: str, time: float, headers: Any = None) -> bytes:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
         _kill(process)
-        raise FrameError("Kare çıkarımı zaman aşımına uğradı.", status_code=504) from None
+        raise FrameError(t("error.frameTimeout"), status_code=504) from None
     except asyncio.CancelledError:
         _kill(process)
         raise
 
     if process.returncode != 0 or not stdout:
         message = stderr.decode("utf-8", errors="ignore").strip()[-300:]
-        raise FrameError(message or "Kare çıkarılamadı.")
+        raise FrameError(message or t("error.frameFailed"))
 
     return stdout
 

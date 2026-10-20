@@ -17,6 +17,7 @@ import time
 from typing import Any, Optional
 
 from config import USER_AGENT, WAVEFORM_CACHE_DIR
+from core.i18n import t
 from services.hls import (
     find_audio_playlist,
     is_master_playlist,
@@ -79,7 +80,7 @@ async def build_waveform(
     cookie/referer…) hem playlist isteğine hem FFmpeg'e aktarılır.
     """
     if not url:
-        raise WaveformError("Kaynak adresi boş.")
+        raise WaveformError(t("error.sourceEmpty"))
 
     if audio_url:
         source, optimized = audio_url, True
@@ -108,7 +109,7 @@ async def build_waveform(
             return payload
 
     if not buckets:
-        raise WaveformError("Ses akışı bulunamadı ya da çözümlenemedi.", status_code=422)
+        raise WaveformError(t("error.waveformNoAudio"), status_code=422)
 
     bucket_seconds = _bucket_samples(processed_seconds) / SAMPLE_RATE
     payload = {
@@ -205,7 +206,7 @@ async def _extract(url: str, duration: float, headers: Any = None) -> tuple[byte
     except asyncio.TimeoutError:
         _kill(process)
         raise WaveformError(
-            "Dalga formu çıkarımı zaman aşımına uğradı (kaynak yavaş olabilir).",
+            t("error.waveformTimeout"),
             status_code=504,
         ) from None
     except asyncio.CancelledError:
@@ -218,8 +219,8 @@ async def _extract(url: str, duration: float, headers: Any = None) -> tuple[byte
     if returncode != 0 and not buckets:
         lowered = stderr.lower()
         if "does not contain any stream" in lowered or "matches no streams" in lowered:
-            raise NoAudioError("Kaynakta ses akışı yok.")
-        raise WaveformError(stderr[-400:] or "FFmpeg dalga formu çıkaramadı.")
+            raise NoAudioError(t("error.waveformNoStream"))
+        raise WaveformError(stderr[-400:] or t("error.waveformFailed"))
 
     return buckets, processed_seconds
 

@@ -8,6 +8,7 @@ Yanıt: image/jpeg (hata durumunda JSON).
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from core.i18n import t
 from services.frames import FrameError, build_frame
 from services.request_headers import sanitize_headers
 
@@ -16,11 +17,11 @@ async def frame_endpoint(request):
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"success": False, "error": "Geçersiz istek gövdesi."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.invalidBody")}, status_code=400)
 
     url = str(data.get("url", "")).strip()
     if not url:
-        return JSONResponse({"success": False, "error": "URL boş bırakılamaz."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.urlEmpty")}, status_code=400)
 
     try:
         time = float(data.get("time") or 0.0)

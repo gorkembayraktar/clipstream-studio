@@ -4,6 +4,8 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional
 
+from core.i18n import t
+
 PENDING = "pending"
 RUNNING = "running"
 DONE = "done"
@@ -21,7 +23,7 @@ class JobManager:
         self._max_jobs = max_jobs
 
     # ------------------------------------------------------------------ CRUD
-    def create(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def create(self, payload: dict[str, Any], lang: str = "en") -> dict[str, Any]:
         self._prune()
         job: dict[str, Any] = {
             "id": uuid.uuid4().hex[:8],
@@ -29,6 +31,8 @@ class JobManager:
             "progress": 0.0,
             "created_at": time.time(),
             "payload": payload,
+            #: İşin oluşturulduğu arayüz dili: arka plan hataları bu dilde üretilir.
+            "lang": lang,
         }
         self._jobs[job["id"]] = job
         return job
@@ -38,7 +42,7 @@ class JobManager:
 
     def cancel(self, job: dict[str, Any]) -> tuple[bool, str]:
         if job["status"] in TERMINAL_STATUSES:
-            return False, "İşlem zaten sonlandı."
+            return False, t("error.jobFinished")
 
         process = job.get("process")
         if process is not None:
@@ -59,7 +63,7 @@ class JobManager:
                 except OSError:
                     pass
 
-        return True, "Dışa aktarma iptal edildi."
+        return True, t("error.jobCancelled")
 
     # ------------------------------------------------------------- Görünümler
     @staticmethod
@@ -68,7 +72,7 @@ class JobManager:
         return {
             key: value
             for key, value in job.items()
-            if key not in {"process", "payload"}
+            if key not in {"process", "payload", "lang"}
         }
 
     # ------------------------------------------------------------------ içsel

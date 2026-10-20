@@ -2,6 +2,7 @@
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from core.i18n import t
 from services.header_store import register_headers
 from services.prober import ProbeError, probe_url
 from services.proxy import proxy_request
@@ -13,11 +14,11 @@ async def resolve_endpoint(request):
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"success": False, "error": "Geçersiz istek gövdesi."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.invalidBody")}, status_code=400)
 
     url = str(data.get("url", "")).strip()
     if not url:
-        return JSONResponse({"success": False, "error": "URL boş bırakılamaz."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.urlEmpty")}, status_code=400)
 
     # curl ile yapıştırılan başlıklar (doğrudan medya kaynakları için).
     headers = sanitize_headers(data.get("headers"))
@@ -44,11 +45,11 @@ async def probe_endpoint(request):
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"success": False, "error": "Geçersiz istek gövdesi."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.invalidBody")}, status_code=400)
 
     url = str(data.get("url", "")).strip()
     if not url:
-        return JSONResponse({"success": False, "error": "URL boş bırakılamaz."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.urlEmpty")}, status_code=400)
 
     try:
         return JSONResponse(await probe_url(url, sanitize_headers(data.get("headers"))))

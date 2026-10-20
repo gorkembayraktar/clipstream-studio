@@ -13,6 +13,7 @@ from starlette.responses import FileResponse, JSONResponse
 from starlette.routing import Route
 
 from config import MAX_UPLOAD_BYTES
+from core.i18n import t
 from services.file_dialog import DialogUnavailable, cancel_dialog, choose_video_file
 from services.local_media import (
     VIDEO_EXTENSIONS,
@@ -56,7 +57,7 @@ async def pick_endpoint(request):
     except LocalFileError as exc:
         return _error(str(exc), exc.status_code)
     except Exception as exc:  # beklenmedik hata
-        return _error(f"Dosya hazırlanamadı: {exc}", 500)
+        return _error(t("error.filePrepareFailed", detail=exc), 500)
 
 
 async def cancel_endpoint(request):
@@ -76,12 +77,12 @@ async def upload_endpoint(request):
     """Kopyalı kaynak: gövde ham dosya içeriğidir."""
     original_name = str(request.query_params.get("name") or "").strip()
     if not original_name:
-        return _error("Dosya adı belirtilmedi.")
+        return _error(t("error.fileNameRequired"))
 
     extension = safe_extension(original_name)
     if extension not in VIDEO_EXTENSIONS:
         return _error(
-            "Bu dosya türü desteklenmiyor. Video seçin (.mp4, .webm, .mov, .mkv, .avi...).",
+            t("error.unsupportedFileType"),
             status_code=415,
         )
 
@@ -96,18 +97,18 @@ async def upload_endpoint(request):
                     continue
                 received += len(chunk)
                 if received > MAX_UPLOAD_BYTES:
-                    raise LocalFileError(f"Dosya çok büyük (üst sınır {limit_gb} GB).", 413)
+                    raise LocalFileError(t("error.fileTooLarge", limit_gb=limit_gb), 413)
                 handle.write(chunk)
     except LocalFileError as exc:
         target.unlink(missing_ok=True)
         return _error(str(exc), exc.status_code)
     except Exception:
         target.unlink(missing_ok=True)
-        return _error("Dosya kaydedilemedi (disk alanı yeterli mi?).", 500)
+        return _error(t("error.fileSaveFailed"), 500)
 
     if received == 0:
         target.unlink(missing_ok=True)
-        return _error("Boş dosya yüklendi.")
+        return _error(t("error.emptyUpload"))
 
     try:
         result = await prepare_local_source(target, original_name)
@@ -117,7 +118,7 @@ async def upload_endpoint(request):
         return _error(str(exc), exc.status_code)
     except Exception as exc:  # beklenmedik hata
         target.unlink(missing_ok=True)
-        return _error(f"Dosya hazırlanamadı: {exc}", 500)
+        return _error(t("error.filePrepareFailed", detail=exc), 500)
 
     return JSONResponse(result)
 
@@ -127,7 +128,7 @@ async def file_endpoint(request):
     path = registered_file(str(request.path_params.get("token") or ""))
     if path is None:
         return _error(
-            "Dosya bulunamadı. Sunucu yeniden başlatıldıysa dosyayı yeniden seçin.",
+            t("error.localFileNotFound"),
             status_code=404,
         )
     return FileResponse(path, headers={"Cache-Control": "no-store"})

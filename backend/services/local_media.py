@@ -24,6 +24,7 @@ from typing import Any, Optional
 from urllib.parse import unquote, urlparse
 
 from config import HOST, PORT, UPLOADS_DIR, UPLOADS_ROUTE
+from core.i18n import t
 
 REMUX_TIMEOUT_SECONDS = 900.0
 FILE_ROUTE = "/api/local/file"
@@ -93,8 +94,8 @@ class LocalFileError(Exception):
 class LocalFileCancelled(LocalFileError):
     """Kullanıcı hazırlığı iptal etti (hata değil)."""
 
-    def __init__(self, message: str = "İşlem iptal edildi.") -> None:
-        super().__init__(message, status_code=409)
+    def __init__(self, message: Optional[str] = None) -> None:
+        super().__init__(message or t("error.cancelled"), status_code=409)
 
 
 # ------------------------------------------------------------------ adresler
@@ -207,11 +208,11 @@ async def prepare_picked_source(path: Path) -> dict[str, Any]:
     """Kopyasız seçilen dosyayı hazırlar (dosya yerinde kalır)."""
     try:
         if not path.exists() or not path.is_file():
-            raise LocalFileError("Dosya bulunamadı.")
+            raise LocalFileError(t("error.fileNotFound"))
         if path.stat().st_size == 0:
-            raise LocalFileError("Dosya boş.")
+            raise LocalFileError(t("error.fileEmpty"))
     except OSError as exc:
-        raise LocalFileError(f"Dosyaya erişilemedi: {exc}") from None
+        raise LocalFileError(t("error.fileAccessFailed", detail=exc)) from None
 
     info = await _probe(path)
     playable, remuxed = await _make_playable(path, info)
@@ -231,10 +232,10 @@ async def _probe(path: Path) -> dict[str, Any]:
     try:
         info = await probe_url(str(path))
     except ProbeError as exc:
-        raise LocalFileError(f"Dosya analiz edilemedi: {exc}") from None
+        raise LocalFileError(t("error.fileAnalyzeFailed", detail=exc)) from None
 
     if info["width"] <= 0 or info["height"] <= 0:
-        raise LocalFileError("Bu dosyada oynatılabilir bir video akışı bulunamadı.")
+        raise LocalFileError(t("error.noPlayableVideo"))
     return info
 
 
@@ -245,10 +246,7 @@ async def _make_playable(path: Path, info: dict[str, Any]) -> tuple[Path, bool]:
     target_kind = _remux_target(path.suffix.lower(), video_codec, audio_codec)
 
     if target_kind == "unsupported":
-        raise LocalFileError(
-            f"Bu dosyanın video kodeği ({video_codec}) tarayıcıda oynatılamıyor. "
-            "Dosyayı H.264 (MP4) biçimine dönüştürüp tekrar deneyin."
-        )
+        raise LocalFileError(t("error.unsupportedCodec", codec=video_codec))
     if target_kind is None:
         return path, False
 
@@ -375,24 +373,20 @@ async def _remux(
         except Exception:
             pass
         target.unlink(missing_ok=True)
-        raise LocalFileError(
-            "Dosya tarayıcı biçimine dönüştürülürken zaman aşımına uğradı."
-        ) from None
+        raise LocalFileError(t("error.remuxTimeout")) from None
     finally:
         if _REMUX_PROCESS is process:
             _REMUX_PROCESS = None
 
     if _remux_cancelled:
         target.unlink(missing_ok=True)
-        raise LocalFileCancelled("Dosya hazırlığı iptal edildi.")
+        raise LocalFileCancelled(t("error.remuxCancelled"))
 
     if process.returncode != 0 or not target.exists() or target.stat().st_size == 0:
         target.unlink(missing_ok=True)
         message = stderr.decode("utf-8", errors="ignore").strip()[-300:]
-        raise LocalFileError(
-            "Dosya tarayıcı biçimine dönüştürülemedi. "
-            f"{message or 'FFmpeg bilinmeyen bir hata verdi.'}"
-        )
+        detail = message or t("error.remuxUnknown")
+        raise LocalFileError(t("error.remuxFailed", detail=detail))
 
 
 def _discard(path: Path) -> None:

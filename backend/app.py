@@ -41,31 +41,33 @@ from config import (
     UPLOADS_MAX_AGE_DAYS,
     USER_AGENT,
 )
+from core.i18n import LanguageMiddleware, current_language, t
 from core.jobs import JobManager
 from services.local_media import cleanup_uploads
 
-FALLBACK_HTML = """<!doctype html>
-<html lang="tr">
+
+def _fallback_html() -> str:
+    lang = current_language()
+    return f"""<!doctype html>
+<html lang="{lang}">
 <head>
   <meta charset="utf-8">
   <title>ClipStream Studio</title>
   <style>
-    body { background:#09090b; color:#fafafa; font-family:system-ui,sans-serif;
-           display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
-    main { max-width:560px; padding:32px; border:1px solid #27272a; border-radius:12px; }
-    code { background:#18181b; padding:2px 8px; border-radius:6px; color:#a5b4fc; }
-    li { margin:8px 0; }
+    body {{ background:#09090b; color:#fafafa; font-family:system-ui,sans-serif;
+           display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }}
+    main {{ max-width:560px; padding:32px; border:1px solid #27272a; border-radius:12px; }}
+    code {{ background:#18181b; padding:2px 8px; border-radius:6px; color:#a5b4fc; }}
+    li {{ margin:8px 0; }}
   </style>
 </head>
 <body>
 <main>
   <h1>🎬 ClipStream Studio</h1>
-  <p>Arayüz henüz derlenmedi. İki seçeneğin var:</p>
+  <p>{t("fallback.intro")}</p>
   <ol>
-    <li>Üretim modu — tek komutla derle: <code>cd frontend &amp;&amp; npm run build</code>,
-        ardından bu sayfayı yenile.</li>
-    <li>Geliştirme modu: <code>scripts/dev.bat</code> ile backend + Vite dev sunucusunu birlikte başlat,
-        ardından <code>http://127.0.0.1:5173</code> adresini aç.</li>
+    <li>{t("fallback.production")}</li>
+    <li>{t("fallback.development")}</li>
   </ol>
 </main>
 </body>
@@ -73,7 +75,7 @@ FALLBACK_HTML = """<!doctype html>
 
 
 async def index_fallback(request):
-    return HTMLResponse(FALLBACK_HTML, headers={"Cache-Control": "no-cache"})
+    return HTMLResponse(_fallback_html(), headers={"Cache-Control": "no-cache"})
 
 
 
@@ -94,7 +96,7 @@ async def spa_fallback(request):
     """Bilinmeyen yollar: API/dışa aktarma ise 404, değilse arayüze düş."""
     path = str(request.path_params.get("path", ""))
     if path.startswith(("api/", "exports/", "uploads/")):
-        return JSONResponse({"success": False, "error": "Bulunamadı."}, status_code=404)
+        return JSONResponse({"success": False, "error": t("error.notFound")}, status_code=404)
     return _spa_response()
 
 
@@ -126,6 +128,7 @@ def create_app() -> Starlette:
         debug=True,
         routes=routes,
         middleware=[
+            Middleware(LanguageMiddleware),
             Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]),
         ],
     )

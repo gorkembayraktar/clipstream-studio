@@ -11,6 +11,7 @@
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from core.i18n import t
 from services.request_headers import sanitize_headers
 from services.waveform import WaveformError, build_waveform
 
@@ -19,11 +20,11 @@ async def waveform_endpoint(request):
     try:
         data = await request.json()
     except Exception:
-        return JSONResponse({"success": False, "error": "Geçersiz istek gövdesi."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.invalidBody")}, status_code=400)
 
     url = str(data.get("url", "")).strip()
     if not url:
-        return JSONResponse({"success": False, "error": "URL boş bırakılamaz."}, status_code=400)
+        return JSONResponse({"success": False, "error": t("error.urlEmpty")}, status_code=400)
 
     try:
         duration = float(data.get("duration") or 0.0)

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from config import EXPORTS_DIR, OUTPUT_FORMATS, USER_AGENT
+from core.i18n import set_language, t
 from core.jobs import CANCELLED, DONE, ERROR, RUNNING
 from core.timecode import parse_time_to_seconds, seconds_to_hms
 from services.local_media import local_path
@@ -78,7 +79,7 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
     """Payload'dan ffmpeg komutunu üretir (saf fonksiyon, test edilebilir)."""
     url = str(payload.get("url", "")).strip()
     if not url:
-        raise ExportError("Kaynak adresi boş.")
+        raise ExportError(t("error.sourceEmpty"))
 
     # Yerel dosya (/uploads/...) ise ffmpeg dosyayı doğrudan okur: ağ turu olmaz.
     url = str(local_path(url) or url)
@@ -93,7 +94,7 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
     start = parse_time_to_seconds(payload.get("start_time", 0))
     end = parse_time_to_seconds(payload.get("end_time", 0))
     if end <= start:
-        raise ExportError("Bitiş zamanı, başlangıç zamanından büyük olmalıdır.")
+        raise ExportError(t("error.endAfterStart"))
 
     clip_duration = end - start
     output_format = str(payload.get("output_format", "mp4")).lower()
@@ -171,6 +172,7 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
 # ------------------------------------------------------------------ işçi
 async def run_export_job(job: dict[str, Any], manager) -> None:
     """İşi arka planda yürütür; durumu job sözlüğü üzerinden raporlar."""
+    set_language(job.get("lang"))
     payload = job["payload"]
     job["status"] = RUNNING
     job["progress"] = 0.0
@@ -180,7 +182,7 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
         start = parse_time_to_seconds(payload.get("start_time", 0))
         end = parse_time_to_seconds(payload.get("end_time", 0))
         if end - start < MIN_CLIP_DURATION:
-            raise ExportError("Geçersiz zaman aralığı.")
+            raise ExportError(t("error.invalidRange"))
 
         output_path = build_output_path(
             str(payload.get("filename", "")),
@@ -218,7 +220,7 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
         else:
             stderr_tail = (await process.stderr.read()).decode("utf-8", errors="ignore").strip()
             job["status"] = ERROR
-            job["error"] = stderr_tail[-600:] if stderr_tail else "FFmpeg dışa aktarımı başarısız oldu."
+            job["error"] = stderr_tail[-600:] if stderr_tail else t("error.ffmpegExportFailed")
 
     except ExportError as exc:
         job["status"] = ERROR

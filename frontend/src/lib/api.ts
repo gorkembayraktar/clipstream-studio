@@ -1,5 +1,5 @@
 /** Backend'e erişen tipli HTTP istemcisi. */
-import { translate } from "@/i18n"
+import { getLocale, translate } from "@/i18n"
 import type {
   ExportFile,
   ExportJob,
@@ -22,13 +22,19 @@ export class ApiError extends Error {
   }
 }
 
+/** Backend hata mesajlarını arayüz diliyle üretmesi için istek dili. */
+function acceptLanguage(): string {
+  return getLocale() === "tr" ? "tr-TR" : "en-US"
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers)
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json")
+  headers.set("Accept-Language", acceptLanguage())
+
   let response: Response
   try {
-    response = await fetch(path, {
-      headers: { "Content-Type": "application/json" },
-      ...init,
-    })
+    response = await fetch(path, { ...init, headers })
   } catch (error) {
     // Kullanıcı iptal ettiyse hata gibi gösterme; çağıran taraf ayırt eder.
     if (error instanceof DOMException && error.name === "AbortError") throw error
@@ -86,6 +92,7 @@ function uploadLocalFile(
     const xhr = new XMLHttpRequest()
     xhr.open("POST", `/api/local/upload?name=${encodeURIComponent(file.name)}`)
     xhr.setRequestHeader("Content-Type", "application/octet-stream")
+    xhr.setRequestHeader("Accept-Language", acceptLanguage())
     xhr.timeout = 0
 
     xhr.upload.onprogress = (event) => {
@@ -168,7 +175,10 @@ export const api = {
     try {
       response = await fetch("/api/frame", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Language": acceptLanguage(),
+        },
         body: JSON.stringify(payload),
         signal,
       })

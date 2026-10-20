@@ -15,6 +15,8 @@ import tempfile
 import threading
 from pathlib import Path
 
+from core.i18n import t
+
 _DIALOG_SCRIPT = r"""
 import sys
 import traceback
@@ -22,6 +24,9 @@ from pathlib import Path
 
 out = Path(sys.argv[1])
 timeout_ms = int(sys.argv[2] or 0)
+title = sys.argv[3] if len(sys.argv) > 3 else "Select video"
+video_label = sys.argv[4] if len(sys.argv) > 4 else "Video files"
+all_label = sys.argv[5] if len(sys.argv) > 5 else "All files"
 
 try:
     import tkinter as tk
@@ -42,14 +47,14 @@ try:
         root.after(timeout_ms, root.destroy)
     chosen = filedialog.askopenfilename(
         parent=root,
-        title="Video se\u00e7 \u2014 ClipStream Studio",
+        title=title,
         filetypes=[
             (
-                "Video dosyalar\u0131",
+                video_label,
                 "*.mp4 *.m4v *.mov *.webm *.mkv *.avi *.ts *.mts *.m2ts "
                 "*.flv *.wmv *.3gp *.ogv *.mpg *.mpeg",
             ),
-            ("T\u00fcm dosyalar", "*.*"),
+            (all_label, "*.*"),
         ],
     )
 except Exception:
@@ -110,12 +115,10 @@ def choose_video_file(timeout_ms: int = 0) -> str:
     global _active_process, _pending_pick, _cancel_requested
 
     if sys.platform != "win32":
-        raise DialogUnavailable(
-            "Yerel dosya seçim penceresi yalnızca Windows'ta kullanılabilir."
-        )
+        raise DialogUnavailable(t("error.pickWindowsOnly"))
 
     if not _dialog_lock.acquire(blocking=False):
-        raise DialogUnavailable("Zaten açık bir dosya seçim penceresi var.")
+        raise DialogUnavailable(t("error.pickAlreadyOpen"))
 
     _pending_pick = True
     handle, name = tempfile.mkstemp(prefix="clip2-pick-", suffix=".txt")
@@ -135,6 +138,9 @@ def choose_video_file(timeout_ms: int = 0) -> str:
                 _DIALOG_SCRIPT,
                 str(result_path),
                 str(max(0, int(timeout_ms or 0))),
+                t("dialog.title"),
+                t("dialog.videoFiles"),
+                t("dialog.allFiles"),
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -164,12 +170,12 @@ def choose_video_file(timeout_ms: int = 0) -> str:
 
         if process.returncode != 0 and not chosen:
             lines = [line for line in (stderr or "").strip().splitlines() if line]
-            reason = lines[-1] if lines else f"çıkış kodu {process.returncode}"
-            raise DialogUnavailable(f"Dosya seçim penceresi açılamadı: {reason}")
+            reason = lines[-1] if lines else t("error.pickExitCode", code=process.returncode)
+            raise DialogUnavailable(t("error.pickOpenFailed", detail=reason))
 
         return chosen
     except OSError as exc:
-        raise DialogUnavailable(f"Dosya seçim penceresi açılamadı: {exc}") from None
+        raise DialogUnavailable(t("error.pickOpenFailed", detail=exc)) from None
     finally:
         _active_process = None
         _pending_pick = False

@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from config import USER_AGENT
+from core.i18n import t
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args
 
@@ -51,13 +52,13 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
         except Exception:
             pass
         raise ProbeError(
-            "ffprobe analizi zaman aşımına uğradı (uzak sunucu yanıt vermiyor olabilir).",
+            t("error.probeTimeout"),
             status_code=504,
         ) from None
 
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="ignore").strip()
-        raise ProbeError(message or "ffprobe video analizini tamamlayamadı.")
+        raise ProbeError(message or t("error.probeFailed"))
 
     info = json.loads(stdout.decode("utf-8", errors="ignore"))
     video = next((s for s in info.get("streams", []) if s.get("codec_type") == "video"), None)
