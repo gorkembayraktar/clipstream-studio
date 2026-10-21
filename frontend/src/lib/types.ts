@@ -171,6 +171,8 @@ export interface ExportJob {
   size_mb?: number
   elapsed_sec?: number
   speed?: string
+  /** FFmpeg hızına göre yaklaşık kalan saniye. */
+  eta_sec?: number
   current_sec?: number
   error?: string
   command?: string

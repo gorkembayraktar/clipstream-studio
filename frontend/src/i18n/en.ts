@@ -141,6 +141,8 @@ export const en = {
   "job.starting": "Starting…",
   "job.processing": "Processing…",
   "job.speed": "speed {speed}",
+  "job.remaining": "~{time} left",
+  "job.remainingTitle": "Estimated remaining time",
   "job.cancel": "Cancel",
   "job.ready": "Clip ready",
   "job.failed": "Export failed",

@@ -32,7 +32,7 @@
 - **Kaynaklar:** MP4/WebM, HLS (`.m3u8`), YouTube, X ve Instagram.
 - **Kesme:** Zaman çizelgesinden giriş/çıkış; noktalar birbirini geçerse otomatik yer değiştirir.
 - **Kırpma:** Video üzerinde sürükle-boyutlandır; 16:9, 9:16, 1:1, 4:5 ve serbest oranlar.
-- **Dışa aktarma:** MP4 (hızlı/hassas), GIF ve MP3; canlı ilerleme ve iptal.
+- **Dışa aktarma:** MP4 (hızlı/hassas), GIF ve MP3; canlı ilerleme, tahmini kalan süre ve iptal.
 - **GPU render:** Uyumlu NVIDIA/Intel/AMD H.264 kodlayıcılarında isteğe bağlı GPU dışa aktarma; GPU yoksa veya hata verirse CPU'ya otomatik dönüş.
 - **Galeri:** Klipleri modalda oynat, indir, klasörde göster veya sil.
 - **Yerel dosyalar:** Gözat veya sürükle-bırak. Açık proje varken bırakılan video yeni sekmede açılır.

@@ -72,6 +72,27 @@ export function compactDuration(seconds: number): string {
     : `${minutes}m ${String(secs).padStart(2, "0")}s`
 }
 
+/** Tahmini kalan süre için ondalıksız kısa metin: "12 sn", "1 dk 20 sn", "1 sa 05 dk". */
+export function formatRemaining(seconds: number): string {
+  const turkish = getLocale() === "tr"
+  if (!Number.isFinite(seconds) || seconds <= 0) return turkish ? "0 sn" : "0s"
+  const total = Math.max(1, Math.ceil(seconds))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+  if (hours > 0) {
+    return turkish
+      ? `${hours} sa ${String(minutes).padStart(2, "0")} dk`
+      : `${hours}h ${String(minutes).padStart(2, "0")}m`
+  }
+  if (minutes > 0) {
+    return turkish
+      ? `${minutes} dk ${String(secs).padStart(2, "0")} sn`
+      : `${minutes}m ${String(secs).padStart(2, "0")}s`
+  }
+  return turkish ? `${secs} sn` : `${secs}s`
+}
+
 /** Kullanıcı girdisini ("01:23:45.678", "12.5", "1:30") saniyeye çevirir. */
 export function parseTimeInput(text: string): number | null {
   const cleaned = text.trim().replace(",", ".")

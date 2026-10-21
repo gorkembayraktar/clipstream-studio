@@ -10,6 +10,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 from services.exporter import (  # noqa: E402
     ExportError,
+    _parse_speed,
+    _update_eta,
     build_ffmpeg_command,
     is_gpu_render_eligible,
     select_gpu_encoder,
@@ -125,6 +127,35 @@ class FfmpegCommandTests(unittest.TestCase):
         self.assertIsNone(get_gpu_encoder("not-an-encoder"))
         arguments = gpu_encoder_arguments("h264_amf")
         self.assertEqual(arguments[:2], ["-c:v", "h264_amf"])
+
+
+class EtaTests(unittest.TestCase):
+    def test_parse_speed(self):
+        self.assertEqual(_parse_speed("1.25x"), 1.25)
+        self.assertEqual(_parse_speed(" 2.0X "), 2.0)
+        self.assertIsNone(_parse_speed("N/A"))
+        self.assertIsNone(_parse_speed("0x"))
+        self.assertIsNone(_parse_speed(None))
+
+    def test_eta_uses_remaining_duration_and_speed(self):
+        job = {"current_sec": 10.0, "speed": "2.0x"}
+        _update_eta(job, 30.0)
+        self.assertEqual(job["eta_sec"], 10.0)
+
+    def test_eta_is_removed_without_speed(self):
+        job = {"current_sec": 10.0, "speed": "N/A", "eta_sec": 12.0}
+        _update_eta(job, 30.0)
+        self.assertNotIn("eta_sec", job)
+
+    def test_eta_is_zero_when_clip_is_finished(self):
+        job = {"current_sec": 30.0, "speed": "1.5x"}
+        _update_eta(job, 30.0)
+        self.assertEqual(job["eta_sec"], 0.0)
+
+    def test_eta_does_not_go_negative(self):
+        job = {"current_sec": 31.0, "speed": "1.5x"}
+        _update_eta(job, 30.0)
+        self.assertEqual(job["eta_sec"], 0.0)
 
 
 class GpuSelectionTests(unittest.IsolatedAsyncioTestCase):

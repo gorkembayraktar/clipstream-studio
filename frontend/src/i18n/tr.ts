@@ -138,6 +138,8 @@ export const tr: Record<TranslationKey, string> = {
   "job.starting": "Başlatılıyor…",
   "job.processing": "İşleniyor…",
   "job.speed": "hız {speed}",
+  "job.remaining": "~{time} kaldı",
+  "job.remainingTitle": "Tahmini kalan süre",
   "job.cancel": "İptal",
   "job.ready": "Klip hazır",
   "job.failed": "Dışa aktarma başarısız",

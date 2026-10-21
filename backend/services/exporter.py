@@ -269,6 +269,7 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
     payload = job["payload"]
     job["status"] = RUNNING
     job["progress"] = 0.0
+    job.pop("eta_sec", None)
     job["started_at"] = time.time()
 
     try:
@@ -336,6 +337,7 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
             job["progress"] = 0.0
             job["current_sec"] = 0.0
             job["speed"] = None
+            job.pop("eta_sec", None)
 
             cpu_command = build_ffmpeg_command(payload, output_path)
             job["command"] = " ".join(cpu_command)
@@ -359,6 +361,33 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
             job["error"] = str(exc)
 
 
+def _parse_speed(raw: Any) -> Optional[float]:
+    """FFmpeg'in ``1.25x`` biçimindeki hız değerini sayıya çevirir."""
+    text = str(raw or "").strip().lower()
+    if not text.endswith("x"):
+        return None
+    try:
+        speed = float(text[:-1])
+    except ValueError:
+        return None
+    return speed if speed > 0 else None
+
+
+def _update_eta(job: dict[str, Any], clip_duration: float) -> None:
+    """İşlenen süre ve FFmpeg hızından yaklaşık kalan saniyeyi hesaplar.
+
+    Hız bilgisi yoksa ETA üretilmez; yarım kalan bir önceki değer de temizlenir.
+    """
+    current_sec = job.get("current_sec")
+    speed = _parse_speed(job.get("speed"))
+    if current_sec is None or speed is None:
+        job.pop("eta_sec", None)
+        return
+
+    remaining = max(0.0, clip_duration - float(current_sec))
+    job["eta_sec"] = round(remaining / speed, 1) if remaining > 0 else 0.0
+
+
 async def _read_progress(process, job: dict[str, Any], clip_duration: float) -> None:
     """ffmpeg'in -progress pipe:1 çıktısını ayrıştırıp iş durumunu günceller."""
     assert process.stdout is not None
@@ -375,7 +404,10 @@ async def _read_progress(process, job: dict[str, Any], clip_duration: float) -> 
                 continue
             job["current_sec"] = round(seconds, 2)
             job["progress"] = round(min(99.0, max(0.0, seconds / clip_duration * 100)), 1)
+            _update_eta(job, clip_duration)
         elif line.startswith("speed="):
             job["speed"] = line.split("=", 1)[1].strip()
+            _update_eta(job, clip_duration)
         elif line == "progress=end":
             job["progress"] = 100.0
+            job["eta_sec"] = 0.0

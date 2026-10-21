@@ -17,7 +17,7 @@ import { Progress } from "@/components/ui/progress"
 import { useCancelJob, useJob } from "@/hooks/use-export-job"
 import { libraryKeys, useRevealInExplorer } from "@/hooks/use-library"
 import { translate, useI18n } from "@/i18n"
-import { formatTime, formatMegabytes } from "@/lib/format"
+import { formatTime, formatMegabytes, formatRemaining } from "@/lib/format"
 import { log } from "@/stores/log-store"
 import { useStudioStore } from "@/stores/studio-store"
 
@@ -126,7 +126,17 @@ export function JobProgress({ jobId }: { jobId: string }) {
             <Loader2Icon className="size-3.5 animate-spin" />
             {job.status === "pending" ? t("job.starting") : t("job.processing")}
           </span>
-          <span className="font-mono tabular-nums">{Math.round(progress)}%</span>
+          <span className="flex shrink-0 items-center gap-2">
+            {job.eta_sec != null && job.eta_sec > 0 && (
+              <span
+                className="whitespace-nowrap text-[11px] font-normal text-muted-foreground tabular-nums"
+                title={t("job.remainingTitle")}
+              >
+                {t("job.remaining", { time: formatRemaining(job.eta_sec) })}
+              </span>
+            )}
+            <span className="font-mono tabular-nums">{Math.round(progress)}%</span>
+          </span>
         </div>
         <Progress value={progress} />
         {gpuFallbackNote}
