@@ -5,8 +5,14 @@ import { JobProgress } from "@/components/app/job-progress"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useStartExport } from "@/hooks/use-export-job"
 import { useGpuCapability } from "@/hooks/use-gpu-capability"
 import { useI18n, type TranslationKey } from "@/i18n"
@@ -211,58 +217,54 @@ export function ExportPanel() {
       <section className="space-y-3 rounded-xl border border-border/70 p-3">
         <h3 className="text-xs font-semibold">{t("export.settings")}</h3>
 
-        <div className="space-y-1.5">
-          <Label id="cut-mode-label" className="text-[11px] font-medium text-muted-foreground">
-            {t("export.cutMode")}
-          </Label>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={cutMode}
-            onValueChange={(value) => {
-              if (value) setCutMode(value as CutMode)
-            }}
-            aria-labelledby="cut-mode-label"
-            className="w-full"
-          >
-            <ToggleGroupItem value="fast" className="flex-1">
-              {t("export.fast")}
-            </ToggleGroupItem>
-            <ToggleGroupItem value="exact" className="flex-1">
-              {t("export.exact")}
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <p className="text-[10px] leading-snug text-muted-foreground">
-            {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
-          </p>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="cut-mode" className="text-[11px] font-medium text-muted-foreground">
+              {t("export.cutMode")}
+            </Label>
+            <Select
+              value={cutMode}
+              onValueChange={(value) => setCutMode(value as CutMode)}
+            >
+              <SelectTrigger id="cut-mode" className="w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fast" className="text-xs">
+                  {t("export.fast")}
+                </SelectItem>
+                <SelectItem value="exact" className="text-xs">
+                  {t("export.exact")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="output-format" className="text-[11px] font-medium text-muted-foreground">
+              {t("export.outputFormat")}
+            </Label>
+            <Select
+              value={outputFormat}
+              onValueChange={(value) => setOutputFormat(value as OutputFormat)}
+            >
+              <SelectTrigger id="output-format" className="w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(FORMAT_KEYS) as OutputFormat[]).map((value) => (
+                  <SelectItem key={value} value={value} className="text-xs">
+                    {t(FORMAT_KEYS[value])}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label id="format-label" className="text-[11px] font-medium text-muted-foreground">
-            {t("export.outputFormat")}
-          </Label>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={outputFormat}
-            onValueChange={(value) => {
-              if (value) setOutputFormat(value as OutputFormat)
-            }}
-            aria-labelledby="format-label"
-            className="grid w-full grid-cols-3"
-          >
-            {(Object.keys(FORMAT_LABELS) as OutputFormat[]).map((value) => (
-              <ToggleGroupItem key={value} value={value} className="w-full text-[11px]">
-                {FORMAT_LABELS[value]}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <p className="text-[10px] leading-snug text-muted-foreground">
-            {t(FORMAT_KEYS[outputFormat])}
-          </p>
-        </div>
+        <p className="text-[10px] leading-snug text-muted-foreground">
+          {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
+        </p>
 
         <div className="space-y-1.5">
           <Label htmlFor="filename" className="text-[11px] font-medium text-muted-foreground">
