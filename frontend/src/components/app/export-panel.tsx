@@ -1,7 +1,6 @@
 /** Dışa aktarma sekmesi: seçili aralık, çıktı ayarları, seçenekler ve işler. */
 import { DownloadIcon, Loader2Icon } from "lucide-react"
 
-import { JobProgress } from "@/components/app/job-progress"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -313,22 +312,6 @@ export function ExportPanel() {
         {startExport.isPending ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
         {activeJobIds.length > 0 ? t("export.exportNew") : t("export.export")}
       </Button>
-
-      {activeJobIds.length > 0 && (
-        <section className="space-y-2 border-t border-border/60 pt-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold">{t("export.activeJobs")}</h3>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-              {activeJobIds.length}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {activeJobIds.map((jobId) => (
-              <JobProgress key={jobId} jobId={jobId} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

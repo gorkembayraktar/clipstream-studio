@@ -105,9 +105,13 @@ export const en = {
   "export.processing": "Processing clips: {count} — you can start a new job in the meantime.",
   "export.settings": "Output settings",
   "export.options": "Options",
-  "export.activeJobs": "Active jobs",
   "export.modeFast": "fast",
   "export.modeExact": "exact",
+
+  "jobsDock.title": "Export jobs",
+  "jobsDock.count": "Jobs: {count}",
+  "jobsDock.collapse": "Minimize panel",
+  "jobsDock.expand": "Expand panel",
 
   "gpu.title": "GPU rendering",
   "gpu.checking": "Checking GPU support…",

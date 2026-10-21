@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { FileDropZone } from "@/components/app/file-drop-zone"
 import { IncomingProjectScreen } from "@/components/app/incoming-project-screen"
+import { JobsDock } from "@/components/app/jobs-dock"
 import { LogDrawer } from "@/components/app/log-drawer"
 import { PreferencesSwitcher } from "@/components/app/preferences-switcher"
 import { SidePanel } from "@/components/app/side-panel"
@@ -56,7 +57,8 @@ function StudioApp() {
           </footer>
         </div>
 
-        <Toaster richColors position="bottom-right" />
+        <JobsDock />
+        <Toaster richColors position="bottom-left" />
         <LogDrawer />
         <FileDropZone />
       </TooltipProvider>

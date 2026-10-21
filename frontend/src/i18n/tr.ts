@@ -102,9 +102,13 @@ export const tr: Record<TranslationKey, string> = {
   "export.processing": "İşlenen klip: {count} — aralarından yeni iş başlatılabilir.",
   "export.settings": "Çıktı ayarları",
   "export.options": "Seçenekler",
-  "export.activeJobs": "Aktif işler",
   "export.modeFast": "hızlı",
   "export.modeExact": "hassas",
+
+  "jobsDock.title": "Dışa aktarma işleri",
+  "jobsDock.count": "İş: {count}",
+  "jobsDock.collapse": "Paneli küçült",
+  "jobsDock.expand": "Paneli genişlet",
 
   "gpu.title": "GPU ile render",
   "gpu.checking": "GPU desteği kontrol ediliyor…",
