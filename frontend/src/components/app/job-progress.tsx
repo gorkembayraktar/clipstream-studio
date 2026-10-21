@@ -10,7 +10,6 @@ import {
   FolderOpenIcon,
   Loader2Icon,
   TriangleAlertIcon,
-  XIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -19,7 +18,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
@@ -29,7 +27,6 @@ import { libraryKeys, useRevealInExplorer } from "@/hooks/use-library"
 import { translate, useI18n } from "@/i18n"
 import { formatTime, formatMegabytes, formatRemaining } from "@/lib/format"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
 
 const FORMAT_LABELS: Record<string, string> = { mp4: "MP4", gif: "GIF", mp3: "MP3" }
 
@@ -41,7 +38,6 @@ export function JobProgress({ jobId }: { jobId: string }) {
   const { data: job } = useJob(jobId)
   const cancelJob = useCancelJob(jobId)
   const reveal = useRevealInExplorer()
-  const removeActiveJobId = useStudioStore((s) => s.removeActiveJobId)
   const queryClient = useQueryClient()
 
   useExportTitle(jobId, job?.status, job?.progress)
@@ -75,8 +71,9 @@ export function JobProgress({ jobId }: { jobId: string }) {
   }, [job, queryClient])
 
   const widthClass = "space-y-2 rounded-lg border p-2.5"
+  const canCancel = job?.status === "pending" || job?.status === "running"
 
-  /** Kart başlığı: klip aralığı, biçim/mod ve kapatma düğmesi. */
+  /** Kart başlığı: klip aralığı, biçim/mod ve işlem menüsü. */
   const header = (
     <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
       <span className="truncate font-mono tabular-nums">
@@ -96,42 +93,32 @@ export function JobProgress({ jobId }: { jobId: string }) {
             <span className="font-medium text-emerald-500">{t("job.gpuShort")}</span>
           </>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-5"
-              data-slot="job-actions-trigger"
-              aria-label={t("job.actions")}
-              title={t("job.actions")}
-            >
-              <EllipsisVerticalIcon className="size-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            {(job?.status === "pending" || job?.status === "running") && (
-              <>
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={cancelJob.isPending}
-                  onSelect={() => cancelJob.mutate()}
-                >
-                  <BanIcon />
-                  {t("job.cancel")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem
-              title={t("job.closeCardTitle")}
-              onSelect={() => removeActiveJobId(jobId)}
-            >
-              <XIcon />
-              {t("job.closeCard")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {canCancel && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-5"
+                data-slot="job-actions-trigger"
+                aria-label={t("job.actions")}
+                title={t("job.actions")}
+              >
+                <EllipsisVerticalIcon className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={cancelJob.isPending}
+                onSelect={() => cancelJob.mutate()}
+              >
+                <BanIcon />
+                {t("job.cancel")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </span>
     </div>
   )

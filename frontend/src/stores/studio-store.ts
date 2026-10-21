@@ -86,7 +86,6 @@ interface StudioState {
   setFilename: (value: string) => void
   setGpuEnabled: (value: boolean) => void
   addActiveJobId: (id: string) => void
-  removeActiveJobId: (id: string) => void
 }
 
 const roundMs = (value: number) => Math.round(value * 1000) / 1000
@@ -244,8 +243,4 @@ export const useStudioStore = create<StudioState>()((set) => ({
         ? state
         : { activeJobIds: [id, ...state.activeJobIds] },
     ),
-  removeActiveJobId: (id) =>
-    set((state) => ({
-      activeJobIds: state.activeJobIds.filter((item) => item !== id),
-    })),
 }))

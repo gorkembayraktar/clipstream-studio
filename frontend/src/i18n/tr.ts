@@ -154,8 +154,6 @@ export const tr: Record<TranslationKey, string> = {
   "job.ready": "Klip hazır",
   "job.failed": "Dışa aktarma başarısız",
   "job.cancelled": "İşlem iptal edildi.",
-  "job.closeCard": "Kartı kapat",
-  "job.closeCardTitle": "Kartı kapat (işlem başladıysa sürer)",
   "job.elapsed": "{seconds} sn",
   "job.doneLog": "Klip oluşturuldu: {name} ({size}, süre: {seconds} sn)",
   "job.failedLog": "Dışa aktarma başarısız",

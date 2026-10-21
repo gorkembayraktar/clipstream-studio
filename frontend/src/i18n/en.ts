@@ -157,8 +157,6 @@ export const en = {
   "job.ready": "Clip ready",
   "job.failed": "Export failed",
   "job.cancelled": "Job cancelled.",
-  "job.closeCard": "Close card",
-  "job.closeCardTitle": "Close card (the job continues if it has started)",
   "job.elapsed": "{seconds}s",
   "job.doneLog": "Clip created: {name} ({size}, duration: {seconds}s)",
   "job.failedLog": "Export failed",
