@@ -1,5 +1,5 @@
 /** Galeri sekmesi: exports/ klasöründeki klipleri listeler, oynatır, indirir, siler. */
-import { useState } from "react"
+import { useState, type MouseEvent } from "react"
 
 import {
   DownloadIcon,
@@ -135,8 +135,18 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
   const { t } = useI18n()
   const [deleteOpen, setDeleteOpen] = useState(false)
 
+  /** Satıra çift tıklama, düğmelere dokunmadan klibi önizlemede açar. */
+  const handleDoubleClick = (event: MouseEvent<HTMLLIElement>) => {
+    if ((event.target as HTMLElement).closest("button, a")) return
+    event.preventDefault()
+    onPreview()
+  }
+
   return (
-    <li className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5">
+    <li
+      className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5"
+      onDoubleClick={handleDoubleClick}
+    >
       <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
 
       <div className="min-w-0 flex-1">
