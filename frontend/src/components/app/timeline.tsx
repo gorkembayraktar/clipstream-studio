@@ -20,6 +20,8 @@ const RANGE_DRAG_THRESHOLD = 4
 /** Kare önizleme balonunun ölçüleri (px) — sunucu da bu ölçüde üretir. */
 const PREVIEW_WIDTH = 160
 const PREVIEW_HEIGHT = 90
+/** Zaman çizelgesinin yuvarlatılmış kenarları tutamaçları kırpmasın diye iç boşluk. */
+const TRACK_PADDING = 8
 
 /** Pointer yakalama kenar durumlarda (ör. sentetik olaylar) hata verebilir; sürükleme yine de çalışır. */
 function capturePointer(element: Element | null, pointerId: number) {
@@ -201,94 +203,96 @@ export function Timeline() {
 
   return (
     <div className="relative select-none">
-      <div
-        ref={trackRef}
-        onPointerDown={handleTrackPointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
-        className={cn(
-          "relative h-14 touch-none overflow-hidden rounded-lg bg-muted/50 ring-1 ring-foreground/10",
-          duration > 0 ? "cursor-crosshair" : "opacity-60",
-        )}
-      >
-        {/* Ses dalga formu (kaynak analiz edildikçe görünür) */}
-        <WaveformLayer duration={duration} />
-
-        {/* Tampon belleği */}
+      <div className="overflow-hidden rounded-lg bg-muted/50 ring-1 ring-foreground/10">
         <div
-          className="absolute inset-y-0 left-0 bg-foreground/10"
-          style={{ width: `${pct(bufferedEnd)}%` }}
-        />
+          ref={trackRef}
+          onPointerDown={handleTrackPointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onPointerLeave={handlePointerLeave}
+          className={cn(
+            "relative mx-2 h-14 touch-none",
+            duration > 0 ? "cursor-crosshair" : "opacity-60",
+          )}
+        >
+          {/* Ses dalga formu (kaynak analiz edildikçe görünür) */}
+          <WaveformLayer duration={duration} />
 
-        {/* Seçili aralık — bütün olarak sürüklenebilir */}
-        {duration > 0 && (
+          {/* Tampon belleği */}
           <div
-            data-slot="timeline-range"
-            title={t("timeline.rangeTitle")}
-            onPointerDown={beginRangeDrag}
-            className="absolute inset-y-0 cursor-grab touch-none border-l-2 border-r-2 border-emerald-400 border-r-amber-400 bg-linear-to-r from-emerald-400/20 to-amber-400/20 active:cursor-grabbing"
-            style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
+            className="absolute inset-y-0 left-0 bg-foreground/10"
+            style={{ width: `${pct(bufferedEnd)}%` }}
           />
-        )}
 
-        {/* Çentikler ve etiketler */}
-        {ticks.map((tick) => (
-          <div
-            key={tick}
-            className="absolute top-0 bottom-0"
-            style={{ left: `${pct(tick)}%` }}
-          >
-            <div className="absolute top-1/2 bottom-0 w-px bg-foreground/15" />
-            {tick > 0 && tick < duration && (
-              <span className="absolute bottom-0.5 -translate-x-1/2 text-[10px] whitespace-nowrap text-muted-foreground">
-                {formatClock(tick)}
-              </span>
-            )}
-          </div>
-        ))}
-
-        {/* Oynatma imleci */}
-        {duration > 0 && (
-          <div
-            data-slot="timeline-playhead"
-            className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 bg-red-500"
-            style={{ left: `${pct(currentTime)}%` }}
-          >
-            <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
-          </div>
-        )}
-
-        {/* Giriş / Çıkış tutamaçları */}
-        {duration > 0 && (
-          <>
+          {/* Seçili aralık — bütün olarak sürüklenebilir */}
+          {duration > 0 && (
             <div
-              role="slider"
-              aria-label={t("timeline.inPoint")}
-              data-slot="timeline-start"
-              title={t("timeline.inPointDrag")}
-              onPointerDown={beginHandleDrag("start")}
-              className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
-              style={{ left: `${startPct}%` }}
-            >
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-emerald-400" />
-              <div className="absolute top-1/2 left-1/2 h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-emerald-400 bg-emerald-400" />
-            </div>
+              data-slot="timeline-range"
+              title={t("timeline.rangeTitle")}
+              onPointerDown={beginRangeDrag}
+              className="absolute inset-y-0 cursor-grab touch-none border-l-2 border-r-2 border-emerald-400 border-r-amber-400 bg-linear-to-r from-emerald-400/20 to-amber-400/20 active:cursor-grabbing"
+              style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
+            />
+          )}
+
+          {/* Çentikler ve etiketler */}
+          {ticks.map((tick) => (
             <div
-              role="slider"
-              aria-label={t("timeline.outPoint")}
-              data-slot="timeline-end"
-              title={t("timeline.outPointDrag")}
-              onPointerDown={beginHandleDrag("end")}
-              className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
-              style={{ left: `${endPct}%` }}
+              key={tick}
+              className="absolute top-0 bottom-0"
+              style={{ left: `${pct(tick)}%` }}
             >
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-amber-400" />
-              <div className="absolute top-1/2 left-1/2 h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-400 bg-amber-400" />
+              <div className="absolute top-1/2 bottom-0 w-px bg-foreground/15" />
+              {tick > 0 && tick < duration && (
+                <span className="absolute bottom-0.5 -translate-x-1/2 text-[10px] whitespace-nowrap text-muted-foreground">
+                  {formatClock(tick)}
+                </span>
+              )}
             </div>
-          </>
-        )}
+          ))}
+
+          {/* Oynatma imleci */}
+          {duration > 0 && (
+            <div
+              data-slot="timeline-playhead"
+              className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 bg-red-500"
+              style={{ left: `${pct(currentTime)}%` }}
+            >
+              <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
+            </div>
+          )}
+
+          {/* Giriş / Çıkış tutamaçları */}
+          {duration > 0 && (
+            <>
+              <div
+                role="slider"
+                aria-label={t("timeline.inPoint")}
+                data-slot="timeline-start"
+                title={t("timeline.inPointDrag")}
+                onPointerDown={beginHandleDrag("start")}
+                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
+                style={{ left: `${startPct}%` }}
+              >
+                <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-emerald-400" />
+                <div className="absolute top-1/2 left-1/2 h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-emerald-400 bg-emerald-400" />
+              </div>
+              <div
+                role="slider"
+                aria-label={t("timeline.outPoint")}
+                data-slot="timeline-end"
+                title={t("timeline.outPointDrag")}
+                onPointerDown={beginHandleDrag("end")}
+                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize"
+                style={{ left: `${endPct}%` }}
+              >
+                <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-amber-400" />
+                <div className="absolute top-1/2 left-1/2 h-6 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-amber-400 bg-amber-400" />
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Kare önizleme balonu — çizelgenin üstünde görünür */}
@@ -296,7 +300,7 @@ export function Timeline() {
         <div
           data-slot="timeline-preview"
           className="pointer-events-none absolute bottom-[calc(100%+6px)] z-40 -translate-x-1/2"
-          style={{ left: `${hover.left}px` }}
+          style={{ left: `${hover.left + TRACK_PADDING}px` }}
         >
           <div className="overflow-hidden rounded-md border border-border/70 bg-black shadow-xl">
             <div className="relative" style={{ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}>
