@@ -38,6 +38,8 @@ export function useJob(jobId: string | null) {
       const status = query.state.data?.status
       return status === "pending" || status === "running" ? 600 : false
     },
+    // Başka sekmedeyken de yüzde güncellenmeye devam etsin.
+    refetchIntervalInBackground: true,
   })
 }
 

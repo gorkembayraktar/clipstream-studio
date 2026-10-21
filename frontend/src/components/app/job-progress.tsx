@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useCancelJob, useJob } from "@/hooks/use-export-job"
+import { useExportTitle } from "@/hooks/use-export-title"
 import { libraryKeys, useRevealInExplorer } from "@/hooks/use-library"
 import { translate, useI18n } from "@/i18n"
 import { formatTime, formatMegabytes, formatRemaining } from "@/lib/format"
@@ -33,6 +34,8 @@ export function JobProgress({ jobId }: { jobId: string }) {
   const reveal = useRevealInExplorer()
   const removeActiveJobId = useStudioStore((s) => s.removeActiveJobId)
   const queryClient = useQueryClient()
+
+  useExportTitle(jobId, job?.status, job?.progress)
 
   // Durum geçişlerinde tek seferlik bildirim + galeri tazeleme
   useEffect(() => {
