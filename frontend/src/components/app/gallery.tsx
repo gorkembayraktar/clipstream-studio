@@ -3,6 +3,7 @@ import { useState } from "react"
 
 import {
   DownloadIcon,
+  EllipsisVerticalIcon,
   FilmIcon,
   FolderOpenIcon,
   ImageIcon,
@@ -22,9 +23,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -126,6 +133,8 @@ interface GalleryItemProps {
 
 function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryItemProps) {
   const { t } = useI18n()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
   return (
     <li className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5">
       <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
@@ -141,43 +150,58 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
         <Button variant="ghost" size="icon-xs" onClick={onPreview} title={t("gallery.preview")}>
           <PlayIcon />
         </Button>
-        <Button variant="ghost" size="icon-xs" asChild title={t("gallery.download")}>
-          <a href={file.url} download>
-            <DownloadIcon />
-          </a>
-        </Button>
-        <Button variant="ghost" size="icon-xs" onClick={onReveal} title={t("gallery.reveal")}>
-          <FolderOpenIcon />
-        </Button>
 
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon-xs"
-              className="text-destructive hover:text-destructive"
-              title={t("gallery.delete")}
+              title={t("gallery.actions")}
+              aria-label={t("gallery.actions")}
+            >
+              <EllipsisVerticalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem asChild>
+              <a href={file.url} download>
+                <DownloadIcon />
+                {t("gallery.download")}
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onReveal}>
+              <FolderOpenIcon />
+              {t("gallery.reveal")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
               disabled={deleting}
+              onSelect={() => setDeleteOpen(true)}
             >
               <Trash2Icon />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("gallery.deleteTitle")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("gallery.deleteDescription", { name: file.name })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("gallery.deleteCancel")}</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={onDelete}>
-                {t("gallery.delete")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              {t("gallery.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("gallery.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("gallery.deleteDescription", { name: file.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("gallery.deleteCancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={onDelete}>
+              {t("gallery.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
   )
 }

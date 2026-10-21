@@ -128,6 +128,7 @@ export const en = {
   "gallery.openFolder": "Open folder",
   "gallery.empty": "No clips yet. Create your first clip from the Export tab.",
   "gallery.preview": "Play",
+  "gallery.actions": "Actions",
   "gallery.download": "Download",
   "gallery.reveal": "Show in folder",
   "gallery.delete": "Delete",

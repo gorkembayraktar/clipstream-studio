@@ -125,6 +125,7 @@ export const tr: Record<TranslationKey, string> = {
   "gallery.openFolder": "Klasörü aç",
   "gallery.empty": "Henüz klip yok. Dışa Aktar sekmesinden ilk klibini oluştur.",
   "gallery.preview": "Oynat",
+  "gallery.actions": "İşlemler",
   "gallery.download": "İndir",
   "gallery.reveal": "Klasörde göster",
   "gallery.delete": "Sil",
