@@ -57,7 +57,24 @@ export function Gallery() {
   const deleteFile = useDeleteLibraryFile()
   const reveal = useRevealInExplorer()
   const [previewFile, setPreviewFile] = useState<ExportFile | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const files = data?.files ?? []
+  const isRefreshing = refreshing || isFetching
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    const started = performance.now()
+    try {
+      await refetch()
+    } finally {
+      // Kısa süren yenilemelerde animasyon anında kaybolmasın.
+      const remaining = 500 - (performance.now() - started)
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining))
+      }
+      setRefreshing(false)
+    }
+  }
 
   // Galeri önizlemesi açılırken ana oynatıcıyı durdur: iki sesin üst üste
   // çalmasını engeller. Kullanıcı modalı kapattığında oynatmayı kendisi sürdürür.
@@ -73,8 +90,15 @@ export function Gallery() {
           {t("gallery.count", { count: files.length })}
         </p>
         <div className="flex items-center gap-0.5">
-          <Button variant="ghost" size="icon-xs" onClick={() => void refetch()} title={t("gallery.refresh")}>
-            <RefreshCwIcon className={isFetching ? "animate-spin" : undefined} />
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => void handleRefresh()}
+            title={t("gallery.refresh")}
+            aria-busy={isRefreshing}
+            disabled={isRefreshing}
+          >
+            <RefreshCwIcon className={isRefreshing ? "animate-spin" : undefined} />
           </Button>
           <Button
             variant="ghost"
