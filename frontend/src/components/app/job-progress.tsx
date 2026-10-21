@@ -78,6 +78,12 @@ export function JobProgress({ jobId }: { jobId: string }) {
         </span>
         <span>·</span>
         <span>{job?.mode === "fast" ? t("export.modeFast") : t("export.modeExact")}</span>
+        {job?.gpu_encoder && (
+          <>
+            <span>·</span>
+            <span className="font-medium text-emerald-500">{t("job.gpuShort")}</span>
+          </>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -101,6 +107,15 @@ export function JobProgress({ jobId }: { jobId: string }) {
     )
   }
 
+  const gpuFallbackNote = job.gpu_fallback ? (
+    <p
+      className="text-[11px] leading-snug text-amber-500"
+      title={job.gpu_fallback_detail ?? undefined}
+    >
+      {job.gpu_fallback_reason ?? t("job.gpuFallback")}
+    </p>
+  ) : null
+
   if (job.status === "pending" || job.status === "running") {
     const progress = Math.max(0, Math.min(100, job.progress ?? 0))
     return (
@@ -114,6 +129,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
           <span className="font-mono tabular-nums">{Math.round(progress)}%</span>
         </div>
         <Progress value={progress} />
+        {gpuFallbackNote}
         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
           <span className="truncate font-mono tabular-nums">
             {job.output_filename ?? ""}
@@ -154,6 +170,12 @@ export function JobProgress({ jobId }: { jobId: string }) {
         <p className="text-[11px] text-muted-foreground">
           {formatMegabytes(job.size_mb ?? 0)} · {t("job.elapsed", { seconds: job.elapsed_sec ?? 0 })}
         </p>
+        {job.gpu_encoder && !job.gpu_fallback && (
+          <p className="text-[11px] text-muted-foreground">
+            {t("job.gpuUsed", { encoder: job.gpu_label ?? job.gpu_encoder })}
+          </p>
+        )}
+        {gpuFallbackNote}
         <div className="flex flex-wrap gap-1.5">
           <Button size="xs" asChild>
             <a
@@ -188,6 +210,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
         <pre className="max-h-28 overflow-auto text-[10px] whitespace-pre-wrap break-all text-muted-foreground">
           {job.error}
         </pre>
+        {gpuFallbackNote}
       </div>
     )
   }

@@ -38,6 +38,47 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Proxy request failed: {detail}",
         "Proxy isteği başarısız: {detail}",
     ),
+    # ------------------------------------------------------------ GPU render
+    "error.gpuEncoderInvalid": (
+        "Unsupported GPU encoder: {encoder}",
+        "Desteklenmeyen GPU kodlayıcı: {encoder}",
+    ),
+    "gpu.reason.ffmpegMissing": (
+        "FFmpeg was not found, so GPU support could not be detected.",
+        "FFmpeg bulunamadığı için GPU desteği algılanamadı.",
+    ),
+    "gpu.reason.listFailed": (
+        "GPU support could not be queried from FFmpeg.",
+        "GPU desteği FFmpeg'den sorgulanamadı.",
+    ),
+    "gpu.reason.listTimeout": (
+        "GPU support query timed out.",
+        "GPU desteği sorgusu zaman aşımına uğradı.",
+    ),
+    "gpu.reason.buildMissing": (
+        "This FFmpeg build has no NVIDIA NVENC, Intel Quick Sync, or AMD AMF H.264 encoder.",
+        "Bu FFmpeg derlemesinde NVIDIA NVENC, Intel Quick Sync veya AMD AMF H.264 kodlayıcısı yok.",
+    ),
+    "gpu.reason.probeFailed": (
+        "A GPU encoder is present, but the graphics driver or device could not initialize it.",
+        "GPU kodlayıcı mevcut ancak ekran kartı sürücüsü veya aygıtı başlatamadı.",
+    ),
+    "gpu.reason.probeTimeout": (
+        "GPU encoder probe timed out. Update the graphics driver and try again.",
+        "GPU kodlayıcı testi zaman aşımına uğradı. Ekran kartı sürücüsünü güncelleyip tekrar deneyin.",
+    ),
+    "gpu.fallback.ineligible": (
+        "GPU rendering is available only for MP4 output with exact cutting or crop.",
+        "GPU ile render yalnızca hassas kesimli veya kırpmalı MP4 çıktısında kullanılabilir.",
+    ),
+    "gpu.fallback.unavailable": (
+        "GPU rendering is unavailable: {reason}",
+        "GPU ile render kullanılamıyor: {reason}",
+    ),
+    "gpu.fallback.failed": (
+        "GPU encoding failed; the clip was rendered on the CPU instead.",
+        "GPU ile kodlama başarısız oldu; klip bunun yerine CPU ile oluşturuldu.",
+    ),
     # ------------------------------------------------------- yerel dosyalar
     "error.fileNameRequired": ("File name was not provided.", "Dosya adı belirtilmedi."),
     "error.unsupportedFileType": (

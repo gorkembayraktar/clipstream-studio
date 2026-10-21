@@ -110,7 +110,25 @@ export interface CropPayload extends CropRect {
 export type AspectPreset = "free" | "16:9" | "9:16" | "1:1" | "4:5"
 export type CutMode = "fast" | "exact"
 export type OutputFormat = "mp4" | "gif" | "mp3"
+export type EncoderChoice = "cpu" | "gpu"
 export type JobStatus = "pending" | "running" | "done" | "error" | "cancelled"
+
+/** `GET /api/export/capabilities` — gerçek GPU kodlayıcı probe sonucu. */
+export interface GpuCapability {
+  available: boolean
+  /** Çalışan FFmpeg kodlayıcısı: h264_nvenc | h264_qsv | h264_amf. */
+  encoder: string | null
+  label: string | null
+  /** Kullanılamıyorsa seçili dilde neden. */
+  reason: string | null
+  /** Sürücü/FFmpeg ayrıntısı (teknik, isteğe bağlı). */
+  detail: string | null
+}
+
+export interface ExportCapabilities {
+  success: boolean
+  gpu: GpuCapability
+}
 
 export interface ExportRequest {
   url: string
@@ -120,6 +138,8 @@ export interface ExportRequest {
   output_format: OutputFormat
   crop: CropPayload | null
   filename: string
+  /** Render tercihi; GPU yalnızca uygun MP4 + hassas/kırpmalı işlerde kullanılır. */
+  encoder?: EncoderChoice
   /** Video akışı sessizse sesin alınacağı ayrı akış. */
   audio_url?: string | null
   /** curl ile yapıştırılan HTTP başlıkları (cookie/referer…). */
@@ -139,6 +159,15 @@ export interface ExportJob {
   /** Çıktı biçimi ve kesim modu (kart başlığında gösterilir). */
   output_format?: string
   mode?: string
+  /** İstenen ve gerçekleşen render yolu. */
+  encoder_requested?: EncoderChoice
+  encoder_used?: EncoderChoice
+  gpu_encoder?: string | null
+  gpu_label?: string | null
+  /** GPU kullanılamadı/başarısız oldu ve CPU'ya dönüldü. */
+  gpu_fallback?: boolean
+  gpu_fallback_reason?: string | null
+  gpu_fallback_detail?: string | null
   size_mb?: number
   elapsed_sec?: number
   speed?: string

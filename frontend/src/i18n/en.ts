@@ -104,6 +104,16 @@ export const en = {
   "export.modeFast": "fast",
   "export.modeExact": "exact",
 
+  "gpu.title": "GPU rendering",
+  "gpu.checking": "Checking GPU support…",
+  "gpu.detectFailed": "Could not query GPU support; CPU rendering will be used.",
+  "gpu.unavailable": "No usable GPU encoder was found.",
+  "gpu.mp4Only": "GPU rendering is available only for MP4 output.",
+  "gpu.fastDisabled":
+    "Fast copy does not re-encode. Use Exact or crop to enable GPU rendering.",
+  "gpu.ready":
+    "{encoder} ready. GPU rendering is faster, but quality and file size may differ from CPU.",
+
   "gallery.count": "Clips: {count} · exports/",
   "gallery.refresh": "Refresh",
   "gallery.openFolder": "Open folder",
@@ -140,6 +150,9 @@ export const en = {
   "job.elapsed": "{seconds}s",
   "job.doneLog": "Clip created: {name} ({size}, duration: {seconds}s)",
   "job.failedLog": "Export failed",
+  "job.gpuShort": "GPU",
+  "job.gpuUsed": "Rendered with {encoder}.",
+  "job.gpuFallback": "GPU could not be used; the clip was rendered on the CPU instead.",
 
   "trim.in": "In",
   "trim.out": "Out",
@@ -382,6 +395,7 @@ export const en = {
     "Export requested: {name} · {mode} · {format} · {start} → {end}",
   "log.exportRequestedCrop": "crop {width}×{height} @ {x},{y}",
   "log.exportRequestedAudio": "audio will be merged from a separate stream",
+  "log.exportGpu": "GPU rendering enabled: {encoder}.",
   "log.autoName": "automatic name",
   "log.sourceResolving": "Resolving source: {url}",
   "log.curlHeadersDirectOnly":

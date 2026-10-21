@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useStartExport } from "@/hooks/use-export-job"
+import { useGpuCapability } from "@/hooks/use-gpu-capability"
 import { useI18n, type TranslationKey } from "@/i18n"
 import { compactDuration, formatTime } from "@/lib/format"
 import type { CropPayload, CutMode, OutputFormat } from "@/lib/types"
@@ -38,14 +39,31 @@ export function ExportPanel() {
   const cutMode = useStudioStore((s) => s.cutMode)
   const outputFormat = useStudioStore((s) => s.outputFormat)
   const filename = useStudioStore((s) => s.filename)
+  const gpuEnabled = useStudioStore((s) => s.gpuEnabled)
   const activeJobIds = useStudioStore((s) => s.activeJobIds)
   const headers = useStudioStore((s) => s.headers)
   const setCropEnabled = useStudioStore((s) => s.setCropEnabled)
   const setCutMode = useStudioStore((s) => s.setCutMode)
   const setOutputFormat = useStudioStore((s) => s.setOutputFormat)
   const setFilename = useStudioStore((s) => s.setFilename)
+  const setGpuEnabled = useStudioStore((s) => s.setGpuEnabled)
 
   const startExport = useStartExport()
+  const gpuCapability = useGpuCapability()
+  const gpu = gpuCapability.data?.gpu
+  const cropActive = Boolean(crop.enabled && crop.rect)
+  const gpuEligible = outputFormat === "mp4" && (cropActive || cutMode !== "fast")
+  const gpuReady = gpuEligible && Boolean(gpu?.available)
+  const useGpu = gpuEnabled && gpuReady
+
+  const gpuHint = (() => {
+    if (gpuCapability.isPending) return t("gpu.checking")
+    if (gpuCapability.isError || !gpu) return t("gpu.detectFailed")
+    if (!gpu.available) return gpu.reason ?? t("gpu.unavailable")
+    if (outputFormat !== "mp4") return t("gpu.mp4Only")
+    if (cutMode === "fast" && !cropActive) return t("gpu.fastDisabled")
+    return t("gpu.ready", { encoder: gpu.label ?? "GPU" })
+  })()
 
   const clipDuration = trim.end - trim.start
   const invalidRange = !streamUrl || clipDuration <= 0.05
@@ -74,9 +92,26 @@ export function ExportPanel() {
       output_format: outputFormat,
       crop: cropPayload,
       filename,
+      encoder: useGpu ? "gpu" : "cpu",
       audio_url: separateAudio,
       headers: headers ?? undefined,
     })
+
+    const details = [
+      cropPayload
+        ? t("log.exportRequestedCrop", {
+            width: cropPayload.width,
+            height: cropPayload.height,
+            x: cropPayload.x,
+            y: cropPayload.y,
+          })
+        : separateAudio
+          ? t("log.exportRequestedAudio")
+          : null,
+      useGpu ? t("log.exportGpu", { encoder: gpu?.label ?? "GPU" }) : null,
+    ]
+      .filter(Boolean)
+      .join(" · ")
 
     log(
       "info",
@@ -87,16 +122,7 @@ export function ExportPanel() {
         start: formatTime(trim.start, true),
         end: formatTime(trim.end, true),
       }),
-      cropPayload
-        ? t("log.exportRequestedCrop", {
-            width: cropPayload.width,
-            height: cropPayload.height,
-            x: cropPayload.x,
-            y: cropPayload.y,
-          })
-        : separateAudio
-          ? t("log.exportRequestedAudio")
-          : undefined,
+      details || undefined,
     )
   }
 
@@ -145,6 +171,27 @@ export function ExportPanel() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex items-start justify-between gap-3 rounded-lg bg-muted/40 px-2.5 py-2">
+        <div className="min-w-0">
+          <Label htmlFor="gpu-render" className="text-xs">
+            {t("gpu.title")}
+          </Label>
+          <p
+            className="mt-0.5 text-[10px] leading-snug text-muted-foreground"
+            title={gpu?.detail ?? undefined}
+          >
+            {gpuHint}
+          </p>
+        </div>
+        <Switch
+          id="gpu-render"
+          checked={useGpu}
+          onCheckedChange={setGpuEnabled}
+          disabled={!gpuReady || gpuCapability.isPending}
+          className="mt-0.5 shrink-0"
+        />
       </div>
 
       <div className="space-y-2">

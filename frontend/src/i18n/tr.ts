@@ -101,6 +101,16 @@ export const tr: Record<TranslationKey, string> = {
   "export.modeFast": "hızlı",
   "export.modeExact": "hassas",
 
+  "gpu.title": "GPU ile render",
+  "gpu.checking": "GPU desteği kontrol ediliyor…",
+  "gpu.detectFailed": "GPU desteği sorgulanamadı; CPU ile render kullanılacak.",
+  "gpu.unavailable": "Kullanılabilir GPU kodlayıcı bulunamadı.",
+  "gpu.mp4Only": "GPU ile render yalnızca MP4 çıktısında kullanılabilir.",
+  "gpu.fastDisabled":
+    "Hızlı kopyalama yeniden kodlama yapmaz. GPU ile render için Hassas kesim veya kırpma kullan.",
+  "gpu.ready":
+    "{encoder} hazır. GPU ile render daha hızlıdır; kalite ve dosya boyutu CPU'dan farklı olabilir.",
+
   "gallery.count": "{count} klip · exports/",
   "gallery.refresh": "Yenile",
   "gallery.openFolder": "Klasörü aç",
@@ -137,6 +147,9 @@ export const tr: Record<TranslationKey, string> = {
   "job.elapsed": "{seconds} sn",
   "job.doneLog": "Klip oluşturuldu: {name} ({size}, süre: {seconds} sn)",
   "job.failedLog": "Dışa aktarma başarısız",
+  "job.gpuShort": "GPU",
+  "job.gpuUsed": "{encoder} ile oluşturuldu.",
+  "job.gpuFallback": "GPU kullanılamadı; klip bunun yerine CPU ile oluşturuldu.",
 
   "trim.in": "Giriş",
   "trim.out": "Çıkış",
@@ -378,6 +391,7 @@ export const tr: Record<TranslationKey, string> = {
     "Dışa aktarım isteniyor: {name} · {mode} · {format} · {start} → {end}",
   "log.exportRequestedCrop": "kırpma {width}×{height} @ {x},{y}",
   "log.exportRequestedAudio": "ses ayrı akıştan birleştirilecek",
+  "log.exportGpu": "GPU ile render açık: {encoder}.",
   "log.autoName": "otomatik ad",
   "log.sourceResolving": "Kaynak çözümleniyor: {url}",
   "log.curlHeadersDirectOnly":

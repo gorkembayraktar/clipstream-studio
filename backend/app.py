@@ -26,6 +26,7 @@ from starlette.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from api import capabilities as capabilities_api
 from api import frames as frames_api
 from api import jobs as jobs_api
 from api import library as library_api
@@ -107,6 +108,7 @@ def create_app() -> Starlette:
     routes = [
         *media_api.routes,
         *local_api.routes,
+        *capabilities_api.routes,
         *jobs_api.routes,
         *library_api.routes,
         *waveform_api.routes,

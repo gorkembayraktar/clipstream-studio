@@ -9,6 +9,11 @@ from config import EXPORTS_DIR, OUTPUT_FORMATS, USER_AGENT
 from core.i18n import set_language, t
 from core.jobs import CANCELLED, DONE, ERROR, RUNNING
 from core.timecode import parse_time_to_seconds, seconds_to_hms
+from services.gpu import (
+    detect_gpu_capability,
+    get_gpu_encoder,
+    gpu_encoder_arguments,
+)
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args
 
@@ -75,8 +80,24 @@ def _normalized_crop(crop: Any) -> Optional[dict[str, int]]:
     return {"x": x, "y": y, "width": width, "height": height}
 
 
-def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str]:
-    """Payload'dan ffmpeg komutunu üretir (saf fonksiyon, test edilebilir)."""
+def is_gpu_render_eligible(
+    output_format: str, mode: str, crop: Optional[dict[str, int]]
+) -> bool:
+    """GPU yalnızca yeniden kodlama gereken MP4 çıktılarında kullanılabilir."""
+    return output_format == "mp4" and (crop is not None or mode != "fast")
+
+
+def build_ffmpeg_command(
+    payload: dict[str, Any],
+    output_path: Path,
+    *,
+    gpu_encoder: Optional[str] = None,
+) -> list[str]:
+    """Payload'dan ffmpeg komutunu üretir (saf fonksiyon, test edilebilir).
+
+    `gpu_encoder` yalnızca çağıran taraf yeteneği doğruladıktan sonra verilir;
+    hızlı kopyalama, GIF ve MP3 çıktılarında yok sayılır.
+    """
     url = str(payload.get("url", "")).strip()
     if not url:
         raise ExportError(t("error.sourceEmpty"))
@@ -100,6 +121,9 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
     output_format = str(payload.get("output_format", "mp4")).lower()
     mode = str(payload.get("mode", "exact")).lower()
     crop = _normalized_crop(payload.get("crop"))
+    use_gpu = is_gpu_render_eligible(output_format, mode, crop) and bool(gpu_encoder)
+    if use_gpu and get_gpu_encoder(gpu_encoder or "") is None:
+        raise ExportError(t("error.gpuEncoderInvalid", encoder=gpu_encoder))
 
     # MP3'te ses tek başına yeterli: kaynak sessizse doğrudan ses akışı kullanılır.
     if output_format == "mp3" and audio_url:
@@ -149,10 +173,15 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
         # Hassas kesim (gerekirse crop ile birlikte) — kare hassasiyetinde yeniden kodlama
         if crop:
             command += ["-vf", f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}"]
+        if use_gpu:
+            command += gpu_encoder_arguments(gpu_encoder or "")
+        else:
+            command += [
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "21" if crop else "20",
+            ]
         command += [
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "21" if crop else "20",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-b:a", "192k",
@@ -170,6 +199,70 @@ def build_ffmpeg_command(payload: dict[str, Any], output_path: Path) -> list[str
 
 
 # ------------------------------------------------------------------ işçi
+async def select_gpu_encoder(
+    payload: dict[str, Any],
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """İstenen GPU kodlayıcıyı doğrular.
+
+    Dönüş: `(kodlayıcı, CPU'ya dönüş nedeni, ayrıntı, kodlayıcı etiketi)`.
+    GPU istenmemişse tüm alanlar `None` döner.
+    """
+    if str(payload.get("encoder", "cpu")).strip().lower() != "gpu":
+        return None, None, None, None
+
+    output_format = str(payload.get("output_format", "mp4")).lower()
+    mode = str(payload.get("mode", "exact")).lower()
+    crop = _normalized_crop(payload.get("crop"))
+    if not is_gpu_render_eligible(output_format, mode, crop):
+        return None, t("gpu.fallback.ineligible"), None, None
+
+    capability = await detect_gpu_capability()
+    if capability.encoder is None:
+        reason = t(capability.reason_key or "gpu.reason.probeFailed")
+        return (
+            None,
+            t("gpu.fallback.unavailable", reason=reason),
+            capability.detail,
+            None,
+        )
+
+    return capability.encoder.name, None, None, capability.encoder.label
+
+
+def _remove_partial_output(output_path: Path) -> None:
+    """Başarısız denemeden kalan yarım dosyayı temizler."""
+    try:
+        output_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _mark_done(job: dict[str, Any], output_path: Path) -> None:
+    job["status"] = DONE
+    job["progress"] = 100.0
+    job["size_mb"] = round(output_path.stat().st_size / (1024 * 1024), 2)
+    job["elapsed_sec"] = round(time.time() - job["started_at"], 1)
+
+
+async def _run_ffmpeg(
+    command: list[str], job: dict[str, Any], clip_duration: float
+) -> tuple[int, str]:
+    """FFmpeg'i çalıştırır; ilerlemeyi günceller ve stderr kuyruğunu döndürür."""
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    job["process"] = process
+
+    await asyncio.gather(_read_progress(process, job, clip_duration), process.wait())
+
+    stderr_tail = ""
+    if process.stderr is not None:
+        stderr_tail = (await process.stderr.read()).decode("utf-8", errors="ignore").strip()
+    return process.returncode, stderr_tail
+
+
 async def run_export_job(job: dict[str, Any], manager) -> None:
     """İşi arka planda yürütür; durumu job sözlüğü üzerinden raporlar."""
     set_language(job.get("lang"))
@@ -196,31 +289,66 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
         job["clip_end"] = round(end, 3)
         job["output_format"] = str(payload.get("output_format", "mp4")).lower()
         job["mode"] = str(payload.get("mode", "exact")).lower()
-
-        command = build_ffmpeg_command(payload, output_path)
-        job["command"] = " ".join(command)
-
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        job["encoder_requested"] = (
+            "gpu" if str(payload.get("encoder", "cpu")).strip().lower() == "gpu" else "cpu"
         )
-        job["process"] = process
 
-        await asyncio.gather(_read_progress(process, job, end - start), process.wait())
-
+        gpu_encoder, fallback_reason, fallback_detail, gpu_label = await select_gpu_encoder(
+            payload
+        )
         if job["status"] == CANCELLED:
             return
 
-        if process.returncode == 0 and output_path.exists():
-            job["status"] = DONE
-            job["progress"] = 100.0
-            job["size_mb"] = round(output_path.stat().st_size / (1024 * 1024), 2)
-            job["elapsed_sec"] = round(time.time() - job["started_at"], 1)
-        else:
-            stderr_tail = (await process.stderr.read()).decode("utf-8", errors="ignore").strip()
-            job["status"] = ERROR
-            job["error"] = stderr_tail[-600:] if stderr_tail else t("error.ffmpegExportFailed")
+        job["encoder_used"] = "gpu" if gpu_encoder else "cpu"
+        job["gpu_encoder"] = gpu_encoder
+        job["gpu_label"] = gpu_label
+        if fallback_reason:
+            job["gpu_fallback"] = True
+            job["gpu_fallback_reason"] = fallback_reason
+            if fallback_detail:
+                job["gpu_fallback_detail"] = fallback_detail[-600:]
+
+        command = build_ffmpeg_command(payload, output_path, gpu_encoder=gpu_encoder)
+        job["command"] = " ".join(command)
+
+        returncode, stderr_tail = await _run_ffmpeg(command, job, end - start)
+        if job["status"] == CANCELLED:
+            return
+
+        if returncode == 0 and output_path.exists():
+            _mark_done(job, output_path)
+            return
+
+        # GPU kodlayıcı sürücü/oturum hatası verirse aynı işi CPU ile yeniden dene.
+        # Yarım dosya silinir; iş kartında CPU'ya dönüş nedeni gösterilir.
+        if gpu_encoder:
+            _remove_partial_output(output_path)
+            if job["status"] == CANCELLED:
+                return
+
+            job["gpu_fallback"] = True
+            job["gpu_fallback_reason"] = t("gpu.fallback.failed")
+            if stderr_tail:
+                job["gpu_fallback_detail"] = stderr_tail[-600:]
+            job["encoder_used"] = "cpu"
+            job["gpu_encoder"] = None
+            job["gpu_label"] = None
+            job["progress"] = 0.0
+            job["current_sec"] = 0.0
+            job["speed"] = None
+
+            cpu_command = build_ffmpeg_command(payload, output_path)
+            job["command"] = " ".join(cpu_command)
+            returncode, stderr_tail = await _run_ffmpeg(cpu_command, job, end - start)
+            if job["status"] == CANCELLED:
+                return
+            if returncode == 0 and output_path.exists():
+                _mark_done(job, output_path)
+                return
+
+        _remove_partial_output(output_path)
+        job["status"] = ERROR
+        job["error"] = stderr_tail[-600:] if stderr_tail else t("error.ffmpegExportFailed")
 
     except ExportError as exc:
         job["status"] = ERROR

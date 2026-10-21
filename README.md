@@ -33,6 +33,7 @@
 - **Kesme:** Zaman çizelgesinden giriş/çıkış; noktalar birbirini geçerse otomatik yer değiştirir.
 - **Kırpma:** Video üzerinde sürükle-boyutlandır; 16:9, 9:16, 1:1, 4:5 ve serbest oranlar.
 - **Dışa aktarma:** MP4 (hızlı/hassas), GIF ve MP3; canlı ilerleme ve iptal.
+- **GPU render:** Uyumlu NVIDIA/Intel/AMD H.264 kodlayıcılarında isteğe bağlı GPU dışa aktarma; GPU yoksa veya hata verirse CPU'ya otomatik dönüş.
 - **Galeri:** Klipleri modalda oynat, indir, klasörde göster veya sil.
 - **Yerel dosyalar:** Gözat veya sürükle-bırak. Açık proje varken bırakılan video yeni sekmede açılır.
 - **Korumalı bağlantılar:** `curl` komutunu yapıştırarak referer/cookie başlıkları ekle.
@@ -67,10 +68,18 @@ Kapatmak için `durdur.bat` dosyasını çalıştır.
 1. **Kaynak:** Bağlantıyı yapıştır veya videoyu pencereye sürükle.
 2. **Kes:** Zaman çizelgesinde giriş/çıkış noktalarını ayarla.
 3. **Kırp (isteğe bağlı):** Kırpma anahtarını açıp videoda alan seç.
-4. **Dışa Aktar:** Formatı ve kesim modunu seç, işi başlat.
+4. **Dışa Aktar:** Formatı ve kesim modunu seç; uyumlu MP4 dışa aktarmalarında **GPU ile render** anahtarını açabilirsin.
 5. **Galeri:** Oluşan klibi ▶ düğmesiyle modalda izle.
 
 Klipler `exports/` klasörüne kaydedilir. Sürükle-bırak ile eklenen geçici dosyalar `cache/uploads/` altında tutulur ve 7 gün sonra temizlenir.
+
+### GPU ile render
+
+- Yalnızca **MP4** ve **hassas kesim** veya **kırpma** dışa aktarmalarında kullanılabilir; hızlı kopyalama yeniden kodlama yapmadığı için GPU'yu kullanamaz.
+- FFmpeg derlemesinde `h264_nvenc` (NVIDIA), `h264_qsv` (Intel) veya `h264_amf` (AMD) bulunmalı; sürücü ve donanım çalışır olmalı.
+- Uygulama kısa bir test kodlamasıyla gerçek yeteneği doğrular. Kodlayıcı yoksa anahtar kapalıdır ve nedeni panelde gösterilir.
+- GPU sürücü/oturum hatası verirse iş otomatik olarak CPU ile yeniden denenir; sonuç kartında bilgi görünür.
+- GPU çıktısı CPU ile birebir aynı değildir; kalite ve dosya boyutu farklı olabilir.
 
 ## Sorun Giderme
 
@@ -93,6 +102,12 @@ Arayüzü elle derlemek için:
 ```bat
 cd frontend
 npm run build
+```
+
+Backend komut ve GPU seçim testleri:
+
+```bat
+python -m unittest discover -s backend/tests -v
 ```
 
 ---

@@ -1,6 +1,7 @@
 /** Backend'e erişen tipli HTTP istemcisi. */
 import { getLocale, translate } from "@/i18n"
 import type {
+  ExportCapabilities,
   ExportFile,
   ExportJob,
   ExportRequest,
@@ -203,6 +204,7 @@ export const api = {
 
   createExportJob: (payload: ExportRequest) =>
     post<{ success: boolean; job_id: string }>("/api/jobs", payload),
+  getExportCapabilities: () => request<ExportCapabilities>("/api/export/capabilities"),
   getJob: (jobId: string) => request<ExportJob>(`/api/jobs/${jobId}`),
   cancelJob: (jobId: string) =>
     post<{ success: boolean; message?: string }>(`/api/jobs/${jobId}/cancel`),
