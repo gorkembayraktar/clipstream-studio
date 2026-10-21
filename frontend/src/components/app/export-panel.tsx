@@ -1,18 +1,10 @@
-/** Dışa aktarma sekmesi: kesim modu, format, kırpma durumu ve iş başlatma. */
+/** Dışa aktarma sekmesi: seçili aralık, çıktı ayarları, seçenekler ve işler. */
 import { DownloadIcon, Loader2Icon } from "lucide-react"
 
 import { JobProgress } from "@/components/app/job-progress"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useStartExport } from "@/hooks/use-export-job"
@@ -27,6 +19,59 @@ const FORMAT_KEYS: Record<OutputFormat, TranslationKey> = {
   mp4: "export.format.mp4",
   gif: "export.format.gif",
   mp3: "export.format.mp3",
+}
+
+const FORMAT_LABELS: Record<OutputFormat, string> = {
+  mp4: "MP4",
+  gif: "GIF",
+  mp3: "MP3",
+}
+
+interface ToggleRowProps {
+  id: string
+  title: string
+  description: string
+  detail?: string
+  checked: boolean
+  disabled?: boolean
+  onCheckedChange: (checked: boolean) => void
+}
+
+function ToggleRow({
+  id,
+  title,
+  description,
+  detail,
+  checked,
+  disabled,
+  onCheckedChange,
+}: ToggleRowProps) {
+  const descriptionId = `${id}-description`
+
+  return (
+    <div className="flex items-start justify-between gap-3 px-3 py-2.5">
+      <div className="min-w-0">
+        <Label htmlFor={id} className="text-xs font-medium">
+          {title}
+        </Label>
+        <p
+          id={descriptionId}
+          className="mt-0.5 text-[10px] leading-snug text-muted-foreground"
+          title={detail}
+        >
+          {description}
+        </p>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={disabled}
+        aria-describedby={descriptionId}
+        className="mt-0.5 shrink-0"
+      />
+    </div>
+  )
 }
 
 export function ExportPanel() {
@@ -67,6 +112,17 @@ export function ExportPanel() {
 
   const clipDuration = trim.end - trim.start
   const invalidRange = !streamUrl || clipDuration <= 0.05
+  const modeLabel = cutMode === "fast" ? t("export.fast") : t("export.exact")
+  const summaryMeta = [
+    modeLabel,
+    meta && meta.width > 0 ? `${meta.width}×${meta.height}` : null,
+    cropActive && crop.rect
+      ? `${t("export.crop")} ${crop.rect.width}×${crop.rect.height}`
+      : null,
+    useGpu ? "GPU" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
 
   const handleExport = () => {
     if (!streamUrl || invalidRange) return
@@ -127,128 +183,127 @@ export function ExportPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">{t("export.selectRange")}</p>
+    <div className="space-y-3">
+      <section className="rounded-xl border border-border/70 bg-muted/20 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[10px] font-medium text-muted-foreground">
+              {t("export.selection")}
+            </h3>
+            <p className="mt-1 truncate font-mono text-[13px] tabular-nums">
+              {formatTime(trim.start, true)}
+              <span className="mx-1.5 text-muted-foreground">→</span>
+              {formatTime(trim.end, true)}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-md bg-background px-2 py-1 font-mono text-[11px] tabular-nums text-muted-foreground ring-1 ring-border/60">
+            {compactDuration(Math.max(0, clipDuration))}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 font-semibold tracking-wide text-primary">
+            {FORMAT_LABELS[outputFormat]}
+          </span>
+          {summaryMeta && <span className="tabular-nums">{summaryMeta}</span>}
+        </div>
+      </section>
 
-      <div className="space-y-2">
-        <Label className="text-xs">{t("export.cutMode")}</Label>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={cutMode}
-          onValueChange={(value) => {
-            if (value) setCutMode(value as CutMode)
-          }}
-          className="w-full"
-        >
-          <ToggleGroupItem value="fast" className="flex-1">
-            {t("export.fast")}
-          </ToggleGroupItem>
-          <ToggleGroupItem value="exact" className="flex-1">
-            {t("export.exact")}
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <p className="text-[11px] leading-snug text-muted-foreground">
-          {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
-        </p>
-      </div>
+      <section className="space-y-3 rounded-xl border border-border/70 p-3">
+        <h3 className="text-xs font-semibold">{t("export.settings")}</h3>
 
-      <div className="space-y-2">
-        <Label className="text-xs">{t("export.outputFormat")}</Label>
-        <Select
-          value={outputFormat}
-          onValueChange={(value) => setOutputFormat(value as OutputFormat)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(FORMAT_KEYS) as OutputFormat[]).map((value) => (
-              <SelectItem key={value} value={value}>
-                {t(FORMAT_KEYS[value])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-start justify-between gap-3 rounded-lg bg-muted/40 px-2.5 py-2">
-        <div className="min-w-0">
-          <Label htmlFor="gpu-render" className="text-xs">
-            {t("gpu.title")}
+        <div className="space-y-1.5">
+          <Label id="cut-mode-label" className="text-[11px] font-medium text-muted-foreground">
+            {t("export.cutMode")}
           </Label>
-          <p
-            className="mt-0.5 text-[10px] leading-snug text-muted-foreground"
-            title={gpu?.detail ?? undefined}
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={cutMode}
+            onValueChange={(value) => {
+              if (value) setCutMode(value as CutMode)
+            }}
+            aria-labelledby="cut-mode-label"
+            className="w-full"
           >
-            {gpuHint}
+            <ToggleGroupItem value="fast" className="flex-1">
+              {t("export.fast")}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="exact" className="flex-1">
+              {t("export.exact")}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
           </p>
         </div>
-        <Switch
-          id="gpu-render"
-          checked={useGpu}
-          onCheckedChange={setGpuEnabled}
-          disabled={!gpuReady || gpuCapability.isPending}
-          className="mt-0.5 shrink-0"
-        />
-      </div>
 
-      <div className="space-y-2">
-        <Label className="text-xs" htmlFor="filename">
-          {t("export.filename")}
-        </Label>
-        <Input
-          id="filename"
-          placeholder={t("export.filenamePlaceholder")}
-          value={filename}
-          onChange={(event) => setFilename(event.target.value)}
-        />
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-2">
-        <span className="text-xs">
-          {crop.enabled ? t("export.cropOn") : t("export.cropOff")}
-          <span className="block text-[10px] text-muted-foreground">
-            {t("export.cropHint")}
-          </span>
-        </span>
-        <Switch checked={crop.enabled} onCheckedChange={setCropEnabled} />
-      </div>
-
-      <Separator />
-
-      <dl className="space-y-1.5 text-xs">
-        <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">{t("export.range")}</dt>
-          <dd className="font-mono">
-            {formatTime(trim.start, true)} → {formatTime(trim.end, true)}
-          </dd>
+        <div className="space-y-1.5">
+          <Label id="format-label" className="text-[11px] font-medium text-muted-foreground">
+            {t("export.outputFormat")}
+          </Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={outputFormat}
+            onValueChange={(value) => {
+              if (value) setOutputFormat(value as OutputFormat)
+            }}
+            aria-labelledby="format-label"
+            className="grid w-full grid-cols-3"
+          >
+            {(Object.keys(FORMAT_LABELS) as OutputFormat[]).map((value) => (
+              <ToggleGroupItem key={value} value={value} className="w-full text-[11px]">
+                {FORMAT_LABELS[value]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            {t(FORMAT_KEYS[outputFormat])}
+          </p>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <dt className="text-muted-foreground">{t("export.duration")}</dt>
-          <dd className="font-mono">{compactDuration(Math.max(0, clipDuration))}</dd>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="filename" className="text-[11px] font-medium text-muted-foreground">
+            {t("export.filename")}
+          </Label>
+          <Input
+            id="filename"
+            className="h-8 text-xs"
+            placeholder={t("export.filenamePlaceholder")}
+            value={filename}
+            onChange={(event) => setFilename(event.target.value)}
+          />
         </div>
-        {crop.enabled && crop.rect && (
-          <div className="flex items-center justify-between gap-2">
-            <dt className="text-muted-foreground">{t("export.crop")}</dt>
-            <dd className="font-mono">
-              {crop.rect.width}×{crop.rect.height} @ {crop.rect.x},{crop.rect.y}
-            </dd>
-          </div>
-        )}
-        {meta && meta.width > 0 && (
-          <div className="flex items-center justify-between gap-2">
-            <dt className="text-muted-foreground">{t("export.source")}</dt>
-            <dd className="font-mono">
-              {meta.width}×{meta.height}
-            </dd>
-          </div>
-        )}
-      </dl>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-border/70">
+        <div className="border-b border-border/60 bg-muted/20 px-3 py-2">
+          <h3 className="text-xs font-semibold">{t("export.options")}</h3>
+        </div>
+        <div className="divide-y divide-border/60">
+          <ToggleRow
+            id="gpu-render"
+            title={t("gpu.title")}
+            description={gpuHint}
+            detail={gpu?.detail ?? undefined}
+            checked={useGpu}
+            onCheckedChange={setGpuEnabled}
+            disabled={!gpuReady || gpuCapability.isPending}
+          />
+          <ToggleRow
+            id="crop-enabled"
+            title={crop.enabled ? t("export.cropOn") : t("export.cropOff")}
+            description={crop.enabled ? t("export.cropHint") : t("export.cropOffHint")}
+            checked={crop.enabled}
+            onCheckedChange={setCropEnabled}
+          />
+        </div>
+      </section>
 
       <Button
-        className="w-full"
+        className="h-9 w-full"
         onClick={handleExport}
         disabled={invalidRange || startExport.isPending}
         title={t("export.startTitle")}
@@ -258,16 +313,19 @@ export function ExportPanel() {
       </Button>
 
       {activeJobIds.length > 0 && (
-        <div className="space-y-2">
-          {activeJobIds.length > 1 && (
-            <p className="text-[11px] text-muted-foreground">
-              {t("export.processing", { count: activeJobIds.length })}
-            </p>
-          )}
-          {activeJobIds.map((jobId) => (
-            <JobProgress key={jobId} jobId={jobId} />
-          ))}
-        </div>
+        <section className="space-y-2 border-t border-border/60 pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold">{t("export.activeJobs")}</h3>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+              {activeJobIds.length}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {activeJobIds.map((jobId) => (
+              <JobProgress key={jobId} jobId={jobId} />
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )

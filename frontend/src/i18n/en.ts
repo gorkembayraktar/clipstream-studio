@@ -77,6 +77,7 @@ export const en = {
   "source.platformInstagram": "Instagram",
 
   "export.selectRange": "Save the selected range as a clip",
+  "export.selection": "Selected range",
   "export.cutMode": "Cut mode",
   "export.fast": "Fast",
   "export.exact": "Exact",
@@ -93,6 +94,7 @@ export const en = {
   "export.cropOn": "Crop on",
   "export.cropOff": "Crop off",
   "export.cropHint": "Exact cutting is applied while crop is on",
+  "export.cropOffHint": "The full frame is exported.",
   "export.range": "Range",
   "export.duration": "Duration",
   "export.crop": "Crop",
@@ -101,6 +103,9 @@ export const en = {
   "export.exportNew": "Export new clip",
   "export.startTitle": "You can start a new clip while other jobs are running",
   "export.processing": "Processing clips: {count} — you can start a new job in the meantime.",
+  "export.settings": "Output settings",
+  "export.options": "Options",
+  "export.activeJobs": "Active jobs",
   "export.modeFast": "fast",
   "export.modeExact": "exact",
 

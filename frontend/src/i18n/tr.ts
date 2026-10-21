@@ -74,6 +74,7 @@ export const tr: Record<TranslationKey, string> = {
   "source.platformInstagram": "Instagram",
 
   "export.selectRange": "Seçili aralığı klip olarak kaydet",
+  "export.selection": "Seçili aralık",
   "export.cutMode": "Kesim modu",
   "export.fast": "Hızlı",
   "export.exact": "Hassas",
@@ -90,6 +91,7 @@ export const tr: Record<TranslationKey, string> = {
   "export.cropOn": "Kırpma açık",
   "export.cropOff": "Kırpma kapalı",
   "export.cropHint": "Kırpma açıkken hassas kesim uygulanır",
+  "export.cropOffHint": "Tam kare dışa aktarılır.",
   "export.range": "Aralık",
   "export.duration": "Süre",
   "export.crop": "Kırpma",
@@ -98,6 +100,9 @@ export const tr: Record<TranslationKey, string> = {
   "export.exportNew": "Yeni Klip Dışa Aktar",
   "export.startTitle": "Süren işlemler varken de yeni klip başlatabilirsin",
   "export.processing": "İşlenen klip: {count} — aralarından yeni iş başlatılabilir.",
+  "export.settings": "Çıktı ayarları",
+  "export.options": "Seçenekler",
+  "export.activeJobs": "Aktif işler",
   "export.modeFast": "hızlı",
   "export.modeExact": "hassas",
 
