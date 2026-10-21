@@ -93,6 +93,7 @@ export function Gallery() {
           <Button
             variant="ghost"
             size="icon-xs"
+            className="cursor-pointer"
             onClick={() => void handleRefresh()}
             title={t("gallery.refresh")}
             aria-busy={isRefreshing}
@@ -103,6 +104,7 @@ export function Gallery() {
           <Button
             variant="ghost"
             size="icon-xs"
+            className="cursor-pointer"
             onClick={() => reveal.mutate(undefined)}
             title={t("gallery.openFolder")}
           >
@@ -168,7 +170,7 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
 
   return (
     <li
-      className="flex items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5"
+      className="group flex cursor-pointer items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5 ring-1 ring-transparent transition-all duration-150 hover:bg-muted/70 hover:shadow-sm hover:ring-border/60 active:bg-muted/80"
       onDoubleClick={handleDoubleClick}
     >
       <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
@@ -181,7 +183,13 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
       </div>
 
       <div className="flex shrink-0 items-center">
-        <Button variant="ghost" size="icon-xs" onClick={onPreview} title={t("gallery.preview")}>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="cursor-pointer"
+          onClick={onPreview}
+          title={t("gallery.preview")}
+        >
           <PlayIcon />
         </Button>
 
@@ -190,6 +198,7 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
             <Button
               variant="ghost"
               size="icon-xs"
+              className="cursor-pointer"
               title={t("gallery.actions")}
               aria-label={t("gallery.actions")}
             >
