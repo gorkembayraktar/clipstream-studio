@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react"
 
 import { useWaveform } from "@/hooks/use-waveform"
 import { clamp } from "@/lib/format"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 /** Çubuk genişliği ve komşusuyla arası (px). */
 const BAR_WIDTH = 2
@@ -64,10 +64,10 @@ function drawBars(
 }
 
 export function WaveformLayer({ duration }: { duration: number }) {
-  const streamUrl = useStudioStore((s) => s.streamUrl)
-  const origin = useStudioStore((s) => s.inputUrl)
-  const audioUrl = useStudioStore((s) => s.audioUrl)
-  const hasAudio = useStudioStore((s) => s.meta?.hasAudio)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
+  const origin = useSourceStore((s) => s.inputUrl)
+  const audioUrl = useSourceStore((s) => s.audioUrl)
+  const hasAudio = useSourceStore((s) => s.meta?.hasAudio)
   const { data } = useWaveform(
     streamUrl,
     origin,

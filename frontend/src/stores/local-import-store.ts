@@ -22,8 +22,9 @@ import { translate } from "@/i18n"
 import { formatBytes, formatMegabytes, formatTime, stripExtension } from "@/lib/format"
 import { writeProjectHandoff } from "@/lib/project-handoff"
 import type { LocalFileResponse } from "@/lib/types"
+import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 const VIDEO_EXTENSIONS = [
   ".mp4",
@@ -103,9 +104,9 @@ function cancelAction() {
 
 /** Hazır kaynağı stüdyoya bağlar (her iki yol için ortak). */
 function applyLocalSource(result: LocalFileResponse, sourcePath: string | null): void {
-  const studio = useStudioStore.getState()
-  studio.setUseProxy(false)
-  studio.setSource({
+  const source = useSourceStore.getState()
+  source.setUseProxy(false)
+  source.setSource({
     streamUrl: result.url,
     title: result.name,
     resolution: result.width > 0 ? `${result.width}×${result.height}` : null,
@@ -114,7 +115,7 @@ function applyLocalSource(result: LocalFileResponse, sourcePath: string | null):
     audioUrl: null,
     variants: [],
   })
-  studio.setMeta({
+  source.setMeta({
     width: result.width,
     height: result.height,
     duration: result.duration,
@@ -122,7 +123,7 @@ function applyLocalSource(result: LocalFileResponse, sourcePath: string | null):
     fps: result.fps > 0 ? result.fps : undefined,
   })
 
-  const current = useStudioStore.getState()
+  const current = useExportStore.getState()
   if (!current.filename.trim()) current.setFilename(stripExtension(result.name))
 
   log(

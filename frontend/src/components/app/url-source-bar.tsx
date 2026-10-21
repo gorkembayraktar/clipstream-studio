@@ -38,34 +38,34 @@ import { extractPastedUrl, withScheme } from "@/lib/media"
 import { useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 
 export function UrlSourceBar() {
   const { t } = useI18n()
-  const inputUrl = useStudioStore((s) => s.inputUrl)
-  const streamUrl = useStudioStore((s) => s.streamUrl)
-  const title = useStudioStore((s) => s.title)
-  const resolution = useStudioStore((s) => s.resolution)
-  const platform = useStudioStore((s) => s.platform)
-  const sourcePath = useStudioStore((s) => s.sourcePath)
-  const audioUrl = useStudioStore((s) => s.audioUrl)
-  const useProxy = useStudioStore((s) => s.useProxy)
-  const meta = useStudioStore((s) => s.meta)
-  const variants = useStudioStore((s) => s.variants)
-  const previewHeight = useStudioStore((s) => s.previewHeight)
-  const headers = useStudioStore((s) => s.headers)
+  const inputUrl = useSourceStore((s) => s.inputUrl)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
+  const title = useSourceStore((s) => s.title)
+  const resolution = useSourceStore((s) => s.resolution)
+  const platform = useSourceStore((s) => s.platform)
+  const sourcePath = useSourceStore((s) => s.sourcePath)
+  const audioUrl = useSourceStore((s) => s.audioUrl)
+  const useProxy = useSourceStore((s) => s.useProxy)
+  const meta = useSourceStore((s) => s.meta)
+  const variants = useSourceStore((s) => s.variants)
+  const previewHeight = useSourceStore((s) => s.previewHeight)
+  const headers = useSourceStore((s) => s.headers)
   const appliedHeaderNames = headers ? Object.keys(headers) : []
   const appliedCookie = appliedHeaderNames.some((name) => name.toLowerCase() === "cookie")
   const defaultVariant = variants.find((item) => item.default) ?? variants[0] ?? null
-  const setInputUrl = useStudioStore((s) => s.setInputUrl)
-  const setUseProxy = useStudioStore((s) => s.setUseProxy)
-  const setSource = useStudioStore((s) => s.setSource)
-  const setPreviewHeight = useStudioStore((s) => s.setPreviewHeight)
-  const setMeta = useStudioStore((s) => s.setMeta)
-  const setSourceLoading = useStudioStore((s) => s.setSourceLoading)
-  const clearSource = useStudioStore((s) => s.clearSource)
+  const setInputUrl = useSourceStore((s) => s.setInputUrl)
+  const setUseProxy = useSourceStore((s) => s.setUseProxy)
+  const setSource = useSourceStore((s) => s.setSource)
+  const setPreviewHeight = useSourceStore((s) => s.setPreviewHeight)
+  const setMeta = useSourceStore((s) => s.setMeta)
+  const setSourceLoading = useSourceStore((s) => s.setSourceLoading)
+  const clearSource = useSourceStore((s) => s.clearSource)
 
   const [resolving, setResolving] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
@@ -180,7 +180,7 @@ export function UrlSourceBar() {
         const probe = await api.probe(resolved.stream_url, effectiveHeaders)
         // Video elementinin bildirdiği boyut/süre korunur: ffprobe çok varyantlı
         // HLS'te yalnızca ilk varyantı görebilir. fps ise ffprobe'dan alınır.
-        const existing = useStudioStore.getState().meta
+        const existing = useSourceStore.getState().meta
         setMeta({
           width: existing?.width || probe.width,
           height: existing?.height || probe.height,

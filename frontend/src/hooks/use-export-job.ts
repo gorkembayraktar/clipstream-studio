@@ -7,14 +7,14 @@ import { translate } from "@/i18n"
 import { api } from "@/lib/api"
 import type { ExportRequest } from "@/lib/types"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useExportStore } from "@/stores/export-store"
 
 export const jobKeys = {
   byId: (jobId: string) => ["job", jobId] as const,
 }
 
 export function useStartExport() {
-  const addActiveJobId = useStudioStore((s) => s.addActiveJobId)
+  const addActiveJobId = useExportStore((s) => s.addActiveJobId)
   return useMutation({
     mutationFn: (payload: ExportRequest) => api.createExportJob(payload),
     onSuccess: (data) => {

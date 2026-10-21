@@ -16,7 +16,7 @@ import { cn } from "cn"
 
 import { clamp } from "@/lib/format"
 import type { CropRect } from "@/lib/types"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
 
 type HandleDir = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
 
@@ -131,8 +131,8 @@ function resizeRect(
 }
 
 export function CropOverlay({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
-  const crop = useStudioStore((s) => s.crop)
-  const setCropRect = useStudioStore((s) => s.setCropRect)
+  const crop = useEditStore((s) => s.crop)
+  const setCropRect = useEditStore((s) => s.setCropRect)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
@@ -206,7 +206,7 @@ export function CropOverlay({ videoRef }: { videoRef: RefObject<HTMLVideoElement
     previousAspect.current = crop.aspect
 
     const ratio = aspectValue(crop.aspect)
-    const current = useStudioStore.getState().crop.rect
+    const current = useEditStore.getState().crop.rect
     if (!ratio || !current) return
 
     const { videoWidth: vw, videoHeight: vh } = measure

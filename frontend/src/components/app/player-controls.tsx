@@ -33,7 +33,7 @@ import {
   usePlayerStore,
   type StepMode,
 } from "@/stores/player-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
 
 /** Hız menüsündeki hazır oynatma hızları. */
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3]
@@ -70,10 +70,10 @@ export function PlayerControls() {
 
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen()
 
-  const loop = useStudioStore((s) => s.loop)
-  const setLoop = useStudioStore((s) => s.setLoop)
-  const trim = useStudioStore((s) => s.trim)
-  const setTrim = useStudioStore((s) => s.setTrim)
+  const loop = useEditStore((s) => s.loop)
+  const setLoop = useEditStore((s) => s.setLoop)
+  const trim = useEditStore((s) => s.trim)
+  const setTrim = useEditStore((s) => s.setTrim)
 
   const currentTimeOf = () => getVideoElement()?.currentTime ?? usePlayerStore.getState().currentTime
 

@@ -4,7 +4,7 @@ import { create } from "zustand"
 import { translate } from "@/i18n"
 import { clamp } from "@/lib/format"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 export type StatusTone = "idle" | "buffering" | "ready" | "error"
 
@@ -311,7 +311,7 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     const current = el.currentTime || 0
 
     if (mode === "frame") {
-      const fps = useStudioStore.getState().meta?.fps
+      const fps = useSourceStore.getState().meta?.fps
       const rate = fps && fps > 0 ? fps : FALLBACK_FPS
       // 1 ms tolerans: tarayıcı seek hedefini kare sınırının bir tık altına
       // yuvarlayabiliyor; tolerans olmadan adım aynı kareye takılı kalır.

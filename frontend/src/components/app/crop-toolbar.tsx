@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "cn"
 import { useI18n, type TranslationKey } from "@/i18n"
 import type { AspectPreset } from "@/lib/types"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
 
 const PRESETS: { value: AspectPreset; label: string; labelKey?: TranslationKey }[] = [
   { value: "free", label: "", labelKey: "crop.free" },
@@ -19,10 +19,10 @@ const PRESETS: { value: AspectPreset; label: string; labelKey?: TranslationKey }
 
 export function CropToolbar() {
   const { t } = useI18n()
-  const crop = useStudioStore((s) => s.crop)
-  const setCropEnabled = useStudioStore((s) => s.setCropEnabled)
-  const setCropAspect = useStudioStore((s) => s.setCropAspect)
-  const setCropRect = useStudioStore((s) => s.setCropRect)
+  const crop = useEditStore((s) => s.crop)
+  const setCropEnabled = useEditStore((s) => s.setCropEnabled)
+  const setCropAspect = useEditStore((s) => s.setCropAspect)
+  const setCropRect = useEditStore((s) => s.setCropRect)
 
   const rect = crop.rect
 

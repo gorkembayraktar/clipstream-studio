@@ -9,13 +9,13 @@ import { UrlSourceBar } from "@/components/app/url-source-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLibrary } from "@/hooks/use-library"
 import { useI18n } from "@/i18n"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 type PanelTab = "source" | "export" | "gallery"
 
 export function SidePanel() {
   const { t } = useI18n()
-  const streamUrl = useStudioStore((s) => s.streamUrl)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
   const [tab, setTab] = useState<PanelTab>("source")
 
   const { data } = useLibrary()

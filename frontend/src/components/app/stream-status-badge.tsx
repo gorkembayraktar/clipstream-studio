@@ -4,7 +4,7 @@ import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import type { StatusTone } from "@/stores/player-store"
 import { usePlayerStore } from "@/stores/player-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 const TONE_CLASSES: Record<StatusTone, string> = {
   idle: "border-white/10 bg-black/60 text-white/60",
@@ -22,8 +22,8 @@ const DOT_CLASSES: Record<StatusTone, string> = {
 
 export function StreamStatusBadge({ className }: { className?: string }) {
   const { t } = useI18n()
-  const sourceLoading = useStudioStore((s) => s.sourceLoading)
-  const hasSource = useStudioStore((s) => s.streamUrl !== null)
+  const sourceLoading = useSourceStore((s) => s.sourceLoading)
+  const hasSource = useSourceStore((s) => s.streamUrl !== null)
   const playing = usePlayerStore((s) => s.playing)
   const buffering = usePlayerStore((s) => s.buffering)
   const note = usePlayerStore((s) => s.statusNote)

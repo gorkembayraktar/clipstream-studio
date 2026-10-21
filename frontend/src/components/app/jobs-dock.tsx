@@ -6,10 +6,10 @@ import { ChevronDownIcon, DownloadIcon } from "lucide-react"
 import { JobProgress } from "@/components/app/job-progress"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
-import { useStudioStore } from "@/stores/studio-store"
+import { useExportStore } from "@/stores/export-store"
 
 export function JobsDock() {
-  const activeJobIds = useStudioStore((s) => s.activeJobIds)
+  const activeJobIds = useExportStore((s) => s.activeJobIds)
 
   if (activeJobIds.length === 0) return null
 

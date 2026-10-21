@@ -10,7 +10,8 @@ import { useFramePreview } from "@/hooks/use-frame-preview"
 import { useI18n } from "@/i18n"
 import { clamp, formatClock, formatTime } from "@/lib/format"
 import { usePlayerStore } from "@/stores/player-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
+import { useSourceStore } from "@/stores/source-store"
 
 type DragTarget = "playhead" | "start" | "end" | "range"
 
@@ -48,9 +49,9 @@ function tickStep(duration: number): number {
 
 export function Timeline() {
   const { t } = useI18n()
-  const trim = useStudioStore((s) => s.trim)
-  const setTrim = useStudioStore((s) => s.setTrim)
-  const metaDuration = useStudioStore((s) => s.meta?.duration ?? 0)
+  const trim = useEditStore((s) => s.trim)
+  const setTrim = useEditStore((s) => s.setTrim)
+  const metaDuration = useSourceStore((s) => s.meta?.duration ?? 0)
 
   const playerDuration = usePlayerStore((s) => s.duration)
   const currentTime = usePlayerStore((s) => s.currentTime)
@@ -141,13 +142,13 @@ export function Timeline() {
     // Tutamak diğerini geçerse mağaza noktaları takas eder; sürüklenen tutamak
     // artık karşı taraftır, sonraki hareketlerde onu güncellemeye devam et.
     if (target === "start") {
-      const previousEnd = useStudioStore.getState().trim.end
+      const previousEnd = useEditStore.getState().trim.end
       setTrim({ start: time })
-      if (useStudioStore.getState().trim.end > previousEnd) dragRef.current = "end"
+      if (useEditStore.getState().trim.end > previousEnd) dragRef.current = "end"
     } else {
-      const previousStart = useStudioStore.getState().trim.start
+      const previousStart = useEditStore.getState().trim.start
       setTrim({ end: time })
-      if (useStudioStore.getState().trim.start < previousStart) dragRef.current = "start"
+      if (useEditStore.getState().trim.start < previousStart) dragRef.current = "start"
     }
   }
 
@@ -181,8 +182,8 @@ export function Timeline() {
   }
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
-  const streamUrl = useStudioStore((s) => s.streamUrl)
-  const inputUrl = useStudioStore((s) => s.inputUrl)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
+  const inputUrl = useSourceStore((s) => s.inputUrl)
   const [hover, setHover] = useState<{ left: number; time: number } | null>(null)
   const {
     preview,

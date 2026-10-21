@@ -11,7 +11,7 @@ import { toast } from "sonner"
 
 import { translate, useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 function hasFiles(event: DragEvent): boolean {
   const types = event.dataTransfer?.types
@@ -28,7 +28,7 @@ export function FileDropZone() {
   const processing = useLocalImportStore((s) => s.processing)
   const fileName = useLocalImportStore((s) => s.fileName)
   const target = useLocalImportStore((s) => s.target)
-  const hasSource = useStudioStore((s) => Boolean(s.streamUrl))
+  const hasSource = useSourceStore((s) => Boolean(s.streamUrl))
   const [active, setActive] = useState(false)
   /** dragenter/dragleave alt öğelerde de tetiklenir: sayaçla dengelenir. */
   const depthRef = useRef(0)
@@ -68,7 +68,7 @@ export function FileDropZone() {
       }
 
       // Açık bir proje varsa üzerine yazma: dosya yeni bir sekmede proje olur.
-      const sourceOpen = Boolean(useStudioStore.getState().streamUrl)
+      const sourceOpen = Boolean(useSourceStore.getState().streamUrl)
       void (sourceOpen ? importFileInNewTab(files[0]) : importFile(files[0]))
     }
 

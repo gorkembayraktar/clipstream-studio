@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { api } from "@/lib/api"
 import { translate } from "@/i18n"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 export interface FramePreview {
   /** Kareyi isterken kullanılan zaman (sn). */
@@ -50,7 +50,7 @@ function remember(key: string, src: string) {
 }
 
 export function useFramePreview(url: string | null, origin: string, duration: number) {
-  const headers = useStudioStore((s) => s.headers)
+  const headers = useSourceStore((s) => s.headers)
   const [preview, setPreview] = useState<FramePreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)

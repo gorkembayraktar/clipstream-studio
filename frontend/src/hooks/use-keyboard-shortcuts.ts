@@ -3,7 +3,7 @@ import { useEffect } from "react"
 
 import { toggleStageFullscreen } from "@/hooks/use-fullscreen"
 import { getVideoElement, usePlayerStore, VOLUME_STEP } from "@/stores/player-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
 import { useThemeStore } from "@/stores/theme-store"
 
 function isEditableTarget(target: EventTarget | null): boolean {
@@ -19,7 +19,7 @@ export function useKeyboardShortcuts() {
       if (isEditableTarget(event.target)) return
 
       const player = usePlayerStore.getState()
-      const studio = useStudioStore.getState()
+      const edit = useEditStore.getState()
       const currentTime = getVideoElement()?.currentTime ?? player.currentTime
 
       switch (event.key) {
@@ -58,16 +58,16 @@ export function useKeyboardShortcuts() {
         case "i":
         case "I":
         case "[":
-          studio.setTrim({ start: currentTime })
+          edit.setTrim({ start: currentTime })
           break
         case "o":
         case "O":
         case "]":
-          studio.setTrim({ end: currentTime })
+          edit.setTrim({ end: currentTime })
           break
         case "l":
         case "L":
-          studio.setLoop(!studio.loop)
+          edit.setLoop(!edit.loop)
           break
         case "t":
         case "T":

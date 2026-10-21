@@ -18,9 +18,10 @@ import { translate, useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import { isHlsUrl, proxiedUrl } from "@/lib/media"
 import { cn } from "cn"
+import { useEditStore } from "@/stores/edit-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 /** "Kare Yüklendi" bildiriminin ekranda kalma süresi (ms). */
 const SEEK_NOTE_MS = 1200
@@ -32,15 +33,15 @@ export function VideoStage() {
   const metaLoggedRef = useRef<string | null>(null)
   /** Arabelleğe alma kaydının spam olmaması için bayrak. */
   const bufferingLoggedRef = useRef(false)
-  const streamUrl = useStudioStore((s) => s.streamUrl)
-  const useProxy = useStudioStore((s) => s.useProxy)
-  const platform = useStudioStore((s) => s.platform)
-  const audioUrl = useStudioStore((s) => s.audioUrl)
-  const variants = useStudioStore((s) => s.variants)
-  const headerToken = useStudioStore((s) => s.headerToken)
-  const previewHeight = useStudioStore((s) => s.previewHeight)
-  const cropEnabled = useStudioStore((s) => s.crop.enabled)
-  const setMeta = useStudioStore((s) => s.setMeta)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
+  const useProxy = useSourceStore((s) => s.useProxy)
+  const platform = useSourceStore((s) => s.platform)
+  const audioUrl = useSourceStore((s) => s.audioUrl)
+  const variants = useSourceStore((s) => s.variants)
+  const headerToken = useSourceStore((s) => s.headerToken)
+  const previewHeight = useSourceStore((s) => s.previewHeight)
+  const cropEnabled = useEditStore((s) => s.crop.enabled)
+  const setMeta = useSourceStore((s) => s.setMeta)
 
   // Önizleme kalitesi: seçili varyant (seçim yoksa kaynağın en yükseği).
   // Dışa aktarma, dalga formu ve analiz her zaman kaynağın en yüksek kalitesini
@@ -392,7 +393,7 @@ export function VideoStage() {
       mark({ currentTime: video.currentTime })
 
       // Döngü: çıkış noktasına gelince başa sar
-      const { trim, loop } = useStudioStore.getState()
+      const { trim, loop } = useEditStore.getState()
       if (loop && trim.end > trim.start + 0.05 && video.currentTime >= trim.end) {
         video.currentTime = trim.start
       }
@@ -462,7 +463,7 @@ export function VideoStage() {
           return
         }
 
-        const known = useStudioStore.getState().meta?.fps
+        const known = useSourceStore.getState().meta?.fps
         if (!known || Math.abs(known - fps) > 0.01) {
           setMeta({ fps })
           log("info", translate("log.frameRateMeasured", { fps }))
@@ -498,13 +499,13 @@ export function VideoStage() {
           )
         }
       }
-      if (!useStudioStore.getState().meta && el.videoWidth > 0) {
+      if (!useSourceStore.getState().meta && el.videoWidth > 0) {
         setMeta({
           width: el.videoWidth,
           height: el.videoHeight,
           duration,
           // Ayrı bir ses akışı varsa video elementinin sesi yoktur.
-          hasAudio: !useStudioStore.getState().audioUrl,
+          hasAudio: !useSourceStore.getState().audioUrl,
         })
       }
 

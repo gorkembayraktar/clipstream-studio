@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
+import { useSourceStore } from "@/stores/source-store"
 
 interface TimeInputProps {
   value: number
@@ -46,11 +47,11 @@ function TimeInput({ value, onCommit, disabled }: TimeInputProps) {
 
 export function TrimBar() {
   const { t } = useI18n()
-  const trim = useStudioStore((s) => s.trim)
-  const setTrim = useStudioStore((s) => s.setTrim)
-  const loop = useStudioStore((s) => s.loop)
-  const setLoop = useStudioStore((s) => s.setLoop)
-  const duration = useStudioStore((s) => s.meta?.duration ?? 0)
+  const trim = useEditStore((s) => s.trim)
+  const setTrim = useEditStore((s) => s.setTrim)
+  const loop = useEditStore((s) => s.loop)
+  const setLoop = useEditStore((s) => s.setLoop)
+  const duration = useSourceStore((s) => s.meta?.duration ?? 0)
 
   const clip = trim.end - trim.start
   const invalid = clip <= 0.05

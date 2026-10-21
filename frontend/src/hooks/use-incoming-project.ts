@@ -15,8 +15,9 @@ import {
   type ProjectHandoff,
 } from "@/lib/project-handoff"
 import type { LocalFileResponse } from "@/lib/types"
+import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 /** Dosya aktarımı bu süreden uzun sürerse kullanıcıya bilgi ver. */
 const INCOMING_TIMEOUT_MS = 15 * 60 * 1000
@@ -37,9 +38,9 @@ function readIncomingId(): string | null {
 }
 
 function applyLocalResult(result: LocalFileResponse): void {
-  const studio = useStudioStore.getState()
-  studio.setUseProxy(false)
-  studio.setSource({
+  const source = useSourceStore.getState()
+  source.setUseProxy(false)
+  source.setSource({
     streamUrl: result.url,
     title: result.name,
     resolution: result.width > 0 ? `${result.width}×${result.height}` : null,
@@ -48,7 +49,7 @@ function applyLocalResult(result: LocalFileResponse): void {
     audioUrl: null,
     variants: [],
   })
-  studio.setMeta({
+  source.setMeta({
     width: result.width,
     height: result.height,
     duration: result.duration,
@@ -56,7 +57,7 @@ function applyLocalResult(result: LocalFileResponse): void {
     fps: result.fps > 0 ? result.fps : undefined,
   })
 
-  const current = useStudioStore.getState()
+  const current = useExportStore.getState()
   if (!current.filename.trim()) current.setFilename(stripExtension(result.name))
 
   log(

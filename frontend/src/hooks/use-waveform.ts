@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { translate } from "@/i18n"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useSourceStore } from "@/stores/source-store"
 
 export interface WaveformData {
   /** Kova başına tepe değeri (0–255). */
@@ -51,7 +51,7 @@ export function useWaveform(
   // Sessiz olduğu bilinen ve ayrı ses akışı olmayan kaynakta hiç istek atılmaz.
   const enabled =
     Boolean(url) && duration > 0 && !(hasAudio === false && !audioUrl)
-  const headers = useStudioStore((s) => s.headers)
+  const headers = useSourceStore((s) => s.headers)
 
   const query = useQuery({
     queryKey: waveformKeys.source(url ?? "", origin, audioUrl ?? "", headers),

@@ -18,7 +18,9 @@ import { useI18n, type TranslationKey } from "@/i18n"
 import { compactDuration, formatTime } from "@/lib/format"
 import type { CropPayload, CutMode, OutputFormat } from "@/lib/types"
 import { log } from "@/stores/log-store"
-import { useStudioStore } from "@/stores/studio-store"
+import { useEditStore } from "@/stores/edit-store"
+import { useExportStore } from "@/stores/export-store"
+import { useSourceStore } from "@/stores/source-store"
 
 const FORMAT_KEYS: Record<OutputFormat, TranslationKey> = {
   mp4: "export.format.mp4",
@@ -81,22 +83,22 @@ function ToggleRow({
 
 export function ExportPanel() {
   const { t } = useI18n()
-  const streamUrl = useStudioStore((s) => s.streamUrl)
-  const audioUrl = useStudioStore((s) => s.audioUrl)
-  const meta = useStudioStore((s) => s.meta)
-  const trim = useStudioStore((s) => s.trim)
-  const crop = useStudioStore((s) => s.crop)
-  const cutMode = useStudioStore((s) => s.cutMode)
-  const outputFormat = useStudioStore((s) => s.outputFormat)
-  const filename = useStudioStore((s) => s.filename)
-  const gpuEnabled = useStudioStore((s) => s.gpuEnabled)
-  const activeJobIds = useStudioStore((s) => s.activeJobIds)
-  const headers = useStudioStore((s) => s.headers)
-  const setCropEnabled = useStudioStore((s) => s.setCropEnabled)
-  const setCutMode = useStudioStore((s) => s.setCutMode)
-  const setOutputFormat = useStudioStore((s) => s.setOutputFormat)
-  const setFilename = useStudioStore((s) => s.setFilename)
-  const setGpuEnabled = useStudioStore((s) => s.setGpuEnabled)
+  const streamUrl = useSourceStore((s) => s.streamUrl)
+  const audioUrl = useSourceStore((s) => s.audioUrl)
+  const meta = useSourceStore((s) => s.meta)
+  const headers = useSourceStore((s) => s.headers)
+  const trim = useEditStore((s) => s.trim)
+  const crop = useEditStore((s) => s.crop)
+  const setCropEnabled = useEditStore((s) => s.setCropEnabled)
+  const cutMode = useExportStore((s) => s.cutMode)
+  const outputFormat = useExportStore((s) => s.outputFormat)
+  const filename = useExportStore((s) => s.filename)
+  const gpuEnabled = useExportStore((s) => s.gpuEnabled)
+  const activeJobIds = useExportStore((s) => s.activeJobIds)
+  const setCutMode = useExportStore((s) => s.setCutMode)
+  const setOutputFormat = useExportStore((s) => s.setOutputFormat)
+  const setFilename = useExportStore((s) => s.setFilename)
+  const setGpuEnabled = useExportStore((s) => s.setGpuEnabled)
 
   const startExport = useStartExport()
   const gpuCapability = useGpuCapability()
