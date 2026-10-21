@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import { FileDropZone } from "@/components/app/file-drop-zone"
 import { IncomingProjectScreen } from "@/components/app/incoming-project-screen"
-import { LanguageSwitcher } from "@/components/app/language-switcher"
 import { LogDrawer } from "@/components/app/log-drawer"
+import { PreferencesSwitcher } from "@/components/app/preferences-switcher"
 import { SidePanel } from "@/components/app/side-panel"
 import { VideoStage } from "@/components/app/video-stage"
 import { Toaster } from "@/components/ui/sonner"
@@ -52,7 +52,7 @@ function StudioApp() {
 
           <footer className="mx-auto flex max-w-[1500px] flex-col items-center gap-2 px-4 pb-6 text-center text-[11px] text-muted-foreground sm:flex-row sm:justify-between sm:text-left">
             <p>{t("app.shortcuts")}</p>
-            <LanguageSwitcher />
+            <PreferencesSwitcher />
           </footer>
         </div>
 

@@ -3,7 +3,6 @@ import {
   CirclePlayIcon,
   MaximizeIcon,
   MinimizeIcon,
-  MoonIcon,
   PauseIcon,
   PictureInPicture2Icon,
   PlayIcon,
@@ -12,7 +11,6 @@ import {
   SkipForwardIcon,
   StepBackIcon,
   StepForwardIcon,
-  SunIcon,
   Volume2Icon,
   VolumeXIcon,
 } from "lucide-react"
@@ -36,7 +34,6 @@ import {
   type StepMode,
 } from "@/stores/player-store"
 import { useStudioStore } from "@/stores/studio-store"
-import { useThemeStore } from "@/stores/theme-store"
 
 /** Hız menüsündeki hazır oynatma hızları. */
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3]
@@ -77,9 +74,6 @@ export function PlayerControls() {
   const setLoop = useStudioStore((s) => s.setLoop)
   const trim = useStudioStore((s) => s.trim)
   const setTrim = useStudioStore((s) => s.setTrim)
-
-  const theme = useThemeStore((s) => s.theme)
-  const toggleTheme = useThemeStore((s) => s.toggleTheme)
 
   const currentTimeOf = () => getVideoElement()?.currentTime ?? usePlayerStore.getState().currentTime
 
@@ -222,15 +216,6 @@ export function PlayerControls() {
         </Button>
         <Button variant="ghost" size="icon-sm" onClick={toggleFullscreen} title={t("player.fullscreen")}>
           {isFullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={toggleTheme}
-          data-slot="theme-toggle"
-          title={theme === "dark" ? t("player.themeLight") : t("player.themeDark")}
-        >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
         </Button>
       </div>
     </div>
