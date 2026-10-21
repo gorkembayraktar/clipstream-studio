@@ -150,6 +150,7 @@ export const tr: Record<TranslationKey, string> = {
   "job.remaining": "~{time} kaldı",
   "job.remainingTitle": "Tahmini kalan süre",
   "job.cancel": "İptal",
+  "job.actions": "İşlemler",
   "job.ready": "Klip hazır",
   "job.failed": "Dışa aktarma başarısız",
   "job.cancelled": "İşlem iptal edildi.",

@@ -3,8 +3,10 @@ import { useEffect } from "react"
 
 import { useQueryClient } from "@tanstack/react-query"
 import {
+  BanIcon,
   CircleCheckIcon,
   DownloadIcon,
+  EllipsisVerticalIcon,
   FolderOpenIcon,
   Loader2Icon,
   TriangleAlertIcon,
@@ -13,6 +15,13 @@ import {
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { useCancelJob, useJob } from "@/hooks/use-export-job"
 import { useExportTitle } from "@/hooks/use-export-title"
@@ -87,16 +96,42 @@ export function JobProgress({ jobId }: { jobId: string }) {
             <span className="font-medium text-emerald-500">{t("job.gpuShort")}</span>
           </>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-5"
-          aria-label={t("job.closeCard")}
-          title={t("job.closeCardTitle")}
-          onClick={() => removeActiveJobId(jobId)}
-        >
-          <XIcon className="size-3" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-5"
+              data-slot="job-actions-trigger"
+              aria-label={t("job.actions")}
+              title={t("job.actions")}
+            >
+              <EllipsisVerticalIcon className="size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {(job?.status === "pending" || job?.status === "running") && (
+              <>
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={cancelJob.isPending}
+                  onSelect={() => cancelJob.mutate()}
+                >
+                  <BanIcon />
+                  {t("job.cancel")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem
+              title={t("job.closeCardTitle")}
+              onSelect={() => removeActiveJobId(jobId)}
+            >
+              <XIcon />
+              {t("job.closeCard")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </span>
     </div>
   )
@@ -154,15 +189,6 @@ export function JobProgress({ jobId }: { jobId: string }) {
               </span>
             )}
             {job.speed && <span>{t("job.speed", { speed: job.speed })}</span>}
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => cancelJob.mutate()}
-              disabled={cancelJob.isPending}
-            >
-              <XIcon />
-              {t("job.cancel")}
-            </Button>
           </span>
         </div>
       </div>

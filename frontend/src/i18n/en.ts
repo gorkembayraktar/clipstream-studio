@@ -153,6 +153,7 @@ export const en = {
   "job.remaining": "~{time} left",
   "job.remainingTitle": "Estimated remaining time",
   "job.cancel": "Cancel",
+  "job.actions": "Actions",
   "job.ready": "Clip ready",
   "job.failed": "Export failed",
   "job.cancelled": "Job cancelled.",
