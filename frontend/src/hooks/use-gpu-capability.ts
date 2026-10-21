@@ -1,6 +1,7 @@
 /** GPU render yeteneği: backend'in gerçek FFmpeg probe sonucunu sorgular. */
 import { useQuery } from "@tanstack/react-query"
 
+import { useI18n } from "@/i18n"
 import { api } from "@/lib/api"
 
 export const capabilityKeys = {
@@ -8,8 +9,10 @@ export const capabilityKeys = {
 }
 
 export function useGpuCapability() {
+  const { locale } = useI18n()
   return useQuery({
-    queryKey: capabilityKeys.gpu,
+    // `reason` backend tarafından seçili dilde döndüğü için dil anahtara dahildir.
+    queryKey: [...capabilityKeys.gpu, locale],
     queryFn: api.getExportCapabilities,
     staleTime: 5 * 60_000,
     retry: 1,
