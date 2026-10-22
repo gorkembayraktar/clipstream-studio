@@ -15,6 +15,7 @@ import { log } from "@/stores/log-store"
 export function useHlsSource(
   videoRef: RefObject<HTMLVideoElement | null>,
   src: string | null,
+  isHls = false,
 ) {
   useEffect(() => {
     const el = videoRef.current
@@ -24,7 +25,9 @@ export function useHlsSource(
     let disposed = false
 
     const setup = async () => {
-      if (isHlsUrl(src)) {
+      // Uzantısız HLS playlist'lerinde URL kontrolü yetersiz kalır; backend'in
+      // içerik tespiti `isHls` ile ayrıca iletilir.
+      if (isHls || isHlsUrl(src)) {
         log("info", translate("hls.engineStarting"))
         const { default: Hls } = await import("hls.js")
         if (disposed) return
@@ -89,5 +92,5 @@ export function useHlsSource(
       el.removeAttribute("src")
       el.load()
     }
-  }, [src, videoRef])
+  }, [src, videoRef, isHls])
 }

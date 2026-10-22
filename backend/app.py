@@ -45,6 +45,7 @@ from config import (
 from core.i18n import LanguageMiddleware, current_language, t
 from core.jobs import JobManager
 from services.local_media import cleanup_uploads
+from services.segment_downloader import cleanup_stale_temp_dirs
 
 
 def _fallback_html() -> str:
@@ -104,6 +105,8 @@ async def spa_fallback(request):
 def create_app() -> Starlette:
     # Bir haftadan eski geçici yerel dosyalar açılışta temizlenir.
     cleanup_uploads(UPLOADS_MAX_AGE_DAYS)
+    # Çökme sonrası kalan waveform indirme klasörleri de temizlenir.
+    cleanup_stale_temp_dirs()
 
     routes = [
         *media_api.routes,

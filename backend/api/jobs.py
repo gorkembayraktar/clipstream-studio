@@ -19,7 +19,7 @@ async def create_job_endpoint(request):
 
     manager = request.app.state.jobs
     job = manager.create(payload, lang=current_language())
-    asyncio.create_task(run_export_job(job, manager))
+    asyncio.create_task(run_export_job(job, manager, request.app.state.http))
     return JSONResponse({"success": True, "job_id": job["id"]})
 
 

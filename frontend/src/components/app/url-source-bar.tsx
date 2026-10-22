@@ -160,6 +160,9 @@ export function UrlSourceBar() {
         platform,
         audioUrl: resolved.audio_url ?? null,
         variants: resolved.variants ?? [],
+        isHls: Boolean(
+          resolved.is_m3u8 || resolved.variants?.some((variant) => variant.hls),
+        ),
         headers: effectiveHeaders,
         headerToken: resolved.header_token ?? null,
       })
@@ -498,7 +501,13 @@ export function UrlSourceBar() {
                   {t("source.previewQuality")}
                 </span>
                 <Select
-                  value={String(previewHeight ?? defaultVariant?.height ?? variants[0].height)}
+                  value={String(
+                    previewHeight ??
+                      defaultVariant?.quality_height ??
+                      defaultVariant?.height ??
+                      variants[0].quality_height ??
+                      variants[0].height,
+                  )}
                   onValueChange={(value) => {
                     const height = Number(value)
                     setPreviewHeight(height)
@@ -516,8 +525,8 @@ export function UrlSourceBar() {
                   <SelectContent position="popper" align="end" className="min-w-[148px]">
                     {variants.map((item) => (
                       <SelectItem
-                        key={`${item.height}-${item.url}`}
-                        value={String(item.height)}
+                        key={`${item.quality_height ?? item.height}-${item.url}`}
+                        value={String(item.quality_height ?? item.height)}
                         className="text-xs tabular-nums"
                       >
                         {item.label}

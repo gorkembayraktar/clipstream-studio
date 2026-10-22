@@ -1,5 +1,6 @@
 """FFmpeg dışa aktarma işçisi: komutu kurar, çalıştırır ve ilerlemeyi raporlar."""
 import asyncio
+import logging
 import re
 import time
 from pathlib import Path
@@ -15,7 +16,10 @@ from services.gpu import (
     gpu_encoder_arguments,
 )
 from services.local_media import local_path
-from services.request_headers import ffmpeg_input_args
+from services.request_headers import ffmpeg_input_args, sanitize_headers
+from services.segment_downloader import DownloadedMedia, download_hls_range
+
+logger = logging.getLogger(__name__)
 
 MIN_CLIP_DURATION = 0.1
 
@@ -80,6 +84,17 @@ def _normalized_crop(crop: Any) -> Optional[dict[str, int]]:
     return {"x": x, "y": y, "width": width, "height": height}
 
 
+def _seek_offset(payload: dict[str, Any], key: str, default: float) -> float:
+    """Yerelleştirilmiş girişte kullanılacak göreli seek değerini okur."""
+    value = payload.get(key)
+    if value is None:
+        return default
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return default
+
+
 def is_gpu_render_eligible(
     output_format: str, mode: str, crop: Optional[dict[str, int]]
 ) -> bool:
@@ -107,7 +122,12 @@ def build_ffmpeg_command(
 
     # Video akışı sessizse (YouTube HLS) ses ayrı bir akıştan gelir.
     audio_url = str(payload.get("audio_url") or "").strip()
-    if audio_url and ".m3u8" not in audio_url.lower() and "://" not in audio_url:
+    if (
+        audio_url
+        and ".m3u8" not in audio_url.lower()
+        and "://" not in audio_url
+        and not Path(audio_url).is_file()
+    ):
         audio_url = ""
     if audio_url:
         audio_url = str(local_path(audio_url) or audio_url)
@@ -117,6 +137,8 @@ def build_ffmpeg_command(
     if end <= start:
         raise ExportError(t("error.endAfterStart"))
 
+    video_seek = _seek_offset(payload, "_video_seek", start)
+    audio_seek = _seek_offset(payload, "_audio_seek", start)
     clip_duration = end - start
     output_format = str(payload.get("output_format", "mp4")).lower()
     mode = str(payload.get("mode", "exact")).lower()
@@ -128,6 +150,7 @@ def build_ffmpeg_command(
     # MP3'te ses tek başına yeterli: kaynak sessizse doğrudan ses akışı kullanılır.
     if output_format == "mp3" and audio_url:
         url = audio_url
+        video_seek = audio_seek
 
     # Ses birleştirme yalnızca MP4 çıktısında ve ses akışı ayrı verildiğinde yapılır.
     merge_audio = bool(audio_url) and output_format == "mp4" and url != audio_url
@@ -138,12 +161,12 @@ def build_ffmpeg_command(
     if url.startswith(("http://", "https://")):
         command += input_args
 
-    command += ["-ss", seconds_to_hms(start), "-i", url]
+    command += ["-ss", seconds_to_hms(video_seek), "-i", url]
 
     if merge_audio:
         if audio_url.startswith(("http://", "https://")):
             command += input_args
-        command += ["-ss", seconds_to_hms(start), "-i", audio_url]
+        command += ["-ss", seconds_to_hms(audio_seek), "-i", audio_url]
 
     command += ["-t", seconds_to_hms(clip_duration)]
 
@@ -244,6 +267,67 @@ def _mark_done(job: dict[str, Any], output_path: Path) -> None:
     job["elapsed_sec"] = round(time.time() - job["started_at"], 1)
 
 
+async def stage_hls_sources(
+    payload: dict[str, Any],
+    client: Any,
+    start: float,
+    end: float,
+) -> tuple[dict[str, Any], list[DownloadedMedia]]:
+    """Dışa aktarma için HLS girişlerini istenen aralıkla yerelleştirir.
+
+    AV1/fMP4 HLS'te FFmpeg'in uzak playlist üzerinde seek etmesi güvenilir
+    değil; yalnızca klip aralığını indirip yerel dosyadan kesmek hem doğru hem
+    çok daha hızlı. Uygun olmayan kaynaklarda payload değişmeden döner.
+    """
+    staged = dict(payload)
+    downloads: list[DownloadedMedia] = []
+    if client is None:
+        return staged, downloads
+
+    headers = sanitize_headers(payload.get("headers"))
+    video_url = str(payload.get("url", "")).strip()
+    audio_url = str(payload.get("audio_url") or "").strip()
+    output_format = str(payload.get("output_format", "mp4")).lower()
+    primary_is_audio = output_format == "mp3" and bool(audio_url)
+    primary_url = audio_url if primary_is_audio else video_url
+
+    if primary_url.startswith(("http://", "https://")):
+        media = await download_hls_range(
+            client, primary_url, start, end, headers
+        )
+        if media is not None:
+            seek = max(0.0, start - media.start)
+            staged["url"] = str(media.path)
+            staged["_video_seek"] = seek
+            downloads.append(media)
+            if primary_is_audio:
+                staged["audio_url"] = str(media.path)
+                staged["_audio_seek"] = seek
+
+    if (
+        output_format == "mp4"
+        and audio_url
+        and audio_url != video_url
+        and audio_url.startswith(("http://", "https://"))
+    ):
+        audio_media = await download_hls_range(
+            client, audio_url, start, end, headers
+        )
+        if audio_media is not None:
+            staged["audio_url"] = str(audio_media.path)
+            staged["_audio_seek"] = max(0.0, start - audio_media.start)
+            downloads.append(audio_media)
+
+    if downloads:
+        logger.info(
+            "export: %d HLS girişi yerelleştirildi (%.1f-%.1f sn)",
+            len(downloads),
+            start,
+            end,
+        )
+    return staged, downloads
+
+
 async def _run_ffmpeg(
     command: list[str], job: dict[str, Any], clip_duration: float
 ) -> tuple[int, str]:
@@ -263,7 +347,7 @@ async def _run_ffmpeg(
     return process.returncode, stderr_tail
 
 
-async def run_export_job(job: dict[str, Any], manager) -> None:
+async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> None:
     """İşi arka planda yürütür; durumu job sözlüğü üzerinden raporlar."""
     set_language(job.get("lang"))
     payload = job["payload"]
@@ -271,6 +355,7 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
     job["progress"] = 0.0
     job.pop("eta_sec", None)
     job["started_at"] = time.time()
+    downloads: list[DownloadedMedia] = []
 
     try:
         start = parse_time_to_seconds(payload.get("start_time", 0))
@@ -293,6 +378,22 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
         job["encoder_requested"] = (
             "gpu" if str(payload.get("encoder", "cpu")).strip().lower() == "gpu" else "cpu"
         )
+
+        if client is not None:
+            job["stage"] = "staging"
+            try:
+                payload, downloads = await stage_hls_sources(payload, client, start, end)
+            except Exception as exc:  # yerelleştirme başarısızsa eski yola dön
+                logger.warning("export: HLS yerelleştirme hatası: %s", exc)
+                payload = job["payload"]
+                for media in downloads:
+                    media.cleanup()
+                downloads = []
+            finally:
+                job.pop("stage", None)
+            job["localized"] = bool(downloads)
+            if job["status"] == CANCELLED:
+                return
 
         gpu_encoder, fallback_reason, fallback_detail, gpu_label = await select_gpu_encoder(
             payload
@@ -359,6 +460,10 @@ async def run_export_job(job: dict[str, Any], manager) -> None:
         if job["status"] != CANCELLED:
             job["status"] = ERROR
             job["error"] = str(exc)
+    finally:
+        for media in downloads:
+            media.cleanup()
+        downloads.clear()
 
 
 def _parse_speed(raw: Any) -> Optional[float]:

@@ -16,6 +16,8 @@ interface SourceInfo {
   audioUrl?: string | null
   /** Kaynakta bulunan önizleme kalite varyantları (en yüksek kalite başta). */
   variants?: StreamVariant[]
+  /** Kaynak HLS mi? Uzantısız playlist'lerde backend içerik tespitiyle belirlenir. */
+  isHls: boolean
   /** curl ile yapıştırılan HTTP başlıkları (cookie/referer…). */
   headers?: Record<string, string> | null
   /** Oynatma proxy'sinin başlıkları tanıması için kısa ömürlü belirteç. */
@@ -34,6 +36,8 @@ interface SourceState {
   sourcePath: string | null
   /** Kaynakta bulunan önizleme kalite varyantları (en yüksek kalite başta). */
   variants: StreamVariant[]
+  /** Kaynak HLS mi? (uzantısız playlist'ler dahil) */
+  isHls: boolean
   /** curl ile yapıştırılan HTTP başlıkları (yalnızca doğrudan kaynaklarda). */
   headers: Record<string, string> | null
   /** Oynatma proxy'sinin başlıkları tanıması için belirteç. */
@@ -63,6 +67,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   audioUrl: null,
   sourcePath: null,
   variants: [],
+  isHls: false,
   headers: null,
   headerToken: null,
   previewHeight: null,
@@ -83,10 +88,13 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioUrl: source.audioUrl ?? null,
       sourcePath: source.sourcePath ?? null,
       variants: source.variants ?? [],
+      isHls: source.isHls,
       headers: source.headers ?? null,
       headerToken: source.headerToken ?? null,
       previewHeight:
+        (source.variants ?? []).find((item) => item.default)?.quality_height ??
         (source.variants ?? []).find((item) => item.default)?.height ??
+        source.variants?.[0]?.quality_height ??
         source.variants?.[0]?.height ??
         null,
       meta: null,
@@ -126,6 +134,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioUrl: null,
       sourcePath: null,
       variants: [],
+      isHls: false,
       headers: null,
       headerToken: null,
       previewHeight: null,

@@ -162,6 +162,54 @@ export const api = {
     headers?: Record<string, string>
   }) => post<WaveformResponse>("/api/waveform", payload),
 
+  /** Kademeli waveform: NDJSON olaylarını ham `Response` olarak döndürür. */
+  waveformStream: async (
+    payload: {
+      url: string
+      origin?: string
+      duration?: number
+      force?: boolean
+      audio_url?: string
+      headers?: Record<string, string>
+    },
+    signal?: AbortSignal,
+  ): Promise<Response> => {
+    let response: Response
+    try {
+      response = await fetch("/api/waveform/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/x-ndjson",
+          "Accept-Language": acceptLanguage(),
+        },
+        body: JSON.stringify(payload),
+        signal,
+      })
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") throw error
+      throw new ApiError(translate("api.unreachable"), 0)
+    }
+
+    if (!response.ok) {
+      let message = translate("api.httpFailed", { status: response.status })
+      try {
+        const data = (await response.json()) as { error?: string }
+        if (data?.error) message = data.error
+      } catch {
+        /* gövde JSON değilse varsayılan mesaj kalır */
+      }
+      log(
+        "error",
+        translate("log.requestFailed", { path: "/api/waveform/stream" }),
+        `HTTP ${response.status} — ${message}`,
+      )
+      throw new ApiError(message, response.status)
+    }
+
+    return response
+  },
+
   /** Önizleme karesi: videoyu ilerletmeden sunucuda çekilen JPEG. */
   frame: async (
     payload: {

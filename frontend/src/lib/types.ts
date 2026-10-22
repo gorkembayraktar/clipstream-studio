@@ -32,13 +32,18 @@ export interface ResolveResponse {
 /** Önizleme kalite varyantı (HLS yükseklikleri; 1080p üstü de listelenir). */
 export interface StreamVariant {
   url: string
+  /** Gerçek piksel yüksekliği (ör. kırpılmış 1080p akışta 800). */
   height: number
+  /** Kalite etiketi için yayın sınıfı (ör. 1920x800 → 1080). */
+  quality_height?: number
   label: string
   hls: boolean
   /** Varyant kendi sesini taşıyor mu? (null → bilinmiyor) */
   has_audio?: boolean | null
   /** Görüntü-only varyant için ayrı ses akışı adresi. */
   audio_url?: string | null
+  /** Ayrı ses akışı HLS ise tarayıcıda hls.js ile bağlanır. */
+  audio_hls?: boolean
   /** Varsayılan önizleme varyantı (1080p'yi aşmayan en yüksek kalite). */
   default?: boolean
 }
@@ -194,6 +199,50 @@ export interface WaveformResponse {
   silent?: boolean
   error?: string
 }
+
+export interface WaveformStartEvent {
+  type: "start"
+  duration: number
+  bucket_seconds: number
+  bucket_count: number
+  optimized: boolean
+  cached: boolean
+  silent?: boolean
+}
+
+export interface WaveformChunkEvent {
+  type: "chunk"
+  index: number
+  /** Global kova başlangıç indeksi. */
+  start: number
+  /** Bu olaydaki kova sayısı. */
+  count: number
+  /** base64 kodlanmış kova baytları. */
+  buckets: string
+}
+
+export interface WaveformDoneEvent {
+  type: "done"
+  success: boolean
+  duration: number
+  bucket_seconds: number
+  bucket_count: number
+  cached: boolean
+  optimized: boolean
+  silent?: boolean
+}
+
+export interface WaveformErrorEvent {
+  type: "error"
+  error: string
+  status_code?: number
+}
+
+export type WaveformStreamEvent =
+  | WaveformStartEvent
+  | WaveformChunkEvent
+  | WaveformDoneEvent
+  | WaveformErrorEvent
 
 export interface ExportFile {
   name: string

@@ -32,6 +32,7 @@ function drawBars(
   buckets: Uint8Array,
   bucketSeconds: number,
   duration: number,
+  loadedBuckets: number,
   color: string,
 ) {
   const context = canvas.getContext("2d")
@@ -42,14 +43,18 @@ function drawBars(
   context.fillStyle = color
 
   const total = duration > 0 ? duration : buckets.length * bucketSeconds
+  const available = Math.min(buckets.length, Math.max(0, loadedBuckets))
+  if (available <= 0 || total <= 0) return
+  const loadedDuration = Math.min(total, available * bucketSeconds)
   const columns = Math.max(1, Math.floor(canvas.width / (BAR_WIDTH + BAR_GAP)))
   const center = canvas.height / 2
 
   for (let column = 0; column < columns; column += 1) {
     const from = (column / columns) * total
-    const to = ((column + 1) / columns) * total
-    const first = clamp(Math.floor(from / bucketSeconds), 0, buckets.length - 1)
-    const last = clamp(Math.ceil(to / bucketSeconds), first + 1, buckets.length)
+    if (from >= loadedDuration) continue
+    const to = Math.min(((column + 1) / columns) * total, loadedDuration)
+    const first = clamp(Math.floor(from / bucketSeconds), 0, available - 1)
+    const last = clamp(Math.ceil(to / bucketSeconds), first + 1, available)
 
     let peak = 0
     for (let index = first; index < last; index += 1) {
@@ -109,6 +114,7 @@ export function WaveformLayer({ duration }: { duration: number }) {
       data.buckets,
       data.bucketSeconds,
       duration,
+      data.loadedBuckets,
       isDrawableColor(computed) ? computed : FALLBACK_GRAY,
     )
   }, [data, size, duration])

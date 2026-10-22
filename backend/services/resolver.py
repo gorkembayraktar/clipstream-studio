@@ -9,7 +9,7 @@ import urllib.parse
 from typing import Any, Callable, Optional
 
 from core.i18n import t
-from services.hls import list_variants
+from services.hls import detect_hls, list_variants
 
 #: Varsayılan önizleme kalitesi üst sınırı: oynatma 1080p'de başlar (daha yüksek
 #: varyantlar listede görünür ve kullanıcı Kaynak panelinden seçebilir).
@@ -23,26 +23,41 @@ def _variant(
     hls: bool,
     has_audio: Optional[bool],
     audio_url: Optional[str],
+    audio_hls: bool = False,
+    quality_height: Optional[int] = None,
 ) -> dict[str, Any]:
-    """Arayüzdeki kalite listesi için tek bir oynatma varyantı."""
+    """Arayüzdeki kalite listesi için tek bir oynatma varyantı.
+
+    `height` gerçek piksel yüksekliğidir; `quality_height` ise listede gösterilen
+    yayın kalitesidir. Kırpılmış akışlarda (1920x800) ikisi farklıdır.
+    """
     height = int(height or 0)
+    quality = int(quality_height or height or 0)
     return {
         "url": url,
         "height": height,
-        "label": f"{height}p" if height else t("label.source"),
+        "quality_height": quality,
+        "label": f"{quality}p" if quality else t("label.source"),
         "hls": hls,
         "has_audio": has_audio,
         "audio_url": audio_url,
+        # Ayrı ses akışı HLS ise tarayıcıda hls.js ile bağlanır.
+        "audio_hls": audio_hls,
         "default": False,
     }
+
+
+def _variant_quality(item: dict[str, Any]) -> int:
+    """Varyantın kalite etiketi için kullanılacak yükseklik (1080 gibi)."""
+    return int(item.get("quality_height") or item.get("height") or 0)
 
 
 def _pick_default_height(
     variants: list[dict[str, Any]], max_height: int = MAX_PREVIEW_HEIGHT
 ) -> int:
     """Varsayılan varyant: `max_height`'ı aşmayan en yüksek kalite (yoksa en yüksek)."""
-    capped = [item for item in variants if 0 < item["height"] <= max_height]
-    return int((capped[0] if capped else variants[0])["height"])
+    capped = [item for item in variants if 0 < _variant_quality(item) <= max_height]
+    return _variant_quality(capped[0] if capped else variants[0])
 
 
 def _quality_height(fmt: dict[str, Any]) -> int:
@@ -337,7 +352,7 @@ async def resolve_url(
     # Varsayılan önizleme: 1080p'yi aşmayan en yüksek varyant (ör. 2160p olsa bile
     # oynatma 1080p'de başlar; daha yüksek kaliteler listede seçilebilir kalır).
     default_height = _pick_default_height(variants)
-    best = next(item for item in variants if item["height"] == default_height)
+    best = next(item for item in variants if _variant_quality(item) == default_height)
 
     # Video akışı sessizse (YouTube HLS'leri yalnızca görüntü içerir) sesi ayrı
     # bir akıştan vermek gerekir: tarayıcı video + ses elementi eşlenerek oynatır,
@@ -346,7 +361,7 @@ async def resolve_url(
 
     for variant in variants:
         variant["audio_url"] = None if variant["has_audio"] else audio_url
-        variant["default"] = variant["height"] == default_height
+        variant["default"] = _variant_quality(variant) == default_height
 
     return {
         "success": True,
@@ -359,7 +374,7 @@ async def resolve_url(
         "original_url": url,
         "title": info.get("title") or info.get("uploader") or "Video",
         "duration": float(info.get("duration") or 0),
-        "resolution": f"{best['height']}p" if best["height"] else "",
+        "resolution": f"{_variant_quality(best)}p" if _variant_quality(best) else "",
         "has_audio": best["has_audio"],
         "audio_url": audio_url,
         #: Kaynak panelindeki kalite listesi (varsayılan `default: true` ile işaretli).
@@ -370,14 +385,17 @@ async def resolve_url(
 async def _resolve_direct(
     url: str, client, headers: Optional[dict[str, str]] = None
 ) -> dict[str, Any]:
-    """Doğrudan medya bağlantıları — m3u8 master playlist'i kalite listesine indirger."""
+    """Doğrudan medya bağlantıları — HLS master playlist'i kalite listesine indirger."""
+    # HLS her zaman `.m3u8` uzantısı taşımaz; CDN'ler playlist'i uzantısız
+    # sunabilir. İçerik türü/ilk baytlar üzerinden tespit edilir.
+    is_hls = await detect_hls(client, url, headers)
     result: dict[str, Any] = {
         "success": True,
         "platform": "direct",
         "is_youtube": False,
         "is_twitter": False,
         "is_instagram": False,
-        "is_m3u8": ".m3u8" in url.lower(),
+        "is_m3u8": is_hls,
         "stream_url": url,
         "resolution": "",
         "has_audio": None,
@@ -385,7 +403,7 @@ async def _resolve_direct(
         "variants": [],
     }
 
-    if not result["is_m3u8"]:
+    if not is_hls:
         return result
 
     variants = await list_variants(client, url, headers)
@@ -393,14 +411,29 @@ async def _resolve_direct(
         return result
 
     default_height = _pick_default_height(variants)
-    best = next(item for item in variants if item["height"] == default_height)
+    best = next(item for item in variants if _variant_quality(item) == default_height)
     result["stream_url"] = best["url"]
-    if best["height"]:
-        result["resolution"] = f"{best['height']}p"
+    if _variant_quality(best):
+        result["resolution"] = f"{_variant_quality(best)}p"
+
+    # Master playlist ayrı bir ses grubu içeriyorsa (ör. `AUDIO="audio0"`)
+    # varyant yalnızca görüntü taşır. Ses playlist'i ayrıca verilir; oynatıcı
+    # iki HLS akışını eşler, dışa aktarma ise FFmpeg ile birleştirir.
+    default_audio = best.get("audio_url")
+    result["audio_url"] = default_audio
+    result["has_audio"] = False if default_audio else None
     result["variants"] = [
         {
-            **_variant(item["url"], item["height"], hls=True, has_audio=None, audio_url=None),
-            "default": item["height"] == default_height,
+            **_variant(
+                item["url"],
+                item["height"],
+                hls=True,
+                has_audio=False if item.get("audio_url") else None,
+                audio_url=item.get("audio_url"),
+                audio_hls=bool(item.get("audio_url")),
+                quality_height=item.get("quality_height"),
+            ),
+            "default": _variant_quality(item) == default_height,
         }
         for item in variants
     ]

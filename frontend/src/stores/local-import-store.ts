@@ -114,6 +114,7 @@ function applyLocalSource(result: LocalFileResponse, sourcePath: string | null):
     sourcePath,
     audioUrl: null,
     variants: [],
+    isHls: false,
   })
   source.setMeta({
     width: result.width,

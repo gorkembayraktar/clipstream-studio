@@ -22,6 +22,8 @@ dist-ssr/
 cache/
 exports/
 
+resolve.json
+
 # Çalışma zamanı günlükleri
 backend.log
 backend.err.log

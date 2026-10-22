@@ -1,5 +1,6 @@
 """Dışa aktarma komutu ve GPU kodlayıcı seçimi için birim testleri."""
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -15,7 +16,9 @@ from services.exporter import (  # noqa: E402
     build_ffmpeg_command,
     is_gpu_render_eligible,
     select_gpu_encoder,
+    stage_hls_sources,
 )
+from services.segment_downloader import DownloadedMedia  # noqa: E402
 from services.gpu import (  # noqa: E402
     GPU_ENCODERS,
     GpuCapability,
@@ -128,6 +131,34 @@ class FfmpegCommandTests(unittest.TestCase):
         arguments = gpu_encoder_arguments("h264_amf")
         self.assertEqual(arguments[:2], ["-c:v", "h264_amf"])
 
+    def test_staged_inputs_use_separate_relative_seek_values(self):
+        payload = make_payload(
+            url="https://example.com/video.m3u8",
+            audio_url="https://example.com/audio.m3u8",
+            start_time=5203.334,
+            end_time=5305.493,
+            _video_seek=3.334,
+            _audio_seek=1.2,
+        )
+        command = build_ffmpeg_command(payload, Path("out.mp4"))
+        seek_values = [
+            command[index + 1]
+            for index, value in enumerate(command)
+            if value == "-ss"
+        ]
+        self.assertEqual(seek_values, ["00:00:03.334", "00:00:01.200"])
+
+    def test_local_staged_audio_path_is_kept(self):
+        with tempfile.TemporaryDirectory() as root:
+            audio = Path(root) / "audio.bin"
+            audio.write_bytes(b"audio")
+            command = build_ffmpeg_command(
+                make_payload(url="https://example.com/video.m3u8", audio_url=str(audio)),
+                Path("out.mp4"),
+            )
+            self.assertIn(str(audio), command)
+            self.assertIn("1:a:0", command)
+
 
 class EtaTests(unittest.TestCase):
     def test_parse_speed(self):
@@ -156,6 +187,63 @@ class EtaTests(unittest.TestCase):
         job = {"current_sec": 31.0, "speed": "1.5x"}
         _update_eta(job, 30.0)
         self.assertEqual(job["eta_sec"], 0.0)
+
+
+class StagingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_video_and_audio_are_localized_with_relative_seeks(self):
+        video = DownloadedMedia(
+            path=Path("video-range.bin"),
+            temp_dir=Path("video-temp"),
+            duration=110.0,
+            segment_count=11,
+            start=5200.0,
+        )
+        audio = DownloadedMedia(
+            path=Path("audio-range.bin"),
+            temp_dir=Path("audio-temp"),
+            duration=112.0,
+            segment_count=11,
+            start=5198.0,
+        )
+        payload = make_payload(
+            url="https://example.com/video.m3u8",
+            audio_url="https://example.com/audio.m3u8",
+            start_time=5203.334,
+            end_time=5305.493,
+        )
+
+        with patch(
+            "services.exporter.download_hls_range",
+            new=AsyncMock(side_effect=[video, audio]),
+        ) as download:
+            staged, downloads = await stage_hls_sources(
+                payload, object(), 5203.334, 5305.493
+            )
+
+        self.assertEqual(download.await_count, 2)
+        self.assertEqual(staged["url"], "video-range.bin")
+        self.assertEqual(staged["audio_url"], "audio-range.bin")
+        self.assertAlmostEqual(staged["_video_seek"], 3.334)
+        self.assertAlmostEqual(staged["_audio_seek"], 5.334)
+        self.assertEqual(downloads, [video, audio])
+        # Girdi payload'u değişmemeli; yalnızca kopya yerelleştirilir.
+        self.assertEqual(payload["url"], "https://example.com/video.m3u8")
+
+    async def test_failed_staging_keeps_original_remote_urls(self):
+        payload = make_payload(
+            url="https://example.com/video.m3u8",
+            audio_url="https://example.com/audio.m3u8",
+        )
+        with patch(
+            "services.exporter.download_hls_range",
+            new=AsyncMock(return_value=None),
+        ):
+            staged, downloads = await stage_hls_sources(
+                payload, object(), 1.25, 4.75
+            )
+
+        self.assertEqual(staged, payload)
+        self.assertEqual(downloads, [])
 
 
 class GpuSelectionTests(unittest.IsolatedAsyncioTestCase):

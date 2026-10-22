@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from core.i18n import t
 from services.header_store import get_headers
+from services.hls import is_hls_content_type
 
 BROWSER_HEADERS = {
     "Accept": "*/*",
@@ -84,35 +85,47 @@ async def proxy_request(request) -> Response:
         headers["range"] = request.headers["range"]
 
     try:
-        if _is_playlist(parsed):
-            response = await http.get(target_url, headers=headers)
-            content_type = response.headers.get("content-type", "application/vnd.apple.mpegurl")
+        # Segment ve doğrudan dosyalar: bayt bayt, range desteğiyle akıt.
+        # Playlist olup olmadığı URL uzantısından değil, yanıtın kendisinden
+        # anlaşılır: CDN'ler master/media playlist'i `.m3u8` olmadan sunabiliyor.
+        upstream = await http.send(
+            http.build_request("GET", target_url, headers=headers),
+            stream=True,
+        )
+        content_type = upstream.headers.get("content-type", "")
 
-            if "mpegurl" in content_type or "#EXTM3U" in response.text:
-                body = _rewrite_playlist(response.text, str(response.url), token)
+        if _is_playlist(parsed) or is_hls_content_type(content_type):
+            # Playlist'ler küçüktür: gövde tamamen okunup URI'ler proxy'ye
+            # çevrilir. `aread()` sıkıştırmayı çözer; yeni gövde farklı
+            # uzunlukta olabileceği için upstream `Content-Length` kullanılmaz.
+            body = await upstream.aread()
+            await upstream.aclose()
+            text = body.decode("utf-8", errors="replace")
+
+            if "#EXTM3U" in text:
+                rewritten = _rewrite_playlist(text, str(upstream.url), token)
                 return Response(
-                    content=body.encode("utf-8"),
+                    content=rewritten.encode("utf-8"),
                     media_type="application/vnd.apple.mpegurl",
                     headers={"Access-Control-Allow-Origin": "*"},
                 )
 
             return Response(
-                content=response.content,
-                status_code=response.status_code,
-                media_type=content_type,
+                content=body,
+                status_code=upstream.status_code,
+                media_type=content_type or "application/octet-stream",
                 headers={"Access-Control-Allow-Origin": "*"},
             )
 
-        # Segment ve doğrudan dosyalar: bayt bayt, range desteğiyle akıt
-        upstream = await http.send(
-            http.build_request("GET", target_url, headers=headers),
-            stream=True,
-        )
         response_headers = {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
             "Accept-Ranges": "bytes",
         }
+        # `aiter_raw()` sıkıştırılmış baytları olduğu gibi aktarır; bu sayede
+        # `Content-Length`/`Content-Encoding` başlıkları gövdeyle tutarlı kalır.
+        if "content-encoding" in upstream.headers:
+            response_headers["Content-Encoding"] = upstream.headers["content-encoding"]
         if "content-length" in upstream.headers:
             response_headers["Content-Length"] = upstream.headers["content-length"]
         if "content-range" in upstream.headers:
@@ -120,7 +133,7 @@ async def proxy_request(request) -> Response:
 
         async def stream_body():
             try:
-                async for chunk in upstream.aiter_bytes(chunk_size=65536):
+                async for chunk in upstream.aiter_raw(chunk_size=65536):
                     yield chunk
             finally:
                 await upstream.aclose()

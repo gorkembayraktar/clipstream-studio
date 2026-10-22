@@ -6,6 +6,7 @@ PROJECT_ROOT = BASE_DIR.parent                    # clip2/
 EXPORTS_DIR = PROJECT_ROOT / "exports"
 CACHE_DIR = PROJECT_ROOT / "cache"
 WAVEFORM_CACHE_DIR = CACHE_DIR / "waveform"
+WAVEFORM_TEMP_DIR = CACHE_DIR / "waveform-tmp"
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 HOST = "127.0.0.1"
@@ -28,4 +29,5 @@ OUTPUT_FORMATS = {"mp4", "gif", "mp3"}
 
 EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 WAVEFORM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+WAVEFORM_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)

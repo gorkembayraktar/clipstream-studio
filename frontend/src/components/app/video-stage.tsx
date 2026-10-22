@@ -38,6 +38,7 @@ export function VideoStage() {
   const platform = useSourceStore((s) => s.platform)
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const variants = useSourceStore((s) => s.variants)
+  const sourceIsHls = useSourceStore((s) => s.isHls)
   const headerToken = useSourceStore((s) => s.headerToken)
   const previewHeight = useSourceStore((s) => s.previewHeight)
   const cropEnabled = useEditStore((s) => s.crop.enabled)
@@ -47,9 +48,13 @@ export function VideoStage() {
   // Dışa aktarma, dalga formu ve analiz her zaman kaynağın en yüksek kalitesini
   // (streamUrl/audioUrl) kullanır; burada yalnızca oynatma kaynağı değişir.
   const previewVariant =
-    variants.find((item) => item.height === previewHeight) ?? variants[0] ?? null
+    variants.find((item) => (item.quality_height ?? item.height) === previewHeight) ??
+    variants[0] ??
+    null
   const previewStreamUrl = previewVariant?.url ?? streamUrl
   const previewAudioUrl = previewVariant ? previewVariant.audio_url ?? null : audioUrl
+  /** Seçili varyantın HLS bilgisi; varyant yoksa kaynak seviyesindeki tespit. */
+  const playerIsHls = previewVariant?.hls ?? sourceIsHls
 
   // YouTube/X/Instagram akışları tarayıcıdan doğrudan çalınamaz (CORS) → proxy otomatik.
   // Yerel dosyalar (/uploads/...) aynı sunucudan geldiği için proxy gerekmez.
@@ -66,9 +71,11 @@ export function VideoStage() {
       ? proxiedUrl(previewAudioUrl, headerToken)
       : previewAudioUrl
     : null
-  /** Ses akışı HLS (ör. X ses rendition'ı) ise `src` yerine hls.js ile bağlanır. */
-  const audioIsHls = Boolean(audioSrc && isHlsUrl(audioSrc))
-  useHlsSource(videoRef, playerSrc)
+  /** Ses akışı HLS (ör. ayrı ses grubu) ise `src` yerine hls.js ile bağlanır. */
+  const audioIsHls = Boolean(
+    audioSrc && ((previewVariant?.audio_hls ?? false) || isHlsUrl(audioSrc)),
+  )
+  useHlsSource(videoRef, playerSrc, playerIsHls)
 
   const audioRef = useRef<HTMLAudioElement>(null)
   /** Kullanıcı oynatmak istiyor mu? Tarayıcının kendiliğinden duraklatmasını ayırt eder. */
@@ -94,7 +101,7 @@ export function VideoStage() {
    * bu sayede görüntü-only HLS kaynaklarında da ses duyulur. */
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio || !audioSrc || !isHlsUrl(audioSrc)) return
+    if (!audio || !audioSrc || !audioIsHls) return
 
     let hls: HlsJs | null = null
     let disposed = false

@@ -48,6 +48,7 @@ function applyLocalResult(result: LocalFileResponse): void {
     sourcePath: result.path ?? null,
     audioUrl: null,
     variants: [],
+    isHls: false,
   })
   source.setMeta({
     width: result.width,
