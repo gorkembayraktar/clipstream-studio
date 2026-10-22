@@ -109,6 +109,8 @@ Kapatmak için `durdur.bat` dosyasını çalıştır.
 
 Klipler `exports/` klasörüne kaydedilir. Sürükle-bırak ile eklenen geçici dosyalar `cache/uploads/` altında tutulur ve 7 gün sonra temizlenir.
 
+Adres çubuğu `#project/?v=<sürüm>` biçimindedir; `v` değeri `frontend/package.json` sürümünden gelir ve uygulama açılışında güncellenir.
+
 ### GPU ile render
 
 - Yalnızca **MP4** ve **hassas kesim** veya **kırpma** dışa aktarmalarında kullanılabilir; hızlı kopyalama yeniden kodlama yapmadığı için GPU'yu kullanamaz.

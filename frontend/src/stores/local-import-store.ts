@@ -21,6 +21,7 @@ import { ApiError, api } from "@/lib/api"
 import { translate } from "@/i18n"
 import { formatBytes, formatMegabytes, formatTime, stripExtension } from "@/lib/format"
 import { writeProjectHandoff } from "@/lib/project-handoff"
+import { projectHash } from "@/lib/project-route"
 import type { LocalFileResponse } from "@/lib/types"
 import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
@@ -193,7 +194,7 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       // bırakılırsa tarayıcı açılır pencereyi engelleyebilir.
       const projectUrl = new URL(window.location.href)
       projectUrl.search = ""
-      projectUrl.hash = ""
+      projectUrl.hash = projectHash()
       projectUrl.searchParams.set("incoming", projectId)
       const opened = window.open(projectUrl.toString(), "_blank")
       if (!opened) {

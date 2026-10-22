@@ -13,10 +13,12 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useIncomingProject } from "@/hooks/use-incoming-project"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
+import { useProjectRoute } from "@/hooks/use-project-route"
 import { useI18n } from "@/i18n"
 
 export default function App() {
   const incoming = useIncomingProject()
+  useProjectRoute()
 
   if (incoming.active) {
     return <IncomingProjectScreen fileName={incoming.fileName} error={incoming.error} />

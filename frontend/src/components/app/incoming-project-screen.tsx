@@ -3,6 +3,7 @@ import { AlertCircle, Clapperboard, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useI18n } from "@/i18n"
+import { cleanProjectUrl } from "@/lib/project-route"
 
 interface IncomingProjectScreenProps {
   fileName: string | null
@@ -12,7 +13,7 @@ interface IncomingProjectScreenProps {
 function closeTab() {
   window.close()
   // Tarayıcı sekmeyi kapatmaya izin vermezse boş stüdyoya dön.
-  window.location.replace("/")
+  window.location.replace(cleanProjectUrl())
 }
 
 export function IncomingProjectScreen({ fileName, error }: IncomingProjectScreenProps) {
