@@ -5,9 +5,6 @@
  * also exist in `tr.ts`; TypeScript enforces that.
  */
 export const en = {
-  "app.shortcuts":
-    "Space: play/pause · ←/→: 1s · Shift+←/→: 5s · , / . : precise step (Shift: ×10) · ↑/↓: volume · M: mute · F: fullscreen · P: picture-in-picture · T: theme · I / [ : in · O / ] : out · L: loop",
-
   "language.label": "Language",
   "language.switch": "Change language",
   "language.en": "English",
@@ -29,6 +26,31 @@ export const en = {
   "tabs.source": "Source",
   "tabs.export": "Export",
   "tabs.gallery": "Gallery",
+  "tabs.settings": "Settings",
+
+  "settings.preferences": "Preferences",
+  "settings.language": "Language",
+  "settings.theme": "Theme",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.shortcuts": "Keyboard shortcuts",
+  "settings.shortcutsHint": "Defaults for now",
+  "settings.shortcutAction": "Action",
+  "settings.shortcutKeys": "Keys",
+
+  "shortcut.playPause": "Play / pause",
+  "shortcut.seek1": "Seek 1 s",
+  "shortcut.seek5": "Seek 5 s",
+  "shortcut.step": "Precise step",
+  "shortcut.step10": "Precise step ×10",
+  "shortcut.volume": "Volume",
+  "shortcut.mute": "Mute",
+  "shortcut.fullscreen": "Fullscreen",
+  "shortcut.pip": "Picture-in-picture",
+  "shortcut.theme": "Theme",
+  "shortcut.trimIn": "Set in",
+  "shortcut.trimOut": "Set out",
+  "shortcut.loop": "Loop",
 
   "source.urlPlaceholder": "Paste a link · YouTube / X / Instagram",
   "source.urlAria": "Video link",

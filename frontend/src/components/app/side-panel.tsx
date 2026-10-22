@@ -1,17 +1,18 @@
 /** Sağ panel: Kaynak / Dışa Aktar / Galeri sekmeleri. */
 import { useEffect, useState } from "react"
 
-import { FilmIcon, Link2Icon, ScissorsIcon } from "lucide-react"
+import { FilmIcon, Link2Icon, ScissorsIcon, SettingsIcon } from "lucide-react"
 
 import { ExportPanel } from "@/components/app/export-panel"
 import { Gallery } from "@/components/app/gallery"
+import { SettingsPanel } from "@/components/app/settings-panel"
 import { UrlSourceBar } from "@/components/app/url-source-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLibrary } from "@/hooks/use-library"
 import { useI18n } from "@/i18n"
 import { useSourceStore } from "@/stores/source-store"
 
-type PanelTab = "source" | "export" | "gallery"
+type PanelTab = "source" | "export" | "gallery" | "settings"
 
 export function SidePanel() {
   const { t } = useI18n()
@@ -51,6 +52,10 @@ export function SidePanel() {
             </span>
           )}
         </TabsTrigger>
+        <TabsTrigger value="settings">
+          <SettingsIcon />
+          {t("tabs.settings")}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="source">
@@ -61,6 +66,9 @@ export function SidePanel() {
       </TabsContent>
       <TabsContent value="gallery">
         <Gallery />
+      </TabsContent>
+      <TabsContent value="settings">
+        <SettingsPanel />
       </TabsContent>
     </Tabs>
   )

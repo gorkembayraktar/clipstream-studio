@@ -2,9 +2,6 @@ import type { TranslationKey } from "./en"
 
 /** Turkish messages. The shape is enforced against `en.ts`. */
 export const tr: Record<TranslationKey, string> = {
-  "app.shortcuts":
-    "Boşluk: oynat/durdur · ←/→: 1 sn · Shift+←/→: 5 sn · , / . : hassas adım (Shift: ×10) · ↑/↓: ses · M: sessiz · F: tam ekran · P: pencere içinde pencere · T: tema · I / [ : giriş · O / ] : çıkış · L: döngü",
-
   "language.label": "Dil",
   "language.switch": "Dili değiştir",
   "language.en": "English",
@@ -26,6 +23,31 @@ export const tr: Record<TranslationKey, string> = {
   "tabs.source": "Kaynak",
   "tabs.export": "Dışa Aktar",
   "tabs.gallery": "Galeri",
+  "tabs.settings": "Ayarlar",
+
+  "settings.preferences": "Tercihler",
+  "settings.language": "Dil",
+  "settings.theme": "Tema",
+  "settings.themeLight": "Aydınlık",
+  "settings.themeDark": "Karanlık",
+  "settings.shortcuts": "Klavye kısayolları",
+  "settings.shortcutsHint": "Şimdilik varsayılan",
+  "settings.shortcutAction": "Eylem",
+  "settings.shortcutKeys": "Tuşlar",
+
+  "shortcut.playPause": "Oynat / duraklat",
+  "shortcut.seek1": "1 sn atla",
+  "shortcut.seek5": "5 sn atla",
+  "shortcut.step": "Hassas adım",
+  "shortcut.step10": "Hassas adım ×10",
+  "shortcut.volume": "Ses",
+  "shortcut.mute": "Sessize al",
+  "shortcut.fullscreen": "Tam ekran",
+  "shortcut.pip": "Pencere içinde pencere",
+  "shortcut.theme": "Tema",
+  "shortcut.trimIn": "Giriş",
+  "shortcut.trimOut": "Çıkış",
+  "shortcut.loop": "Döngü",
 
   "source.urlPlaceholder": "Bağlantı yapıştır · YouTube / X / Instagram",
   "source.urlAria": "Video bağlantısı",
