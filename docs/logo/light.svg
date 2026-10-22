@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="88" viewBox="0 0 300 88" role="img" aria-labelledby="cs-light-title cs-light-desc">
+  <title id="cs-light-title">ClipStream Studio</title>
+  <desc id="cs-light-desc">ClipStream Studio logo for light backgrounds</desc>
+
+  <defs>
+    <linearGradient id="cs-light-play" x1="10" y1="8" x2="58" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#d946ef"/>
+    </linearGradient>
+  </defs>
+
+  <text x="0" y="50" font-family="'Segoe UI', Inter, system-ui, sans-serif" font-size="40" font-weight="700" letter-spacing="-1.4" fill="#18181b">ClipStream</text>
+  <text x="1" y="71" font-family="'Segoe UI', Inter, system-ui, sans-serif" font-size="13" font-weight="600" letter-spacing="5.2" fill="#71717a">STUDIO</text>
+
+  <g transform="translate(238 16) scale(0.8125)">
+    <path d="M12 8C7 6 2 9 2 15V49C2 55 7 58 12 56L57 38C62 36 62 28 57 26L12 8Z" fill="url(#cs-light-play)"/>
+  </g>
+</svg>
