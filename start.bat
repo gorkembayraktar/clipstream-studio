@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title ClipStream Studio - Baslatici
+title ClipStream Studio - Launcher
 cd /d "%~dp0"
 
 echo.
@@ -9,89 +9,89 @@ echo    ClipStream Studio
 echo   ==========================================
 echo.
 
-REM --- 1) Sunucu zaten calisiyor mu? ---
+REM --- 1) Is the server already running? ---
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
 if not errorlevel 1 (
-  echo   Sunucu zaten calisiyor: http://127.0.0.1:8765
+  echo   Server is already running: http://127.0.0.1:8765
   start "" "http://127.0.0.1:8765"
   ping -n 3 127.0.0.1 >nul
   exit /b 0
 )
 
-REM --- 2) Python kurulu mu? ---
+REM --- 2) Is Python installed? ---
 where python >nul 2>nul
 if errorlevel 1 (
-  echo   HATA: Python bulunamadi.
-  echo   Kurup PATH'e ekleyin: https://www.python.org/downloads/
+  echo   ERROR: Python was not found.
+  echo   Install it and add it to PATH: https://www.python.org/downloads/
   echo.
   pause
   exit /b 1
 )
 
-REM --- 3) Arayuz derlemesi ---
+REM --- 3) Build the UI ---
 if not exist "frontend\dist\index.html" (
   where npm >nul 2>nul
   if errorlevel 1 (
-    echo   HATA: Arayuz derlemesi yok ve npm bulunamadi.
-    echo   Node.js kurup PATH'e ekleyin: https://nodejs.org/
+    echo   ERROR: The UI is not built and npm was not found.
+    echo   Install Node.js and add it to PATH: https://nodejs.org/
     echo.
     pause
     exit /b 1
   )
 
   if not exist "frontend\node_modules" (
-    echo   Arayuz bagimliliklari kuruluyor - ilk sefer...
+    echo   Installing UI dependencies - first run...
     pushd frontend
     call npm install
     if errorlevel 1 (
       popd
       echo.
-      echo   HATA: npm install basarisiz.
+      echo   ERROR: npm install failed.
       pause
       exit /b 1
     )
     popd
   )
 
-  echo   Arayuz derleniyor...
+  echo   Building the UI...
   pushd frontend
   call npm run build
   if errorlevel 1 (
     popd
     echo.
-    echo   HATA: Arayuz derlemesi basarisiz.
+    echo   ERROR: UI build failed.
     pause
     exit /b 1
   )
   popd
 )
 
-REM --- 4) Opsiyonel araclar ---
+REM --- 4) Optional tools ---
 where ffmpeg >nul 2>nul
-if errorlevel 1 echo   UYARI: ffmpeg PATH'te yok, disa aktarma calismaz. C:\ffmpeg\bin yolunu PATH'e ekleyin.
+if errorlevel 1 echo   WARNING: ffmpeg is not on PATH; export will not work. Add C:\ffmpeg\bin to PATH.
 python -m yt_dlp --version >nul 2>nul
-if errorlevel 1 echo   UYARI: yt-dlp yok, YouTube/X/Instagram cozulemez. Kurmak icin: pip install -U yt-dlp
+if errorlevel 1 echo   WARNING: yt-dlp is missing; YouTube/X/Instagram links cannot be resolved. Install it with: pip install -U yt-dlp
 
-REM --- 5) Sunucuyu ayri pencerede baslat ---
-echo   Sunucu baslatiliyor...
-start "ClipStream Sunucu" cmd /k "chcp 65001 >nul & python backend\app.py"
+REM --- 5) Start the server in a separate window ---
+echo   Starting the server...
+start "ClipStream Server" cmd /k "chcp 65001 >nul & python backend\app.py"
 
-REM --- 6) Sunucunun ayaga kalkmasini bekle ---
+REM --- 6) Wait for the server to come up ---
 for /l %%i in (1,1,30) do (
   powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
   if not errorlevel 1 goto ready
   ping -n 2 127.0.0.1 >nul
 )
 
-echo   HATA: Sunucu 30 saniyede acilmadi.
-echo   "ClipStream Sunucu" penceresindeki hata mesajina bakin.
+echo   ERROR: The server did not start within 30 seconds.
+echo   Check the error message in the "ClipStream Server" window.
 echo.
 pause
 exit /b 1
 
 :ready
 start "" "http://127.0.0.1:8765"
-echo   Hazir! Adres: http://127.0.0.1:8765
-echo   Kapatmak icin: durdur.bat
+echo   Ready! URL: http://127.0.0.1:8765
+echo   To stop it: stop.bat
 ping -n 5 127.0.0.1 >nul
 exit /b 0

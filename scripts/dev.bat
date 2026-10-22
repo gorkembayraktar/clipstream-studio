@@ -12,7 +12,7 @@ REM --- 8765 zaten kullaniliyor mu? ---
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
 if not errorlevel 1 (
   echo   UYARI: 8765 portu zaten kullanimda.
-  echo   Once durdur.bat ile calisan sunucuyu kapat.
+  echo   Once stop.bat ile calisan sunucuyu kapat.
   echo.
   pause
   exit /b 1

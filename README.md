@@ -94,10 +94,10 @@
 
 ```bat
 pip install -r requirements.txt
-baslat.bat
+start.bat
 ```
 
-`baslat.bat` starts the app at `http://127.0.0.1:8765`.
+`start.bat` starts the app at `http://127.0.0.1:8765`.
 
 Install yt-dlp for social links:
 
@@ -105,7 +105,7 @@ Install yt-dlp for social links:
 pip install -U yt-dlp
 ```
 
-Stop the app with `durdur.bat`.
+Stop the app with `stop.bat`.
 
 ## Usage
 
@@ -124,7 +124,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 - **FFmpeg not found:** Add `ffmpeg` and `ffprobe` to `PATH`. Reopen the terminal.
 - **Social links fail:** Update yt-dlp.
 - **HLS fails:** Read the error toast. Use Advanced link or enable the CORS proxy.
-- **Port 8765 is busy:** Run `durdur.bat` first.
+- **Port 8765 is busy:** Run `stop.bat` first.
 
 ## Development
 
