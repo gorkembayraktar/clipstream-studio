@@ -13,6 +13,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useIncomingProject } from "@/hooks/use-incoming-project"
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts"
 import { useProjectRoute } from "@/hooks/use-project-route"
+import { useLogStore } from "@/stores/log-store"
 
 export default function App() {
   const incoming = useIncomingProject()
@@ -36,6 +37,7 @@ function StudioApp() {
   )
 
   useKeyboardShortcuts()
+  const showLogs = useLogStore((s) => s.showLogs)
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -53,7 +55,7 @@ function StudioApp() {
 
         <JobsDock />
         <Toaster richColors position="bottom-left" />
-        <LogDrawer />
+        {showLogs && <LogDrawer />}
         <FileDropZone />
       </TooltipProvider>
     </QueryClientProvider>

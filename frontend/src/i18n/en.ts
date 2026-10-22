@@ -37,6 +37,11 @@ export const en = {
   "settings.shortcutsHint": "Defaults for now",
   "settings.shortcutAction": "Action",
   "settings.shortcutKeys": "Keys",
+  "settings.logs": "Logs",
+  "settings.showErrorLog": "Show error logs",
+  "settings.showErrorLogHint": "Shows the bottom log panel.",
+  "settings.yes": "Yes",
+  "settings.no": "No",
 
   "shortcut.playPause": "Play / pause",
   "shortcut.seek1": "Seek 1 s",

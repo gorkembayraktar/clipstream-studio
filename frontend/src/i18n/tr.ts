@@ -34,6 +34,11 @@ export const tr: Record<TranslationKey, string> = {
   "settings.shortcutsHint": "Şimdilik varsayılan",
   "settings.shortcutAction": "Eylem",
   "settings.shortcutKeys": "Tuşlar",
+  "settings.logs": "Kayıtlar",
+  "settings.showErrorLog": "Hata kayıtlarını göster",
+  "settings.showErrorLogHint": "Alt log panelini gösterir.",
+  "settings.yes": "Evet",
+  "settings.no": "Hayır",
 
   "shortcut.playPause": "Oynat / duraklat",
   "shortcut.seek1": "1 sn atla",

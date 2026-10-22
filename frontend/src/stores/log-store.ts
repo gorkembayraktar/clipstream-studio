@@ -19,6 +19,24 @@ export interface LogEntry {
 }
 
 const MAX_ENTRIES = 500
+const SHOW_LOGS_KEY = "clip2:show-logs"
+
+function readShowLogs(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.localStorage.getItem(SHOW_LOGS_KEY) === "true"
+  } catch {
+    return false
+  }
+}
+
+function persistShowLogs(show: boolean) {
+  try {
+    window.localStorage.setItem(SHOW_LOGS_KEY, String(show))
+  } catch {
+    /* gizli sekme vb. durumlarda sessizce yok sayılır */
+  }
+}
 
 function stamp(): string {
   const now = new Date()
@@ -41,10 +59,12 @@ interface LogState {
   entries: LogEntry[]
   errorCount: number
   open: boolean
+  showLogs: boolean
   nextId: number
   log: (level: LogLevel, message: string, extra?: unknown) => void
   clear: () => void
   setOpen: (open: boolean) => void
+  setShowLogs: (show: boolean) => void
   toggle: () => void
 }
 
@@ -59,6 +79,7 @@ export const useLogStore = create<LogState>((set, get) => ({
   entries: [STARTUP_ENTRY],
   errorCount: 0,
   open: false,
+  showLogs: readShowLogs(),
   nextId: 2,
 
   log: (level, message, extra) => {
@@ -94,6 +115,10 @@ export const useLogStore = create<LogState>((set, get) => ({
   },
 
   setOpen: (open) => set({ open }),
+  setShowLogs: (showLogs) => {
+    persistShowLogs(showLogs)
+    set(showLogs ? { showLogs, open: true } : { showLogs, open: false })
+  },
   toggle: () => set((state) => ({ open: !state.open })),
 }))
 

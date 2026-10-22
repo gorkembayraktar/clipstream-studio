@@ -169,7 +169,7 @@ export function LogDrawer() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 left-0 right-0 z-50">
+    <div data-slot="log-drawer" className="fixed inset-x-0 bottom-0 left-0 right-0 z-50">
       <div
         className={cn(
           "overflow-hidden border-t border-border/70 bg-card/95 shadow-2xl backdrop-blur",

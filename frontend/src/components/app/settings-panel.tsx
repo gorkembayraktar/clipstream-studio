@@ -1,5 +1,5 @@
-/** Ayarlar sekmesi: dil, tema ve varsayılan klavye kısayolları. */
-import { LanguagesIcon, MoonIcon, SunIcon } from "lucide-react"
+/** Ayarlar sekmesi: dil, tema, log görünürlüğü ve varsayılan klavye kısayolları. */
+import { LanguagesIcon, MoonIcon, SunIcon, TerminalIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -9,14 +9,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { LOCALE_OPTIONS, useI18n, type Locale } from "@/i18n"
 import { KEYBOARD_SHORTCUTS } from "@/lib/keyboard-shortcuts"
+import { useLogStore } from "@/stores/log-store"
 import { useThemeStore } from "@/stores/theme-store"
 
 export function SettingsPanel() {
   const { locale, setLocale, t } = useI18n()
   const theme = useThemeStore((s) => s.theme)
   const setTheme = useThemeStore((s) => s.setTheme)
+  const showLogs = useLogStore((s) => s.showLogs)
+  const setShowLogs = useLogStore((s) => s.setShowLogs)
 
   return (
     <div className="space-y-5">
@@ -82,6 +86,34 @@ export function SettingsPanel() {
                 {t("settings.themeDark")}
               </Button>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h3 className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+          {t("settings.logs")}
+        </h3>
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/10 px-3 py-2.5">
+          <div className="flex min-w-0 items-start gap-2">
+            <TerminalIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="min-w-0">
+              <div className="text-sm">{t("settings.showErrorLog")}</div>
+              <p className="text-[10px] text-muted-foreground">
+                {t("settings.showErrorLogHint")}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-[11px] text-muted-foreground">
+              {showLogs ? t("settings.yes") : t("settings.no")}
+            </span>
+            <Switch
+              checked={showLogs}
+              onCheckedChange={setShowLogs}
+              aria-label={t("settings.showErrorLog")}
+            />
           </div>
         </div>
       </section>
