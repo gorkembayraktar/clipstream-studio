@@ -8,9 +8,9 @@ import { useSourceStore } from "@/stores/source-store"
 
 const TONE_CLASSES: Record<StatusTone, string> = {
   idle: "border-white/10 bg-black/60 text-white/60",
-  buffering: "border-amber-500/45 bg-amber-500/15 text-amber-200",
-  ready: "border-emerald-500/35 bg-emerald-500/12 text-emerald-200",
-  error: "border-red-500/50 bg-red-500/15 text-red-200",
+  buffering: "border-amber-500/45 bg-black/55 text-amber-200",
+  ready: "border-emerald-500/35 bg-black/55 text-emerald-200",
+  error: "border-red-500/50 bg-black/55 text-red-200",
 }
 
 const DOT_CLASSES: Record<StatusTone, string> = {
@@ -58,7 +58,7 @@ export function StreamStatusBadge({ className }: { className?: string }) {
       aria-live="polite"
       data-slot="stream-status-badge"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap backdrop-blur transition-colors",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium whitespace-nowrap shadow-[0_2px_10px_rgba(0,0,0,0.4)] backdrop-blur transition-colors",
         TONE_CLASSES[tone],
         className,
       )}

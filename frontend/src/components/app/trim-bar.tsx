@@ -1,23 +1,22 @@
-/** Giriş/Çıkış değerlerinin hassas düzenlenmesi ve hızlı eylemler. */
+/** Giriş/Çıkış değerlerinin hassas düzenlenmesi ve seçim özeti. */
 import { useEffect, useState } from "react"
 
-import { RepeatIcon, RotateCcwIcon, ScissorsIcon } from "lucide-react"
+import { ScissorsIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
 import { useEditStore } from "@/stores/edit-store"
-import { useSourceStore } from "@/stores/source-store"
 
 interface TimeInputProps {
   value: number
   onCommit: (value: number) => void
+  label: string
   disabled?: boolean
 }
 
-function TimeInput({ value, onCommit, disabled }: TimeInputProps) {
+function TimeInput({ value, onCommit, label, disabled }: TimeInputProps) {
   const [text, setText] = useState(() => formatTime(value, true))
   const [focused, setFocused] = useState(false)
 
@@ -28,6 +27,7 @@ function TimeInput({ value, onCommit, disabled }: TimeInputProps) {
   return (
     <Input
       value={text}
+      aria-label={label}
       onChange={(event) => setText(event.target.value)}
       onFocus={() => setFocused(true)}
       onBlur={() => {
@@ -49,76 +49,50 @@ export function TrimBar() {
   const { t } = useI18n()
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
-  const loop = useEditStore((s) => s.loop)
-  const setLoop = useEditStore((s) => s.setLoop)
-  const duration = useSourceStore((s) => s.meta?.duration ?? 0)
 
   const clip = trim.end - trim.start
   const invalid = clip <= 0.05
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <div className="flex items-center gap-1.5">
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <div
+      data-slot="trim-bar"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-2"
+    >
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
           {t("trim.in")}
         </span>
         <TimeInput
           value={trim.start}
           onCommit={(value) => setTrim({ start: value })}
+          label={t("trim.in")}
         />
-        <Button variant="ghost" size="xs" onClick={() => setTrim({ start: 0 })}>
-          {t("trim.fromStart")}
-        </Button>
-      </div>
+      </label>
 
-      <div className="flex items-center gap-1.5">
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
           {t("trim.out")}
         </span>
         <TimeInput
           value={trim.end}
           onCommit={(value) => setTrim({ end: value })}
+          label={t("trim.out")}
         />
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() => setTrim({ end: duration })}
-          disabled={duration <= 0}
-        >
-          {t("trim.toEnd")}
-        </Button>
-      </div>
+      </label>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <span
-          className={cn(
-            "flex items-center gap-1 font-mono text-xs",
-            invalid ? "text-destructive" : "text-muted-foreground",
-          )}
-        >
-          <ScissorsIcon className="size-3.5" />
-          {compactDuration(Math.max(0, clip))}
-        </span>
-        <Button
-          variant={loop ? "secondary" : "ghost"}
-          size="icon-xs"
-          onClick={() => setLoop(!loop)}
-          title={t("trim.loop")}
-        >
-          <RepeatIcon />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => setTrim({ start: 0, end: duration })}
-          disabled={duration <= 0}
-          title={t("trim.fullRange")}
-        >
-          <RotateCcwIcon />
-        </Button>
-      </div>
+      <span
+        data-slot="selection-duration"
+        title={formatTime(Math.max(0, clip), true)}
+        className={cn(
+          "ml-auto flex items-center gap-1.5 font-mono text-xs",
+          invalid ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        <ScissorsIcon className="size-3.5" />
+        {compactDuration(Math.max(0, clip))}
+      </span>
     </div>
   )
 }

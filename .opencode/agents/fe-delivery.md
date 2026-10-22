@@ -27,8 +27,8 @@ Sen ClipStream Studio'nun **delivery/library** ajanısın. Dışa aktarma işler
 - Export state'ini `export-store` üzerinden yönet; seçili aralığı `edit-store`'dan oku.
 
 ## Sınırlar
-- `timeline.tsx`, `trim-bar.tsx`, `crop-overlay.tsx` ve `edit-store.ts` timeline ajanına aittir; UI'larını değiştirme.
-- `video-stage.tsx`, `player-controls.tsx`, `player-store.ts` player ajanına aittir.
+- `timeline.tsx`, `timeline-toolbar.tsx`, `trim-bar.tsx`, `crop-overlay.tsx`, `crop-menu.tsx` ve `edit-store.ts` timeline ajanına aittir; UI'larını değiştirme.
+- `video-stage.tsx`, `stage-controls.tsx`, `player-store.ts` player ajanına aittir.
 - `lib/api.ts`, `lib/types.ts`, `i18n/**`, `components/ui/**`, `App.tsx`, `side-panel.tsx` platform ajanına aittir.
 - Jobs dock ve galeri davranışlarını (kart kapatma, üç nokta menüsü, çift tıklama, hover) koru.
 - Yeni API/tip/metin gerekiyorsa ana ajana/platform ajanına raporla.

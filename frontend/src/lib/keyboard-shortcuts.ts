@@ -8,8 +8,8 @@ import type { TranslationKey } from "@/i18n"
 
 export type ShortcutId =
   | "playPause"
-  | "seek1"
-  | "seek5"
+  | "seekCoarse"
+  | "seekCoarseShift"
   | "step"
   | "step10"
   | "volume"
@@ -29,8 +29,8 @@ export interface KeyboardShortcut {
 
 export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { id: "playPause", keys: ["Space"], labelKey: "shortcut.playPause" },
-  { id: "seek1", keys: ["←", "→"], labelKey: "shortcut.seek1" },
-  { id: "seek5", keys: ["Shift", "←", "→"], labelKey: "shortcut.seek5" },
+  { id: "seekCoarse", keys: ["←", "→"], labelKey: "shortcut.seekCoarse" },
+  { id: "seekCoarseShift", keys: ["Shift", "←", "→"], labelKey: "shortcut.seekCoarseShift" },
   { id: "step", keys: [",", "."], labelKey: "shortcut.step" },
   { id: "step10", keys: ["Shift", ",", "."], labelKey: "shortcut.step10" },
   { id: "volume", keys: ["↑", "↓"], labelKey: "shortcut.volume" },

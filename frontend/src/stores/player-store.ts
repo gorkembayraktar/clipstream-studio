@@ -21,6 +21,10 @@ export const MAX_PLAYBACK_RATE = 4
 /** Ses açma/kısma adımı (±%5). */
 export const VOLUME_STEP = 0.05
 
+/** Zaman çizelgesindeki kaba atlama miktarları (saniye). */
+export const SEEK_BACK_SECONDS = 5
+export const SEEK_FORWARD_SECONDS = 10
+
 /** Hassas adım modları: "1 kare" ya da sabit milisaniye değerleri. */
 export const STEP_MODES = ["frame", "ms10", "ms50", "ms100", "ms250", "ms500"] as const
 export type StepMode = (typeof STEP_MODES)[number]

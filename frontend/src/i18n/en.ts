@@ -44,8 +44,8 @@ export const en = {
   "settings.no": "No",
 
   "shortcut.playPause": "Play / pause",
-  "shortcut.seek1": "Seek 1 s",
-  "shortcut.seek5": "Seek 5 s",
+  "shortcut.seekCoarse": "Seek 5 s back / 10 s forward",
+  "shortcut.seekCoarseShift": "Seek 10 s back / 20 s forward",
   "shortcut.step": "Precise step",
   "shortcut.step10": "Precise step ×10",
   "shortcut.volume": "Volume",
@@ -202,14 +202,13 @@ export const en = {
 
   "trim.in": "In",
   "trim.out": "Out",
-  "trim.fromStart": "Start",
-  "trim.toEnd": "End",
   "trim.loop": "Loop (L)",
   "trim.fullRange": "Extend selection to the whole video",
 
   "crop.label": "Crop",
   "crop.free": "Free",
   "crop.full": "Full frame",
+  "crop.aspect": "Aspect ratio",
 
   "timeline.rangeTitle": "Clip range — drag to move, click to seek",
   "timeline.inPoint": "In point",
@@ -219,9 +218,9 @@ export const en = {
   "timeline.noPreview": "no preview",
   "timeline.loadSource": "Load a source to use the timeline",
 
-  "player.seekBack": "Back 1s (←)",
+  "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",
-  "player.seekForward": "Forward 1s (→)",
+  "player.seekForward": "Forward 10s (→)",
   "player.stepBack": "Step back (,) — {step}",
   "player.stepForward": "Step forward (.) — {step}",
   "player.stepSize": "Precise step size",
@@ -257,9 +256,6 @@ export const en = {
   "status.frameLoading": "Loading frame…",
   "status.frameLoaded": "Frame loaded",
   "status.error": "An error occurred",
-
-  "seek.aria": "Video progress bar",
-  "seek.title": "Click or drag to seek",
 
   "logs.title": "System & error logs",
   "logs.copy": "Copy",

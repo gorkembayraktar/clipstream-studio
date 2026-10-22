@@ -2,7 +2,13 @@
 import { useEffect } from "react"
 
 import { toggleStageFullscreen } from "@/hooks/use-fullscreen"
-import { getVideoElement, usePlayerStore, VOLUME_STEP } from "@/stores/player-store"
+import {
+  getVideoElement,
+  SEEK_BACK_SECONDS,
+  SEEK_FORWARD_SECONDS,
+  usePlayerStore,
+  VOLUME_STEP,
+} from "@/stores/player-store"
 import { useEditStore } from "@/stores/edit-store"
 import { useThemeStore } from "@/stores/theme-store"
 
@@ -29,11 +35,11 @@ export function useKeyboardShortcuts() {
           break
         case "ArrowLeft":
           event.preventDefault()
-          player.seekBy(event.shiftKey ? -5 : -1)
+          player.seekBy(event.shiftKey ? -SEEK_BACK_SECONDS * 2 : -SEEK_BACK_SECONDS)
           break
         case "ArrowRight":
           event.preventDefault()
-          player.seekBy(event.shiftKey ? 5 : 1)
+          player.seekBy(event.shiftKey ? SEEK_FORWARD_SECONDS * 2 : SEEK_FORWARD_SECONDS)
           break
         case "ArrowUp":
           event.preventDefault()

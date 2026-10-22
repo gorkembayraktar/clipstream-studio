@@ -41,8 +41,8 @@ export const tr: Record<TranslationKey, string> = {
   "settings.no": "Hayır",
 
   "shortcut.playPause": "Oynat / duraklat",
-  "shortcut.seek1": "1 sn atla",
-  "shortcut.seek5": "5 sn atla",
+  "shortcut.seekCoarse": "5 sn geri / 10 sn ileri",
+  "shortcut.seekCoarseShift": "10 sn geri / 20 sn ileri",
   "shortcut.step": "Hassas adım",
   "shortcut.step10": "Hassas adım ×10",
   "shortcut.volume": "Ses",
@@ -200,14 +200,13 @@ export const tr: Record<TranslationKey, string> = {
 
   "trim.in": "Giriş",
   "trim.out": "Çıkış",
-  "trim.fromStart": "Baştan",
-  "trim.toEnd": "Sona",
   "trim.loop": "Döngü (L)",
   "trim.fullRange": "Seçimi tüm videoya yay",
 
   "crop.label": "Kırpma",
   "crop.free": "Serbest",
   "crop.full": "Tam Kare",
+  "crop.aspect": "En-boy oranı",
 
   "timeline.rangeTitle": "Klip aralığı — sürükle: taşı, tıkla: imleci getir",
   "timeline.inPoint": "Giriş noktası",
@@ -217,9 +216,9 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.noPreview": "önizleme yok",
   "timeline.loadSource": "Zaman çizelgesi için bir kaynak yükle",
 
-  "player.seekBack": "1 sn geri (←)",
+  "player.seekBack": "5 sn geri (←)",
   "player.playPause": "Oynat / Durdur (Boşluk)",
-  "player.seekForward": "1 sn ileri (→)",
+  "player.seekForward": "10 sn ileri (→)",
   "player.stepBack": "Bir adım geri (,) — {step}",
   "player.stepForward": "Bir adım ileri (.) — {step}",
   "player.stepSize": "Hassas adım büyüklüğü",
@@ -255,9 +254,6 @@ export const tr: Record<TranslationKey, string> = {
   "status.frameLoading": "Kare Yükleniyor...",
   "status.frameLoaded": "Kare Yüklendi",
   "status.error": "Hata Oluştu",
-
-  "seek.aria": "Video ilerleme çubuğu",
-  "seek.title": "Tıkla ya da sürükle: videoda o konuma atla",
 
   "logs.title": "Sistem & Hata Logları",
   "logs.copy": "Kopyala",

@@ -5,12 +5,12 @@ import { Clapperboard } from "lucide-react"
 import type HlsJs from "hls.js"
 import { toast } from "sonner"
 
+import { CropMenu } from "@/components/app/crop-menu"
 import { CropOverlay } from "@/components/app/crop-overlay"
-import { CropToolbar } from "@/components/app/crop-toolbar"
-import { PlayerControls } from "@/components/app/player-controls"
-import { SeekBar } from "@/components/app/seek-bar"
+import { StageControls } from "@/components/app/stage-controls"
 import { StreamStatusBadge } from "@/components/app/stream-status-badge"
 import { Timeline } from "@/components/app/timeline"
+import { TimelineToolbar } from "@/components/app/timeline-toolbar"
 import { TrimBar } from "@/components/app/trim-bar"
 import { useHlsSource } from "@/hooks/use-hls-source"
 import { useSubtitleVtt } from "@/hooks/use-subtitles"
@@ -748,24 +748,24 @@ export function VideoStage() {
           data-slot="audio-track"
         />
 
-        <div className="absolute inset-x-2 top-2 z-20 flex items-center">
+        <div className="absolute inset-x-3 top-3 z-20 flex items-center gap-2">
+          <CropMenu />
           <StreamStatusBadge className="ml-auto" />
         </div>
 
         {streamUrl && cropEnabled && <CropOverlay videoRef={videoRef} />}
+        {streamUrl && <StageControls />}
         {!streamUrl && <EmptyStage />}
       </div>
 
       <div
         inert={!streamUrl}
         className={cn(
-          "stage-strip space-y-3 px-3 pb-3 pt-0",
+          "stage-strip space-y-2 px-3 py-3",
           !streamUrl && "pointer-events-none opacity-60",
         )}
       >
-        <SeekBar />
-        <CropToolbar />
-        <PlayerControls />
+        <TimelineToolbar />
         <Timeline />
         <TrimBar />
       </div>

@@ -8,8 +8,7 @@ Sen ClipStream Studio'nun **playback** ajanısın. Video oynatma deneyiminden ve
 
 ## Sahiplik
 - `frontend/src/components/app/video-stage.tsx`
-- `frontend/src/components/app/player-controls.tsx`
-- `frontend/src/components/app/seek-bar.tsx`
+- `frontend/src/components/app/stage-controls.tsx`
 - `frontend/src/hooks/use-hls-source.ts`
 - `frontend/src/hooks/use-fullscreen.ts`
 - `frontend/src/hooks/use-frame-preview.ts`
@@ -23,7 +22,7 @@ Sen ClipStream Studio'nun **playback** ajanısın. Video oynatma deneyiminden ve
 - `video-stage` içinde timeline ve crop bileşenlerini mount et; içlerini değiştirme.
 
 ## Sınırlar
-- `timeline.tsx`, `trim-bar.tsx`, `waveform-layer.tsx`, `crop-overlay.tsx`, `crop-toolbar.tsx` ve `use-waveform.ts` timeline ajanına aittir.
+- `timeline.tsx`, `timeline-toolbar.tsx`, `trim-bar.tsx`, `waveform-layer.tsx`, `crop-overlay.tsx`, `crop-menu.tsx` ve `use-waveform.ts` timeline ajanına aittir.
 - `lib/api.ts`, `lib/types.ts`, `i18n/**`, `components/ui/**`, `App.tsx`, `side-panel.tsx` platform ajanına aittir.
 - Export, galeri ve iş paneli delivery ajanına aittir.
 - Timeline'dan yalnızca `<Timeline />` sözleşmesiyle yararlan; timeline iç mantığını değiştirme.

@@ -8,23 +8,25 @@ Sen ClipStream Studio'nun **timeline/edit** ajanısın. Zaman çizelgesi, kesim 
 
 ## Sahiplik
 - `frontend/src/components/app/timeline.tsx`
+- `frontend/src/components/app/timeline-toolbar.tsx`
 - `frontend/src/components/app/trim-bar.tsx`
 - `frontend/src/components/app/waveform-layer.tsx`
 - `frontend/src/components/app/crop-overlay.tsx`
-- `frontend/src/components/app/crop-toolbar.tsx`
+- `frontend/src/components/app/crop-menu.tsx`
 - `frontend/src/hooks/use-waveform.ts`
 - `frontend/src/hooks/use-keyboard-shortcuts.ts`
 - `frontend/src/stores/edit-store.ts`
 
 ## Sorumluluk
 - Trim başlangıç/bitiş tutamaçları, aralık sürükleme ve playhead senkronu.
-- Crop overlay/toolbar ve aspect oranı etkileşimleri.
+- Timeline araç çubuğu: kaba/hassas atlama, giriş/çıkış işaretleme, seçimi oynatma, döngü ve tam aralık.
+- Crop overlay/menü ve aspect oranı etkileşimleri.
 - Waveform verisi ve görselleştirmesi.
 - Timeline kısayolları; player-store ile sözleşme üzerinden haberleş.
 - Seçili aralık ve crop state'ini `edit-store` üzerinden yönet.
 
 ## Sınırlar
-- `video-stage.tsx`, `player-controls.tsx`, `seek-bar.tsx`, `use-hls-source.ts`, `player-store.ts` player ajanına aittir.
+- `video-stage.tsx`, `stage-controls.tsx`, `use-hls-source.ts`, `use-fullscreen.ts`, `use-frame-preview.ts`, `player-store.ts` player ajanına aittir.
 - `lib/api.ts`, `lib/types.ts`, `i18n/**`, `components/ui/**`, `App.tsx`, `side-panel.tsx` platform ajanına aittir.
 - Export paneli, iş paneli ve galeri delivery ajanına aittir.
 - Timeline'ı `video-stage` içine mount edilebilir bir bileşen olarak tut; player iç mantığını değiştirme.
