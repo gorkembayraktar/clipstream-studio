@@ -9,7 +9,7 @@ import urllib.parse
 from typing import Any, Callable, Optional
 
 from core.i18n import t
-from services.hls import detect_hls, list_variants
+from services.hls import HlsRequestError, detect_hls_result, list_variants
 
 #: Varsayılan önizleme kalitesi üst sınırı: oynatma 1080p'de başlar (daha yüksek
 #: varyantlar listede görünür ve kullanıcı Kaynak panelinden seçebilir).
@@ -24,6 +24,8 @@ def _variant(
     has_audio: Optional[bool],
     audio_url: Optional[str],
     audio_hls: bool = False,
+    audio_tracks: Optional[list[dict[str, Any]]] = None,
+    subtitle_tracks: Optional[list[dict[str, Any]]] = None,
     quality_height: Optional[int] = None,
 ) -> dict[str, Any]:
     """Arayüzdeki kalite listesi için tek bir oynatma varyantı.
@@ -41,6 +43,11 @@ def _variant(
         "hls": hls,
         "has_audio": has_audio,
         "audio_url": audio_url,
+        # Aynı ses grubundaki alternatif diller/rendition'lar. Tek ses varsa da
+        # boş liste döner; arayüz yalnızca birden fazla seçenekte gösterir.
+        "audio_tracks": audio_tracks or [],
+        # Master playlist'teki WebVTT altyazı rendition'ları.
+        "subtitle_tracks": subtitle_tracks or [],
         # Ayrı ses akışı HLS ise tarayıcıda hls.js ile bağlanır.
         "audio_hls": audio_hls,
         "default": False,
@@ -198,6 +205,17 @@ class ResolveError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.ytdlp_missing = ytdlp_missing
+
+
+def _source_access_error(status: int) -> ResolveError:
+    """Doğrudan kaynak erişim hatalarını eyleme dönük bir mesaja çevirir."""
+    if status in (401, 403):
+        return ResolveError(t("error.sourceAccessDenied", status=status), 403)
+    if status == 404:
+        return ResolveError(t("error.sourceNotFound"), 404)
+    if status == 429:
+        return ResolveError(t("error.sourceRateLimited"), 429)
+    return ResolveError(t("error.sourceServer", status=status), 502)
 
 
 def is_youtube_url(url: str) -> bool:
@@ -377,6 +395,8 @@ async def resolve_url(
         "resolution": f"{_variant_quality(best)}p" if _variant_quality(best) else "",
         "has_audio": best["has_audio"],
         "audio_url": audio_url,
+        "audio_tracks": [],
+        "subtitle_tracks": [],
         #: Kaynak panelindeki kalite listesi (varsayılan `default: true` ile işaretli).
         "variants": variants,
     }
@@ -387,8 +407,12 @@ async def _resolve_direct(
 ) -> dict[str, Any]:
     """Doğrudan medya bağlantıları — HLS master playlist'i kalite listesine indirger."""
     # HLS her zaman `.m3u8` uzantısı taşımaz; CDN'ler playlist'i uzantısız
-    # sunabilir. İçerik türü/ilk baytlar üzerinden tespit edilir.
-    is_hls = await detect_hls(client, url, headers)
+    # sunabilir. İçerik türü/ilk baytlar üzerinden tespit edilir. 403/404 gibi
+    # erişim hataları doğrudan anlaşılır bir çözümleme hatasına dönüşür.
+    is_hls, access_status = await detect_hls_result(client, url, headers)
+    if access_status and access_status >= 400:
+        raise _source_access_error(access_status)
+
     result: dict[str, Any] = {
         "success": True,
         "platform": "direct",
@@ -400,13 +424,18 @@ async def _resolve_direct(
         "resolution": "",
         "has_audio": None,
         "audio_url": None,
+        "audio_tracks": [],
+        "subtitle_tracks": [],
         "variants": [],
     }
 
     if not is_hls:
         return result
 
-    variants = await list_variants(client, url, headers)
+    try:
+        variants = await list_variants(client, url, headers)
+    except HlsRequestError as exc:
+        raise ResolveError(str(exc), status_code=exc.status_code) from exc
     if not variants:
         return result
 
@@ -418,19 +447,28 @@ async def _resolve_direct(
 
     # Master playlist ayrı bir ses grubu içeriyorsa (ör. `AUDIO="audio0"`)
     # varyant yalnızca görüntü taşır. Ses playlist'i ayrıca verilir; oynatıcı
-    # iki HLS akışını eşler, dışa aktarma ise FFmpeg ile birleştirir.
+    # iki HLS akışını eşler, dışa aktarma ise FFmpeg ile birleştirir. Aynı
+    # grupta birden çok rendition varsa tümü seçim için ayrıca listelenir.
+    audio_tracks = best.get("audio_tracks") or []
     default_audio = best.get("audio_url")
+    subtitle_tracks = best.get("subtitle_tracks") or []
+    result["audio_tracks"] = audio_tracks
+    result["subtitle_tracks"] = subtitle_tracks
     result["audio_url"] = default_audio
-    result["has_audio"] = False if default_audio else None
+    result["has_audio"] = False if audio_tracks or default_audio else None
     result["variants"] = [
         {
             **_variant(
                 item["url"],
                 item["height"],
                 hls=True,
-                has_audio=False if item.get("audio_url") else None,
+                has_audio=False
+                if item.get("audio_tracks") or item.get("audio_url")
+                else None,
                 audio_url=item.get("audio_url"),
-                audio_hls=bool(item.get("audio_url")),
+                audio_hls=bool(item.get("audio_tracks") or item.get("audio_url")),
+                audio_tracks=item.get("audio_tracks"),
+                subtitle_tracks=item.get("subtitle_tracks"),
                 quality_height=item.get("quality_height"),
             ),
             "default": _variant_quality(item) == default_height,

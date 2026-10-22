@@ -9,6 +9,7 @@ import type {
   LocalUploadResponse,
   ProbeResponse,
   ResolveResponse,
+  SubtitleResponse,
   WaveformResponse,
 } from "@/lib/types"
 import { log } from "@/stores/log-store"
@@ -142,6 +143,17 @@ export const api = {
     post<ResolveResponse>("/api/media/resolve", { url, headers: headers ?? undefined }),
   probe: (url: string, headers?: Record<string, string> | null) =>
     post<ProbeResponse>("/api/media/probe", { url, headers: headers ?? undefined }),
+  /** HLS altyazı playlist'ini tek bir WebVTT metnine dönüştürür. */
+  subtitles: (
+    url: string,
+    headers?: Record<string, string> | null,
+    signal?: AbortSignal,
+  ) =>
+    post<SubtitleResponse>(
+      "/api/media/subtitles",
+      { url, headers: headers ?? undefined },
+      { signal },
+    ),
   uploadLocalFile,
   /** Kopyasız yerel dosya seçimi: sunucu Windows dosya penceresini açar. */
   pickLocalFile: (signal?: AbortSignal) =>
@@ -158,6 +170,8 @@ export const api = {
     force?: boolean
     /** Video akışı sessizse sesin alınacağı ayrı akış. */
     audio_url?: string
+    /** Seçili ses rendition'ının kararlı kimliği (önbellek ayrımı için). */
+    audio_track?: string
     /** curl ile yapıştırılan HTTP başlıkları. */
     headers?: Record<string, string>
   }) => post<WaveformResponse>("/api/waveform", payload),
@@ -170,6 +184,8 @@ export const api = {
       duration?: number
       force?: boolean
       audio_url?: string
+      /** Seçili ses rendition'ının kararlı kimliği (önbellek ayrımı için). */
+      audio_track?: string
       headers?: Record<string, string>
     },
     signal?: AbortSignal,

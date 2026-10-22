@@ -38,6 +38,47 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Proxy request failed: {detail}",
         "Proxy isteği başarısız: {detail}",
     ),
+    # ------------------------------------------------------------ HLS erişim
+    "error.hlsForbidden": (
+        "HLS stream access was denied (HTTP {status}). The link may have expired or require cookie/referer headers.",
+        "HLS yayınına erişim reddedildi (HTTP {status}). Bağlantının süresi dolmuş veya çerez/referer başlığı gerekiyor olabilir.",
+    ),
+    "error.hlsNotFound": (
+        "The HLS playlist was not found (HTTP 404). The stream may have been removed or the URL may have expired.",
+        "HLS playlist'i bulunamadı (HTTP 404). Yayın kaldırılmış veya URL'nin süresi dolmuş olabilir.",
+    ),
+    "error.hlsRateLimited": (
+        "The HLS server is rate-limiting requests (HTTP 429). Try again shortly.",
+        "HLS sunucusu istekleri sınırlıyor (HTTP 429). Biraz sonra tekrar deneyin.",
+    ),
+    "error.hlsServer": (
+        "The HLS server returned HTTP {status}. Try again shortly or choose another source.",
+        "HLS sunucusu HTTP {status} döndürdü. Biraz sonra tekrar deneyin veya başka bir kaynak seçin.",
+    ),
+    "error.hlsTimeout": (
+        "The HLS playlist request timed out. Check the connection and try again.",
+        "HLS playlist isteği zaman aşımına uğradı. Bağlantıyı kontrol edip tekrar deneyin.",
+    ),
+    "error.hlsNetwork": (
+        "The HLS stream could not be reached (network/CORS). Enable the CORS proxy or check the URL.",
+        "HLS yayınına ulaşılamadı (ağ/CORS). CORS proxy'yi açın veya URL'yi kontrol edin.",
+    ),
+    "error.sourceAccessDenied": (
+        "Source access was denied (HTTP {status}). The link may have expired or require headers.",
+        "Kaynağa erişim reddedildi (HTTP {status}). Bağlantının süresi dolmuş veya başlık gerekiyor olabilir.",
+    ),
+    "error.sourceNotFound": (
+        "Source was not found (HTTP 404). Check the URL.",
+        "Kaynak bulunamadı (HTTP 404). URL'yi kontrol edin.",
+    ),
+    "error.sourceRateLimited": (
+        "The source server is rate-limiting requests (HTTP 429). Try again shortly.",
+        "Kaynak sunucusu istekleri sınırlıyor (HTTP 429). Biraz sonra tekrar deneyin.",
+    ),
+    "error.sourceServer": (
+        "The source server returned HTTP {status}. Try again shortly.",
+        "Kaynak sunucusu HTTP {status} döndürdü. Biraz sonra tekrar deneyin.",
+    ),
     # ------------------------------------------------------------ GPU render
     "error.gpuEncoderInvalid": (
         "Unsupported GPU encoder: {encoder}",
@@ -188,6 +229,35 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Oynatılabilir bir video akışı bulunamadı.",
     ),
     "label.source": ("Source", "Kaynak"),
+    # --------------------------------------------------------- altyazı
+    "error.subtitleForbidden": (
+        "Subtitle access was denied (HTTP {status}). The link may have expired or require headers.",
+        "Altyazıya erişim reddedildi (HTTP {status}). Bağlantının süresi dolmuş ya da başlık gerekiyor olabilir.",
+    ),
+    "error.subtitleNotFound": (
+        "The subtitle playlist could not be found (HTTP 404).",
+        "Altyazı playlist'i bulunamadı (HTTP 404).",
+    ),
+    "error.subtitleRateLimited": (
+        "The subtitle server is rate-limiting requests (HTTP 429). Try again shortly.",
+        "Altyazı sunucusu istekleri sınırlıyor (HTTP 429). Biraz sonra tekrar deneyin.",
+    ),
+    "error.subtitleFetchFailed": (
+        "Could not load subtitles: {detail}",
+        "Altyazı yüklenemedi: {detail}",
+    ),
+    "error.subtitleUnsupported": (
+        "This subtitle format is not supported yet (WebVTT expected).",
+        "Bu altyazı biçimi henüz desteklenmiyor (WebVTT bekleniyor).",
+    ),
+    "error.subtitleEncrypted": (
+        "Encrypted or byte-range subtitle playlists cannot be loaded yet.",
+        "Şifreli ya da byte-range kullanan altyazı playlist'leri henüz yüklenemiyor.",
+    ),
+    "error.subtitleNoCues": (
+        "No subtitle cues were found in the playlist.",
+        "Playlist'te altyazı metni bulunamadı.",
+    ),
     # --------------------------------------------------------- ffprobe
     "error.probeTimeout": (
         "ffprobe analysis timed out (the remote server may not be responding).",

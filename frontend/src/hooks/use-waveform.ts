@@ -43,6 +43,7 @@ export function useWaveform(
   duration: number,
   audioUrl: string | null = null,
   hasAudio: boolean | null = null,
+  audioTrackId: string | null = null,
 ) {
   // Sessiz olduğu bilinen ve ayrı ses akışı olmayan kaynakta hiç istek atılmaz.
   const enabled =
@@ -79,6 +80,7 @@ export function useWaveform(
             origin: origin || undefined,
             duration,
             audio_url: audioUrl ?? undefined,
+            audio_track: audioTrackId ?? undefined,
             headers: headers ?? undefined,
           },
           controller.signal,
@@ -219,7 +221,7 @@ export function useWaveform(
     }
     // `headersKey`, headers nesnesinin içeriğini temsil eder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, origin, duration, audioUrl, headersKey, enabled])
+  }, [url, origin, duration, audioUrl, audioTrackId, headersKey, enabled])
 
   useEffect(() => {
     if (!error) return

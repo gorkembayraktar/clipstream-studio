@@ -53,6 +53,15 @@ export const tr: Record<TranslationKey, string> = {
   "source.previewQualityAria": "Önizleme kalitesi",
   "source.qualityTitle": "Oynatma kalitesi (dışa aktarma etkilenmez)",
   "source.recommended": " (önerilen)",
+  "source.audioTrack": "Ses",
+  "source.audioTrackTitle":
+    "Önizleme ve dışa aktarmada kullanılacak ses rendition'ı",
+  "source.audioTrackAria": "Ses parçası",
+  "source.subtitles": "Altyazı",
+  "source.subtitlesTitle":
+    "Önizlemede gösterilecek WebVTT altyazısı (dışa aktarmaya dahil edilmez)",
+  "source.subtitlesAria": "Altyazı parçası",
+  "source.subtitlesOff": "Kapalı",
   "source.openNewTab": "Yeni sekmede aç",
   "source.openNewTabTitle": "Dosyayı tarayıcının kendi oynatıcısıyla aç",
   "source.noCopy": "kopyasız",
@@ -356,6 +365,28 @@ export const tr: Record<TranslationKey, string> = {
   "hls.loadingMedia": "Video nesnesi yükleniyor: {src}",
   "hls.audioConnecting": "Ses akışı HLS: hls.js ses elementine bağlanıyor...",
   "hls.audioError": "Ses akışı (HLS) hatası.",
+  "hls.errorForbiddenTitle": "HLS yayınına erişim reddedildi",
+  "hls.errorForbidden":
+    "Sunucu HTTP {status} döndürdü. Bağlantının süresi dolmuş veya çerez/referer başlığı gerekiyor olabilir. Kaynak panelindeki Curl / başlık ile yeniden yükleyin.",
+  "hls.errorNotFoundTitle": "HLS playlist'i bulunamadı",
+  "hls.errorNotFound":
+    "Sunucu HTTP 404 döndürdü. Yayın kaldırılmış veya URL'nin süresi dolmuş olabilir.",
+  "hls.errorRateLimitedTitle": "HLS sunucusu istekleri sınırlıyor",
+  "hls.errorRateLimited":
+    "HTTP 429 alındı. Kısa bir süre bekleyip yeniden deneyin; gerekirse daha düşük kalite seçin.",
+  "hls.errorServerTitle": "HLS sunucusu geçici hata verdi",
+  "hls.errorServer":
+    "Sunucu HTTP {status} döndürdü. Yeniden denemek için sayfayı yenileyin veya kaynağı tekrar yükleyin.",
+  "hls.errorCorsTitle": "HLS akışına ulaşılamadı",
+  "hls.errorCors":
+    "Tarayıcı isteği engelledi (CORS, DNS veya ağ). Kaynak panelinden CORS proxy'yi açın; korumalı yayınlarda Curl / başlık kullanın.",
+  "hls.errorSegmentTitle": "HLS segmenti yüklenemedi",
+  "hls.errorSegment":
+    "Yayın eksik olabilir ya da CDN segmenti geçici olarak yanıt vermiyor. Kaliteyi değiştirip yeniden deneyin.",
+  "hls.errorCodecTitle": "HLS codec'i tarayıcıda desteklenmiyor",
+  "hls.errorCodec":
+    "Tarayıcı bu ses/görüntü codec'ini çözemiyor (ör. HEVC, AC-3). H.264/AAC içeren bir varyant veya farklı kalite seçin.",
+  "hls.errorGeneric": "HLS oynatma hatası: {details}",
 
   "video.audioDisconnected":
     "Ses akışı koptu; yeniden yükleniyor ve görüntü konumuna hizalanıyor.",
@@ -440,6 +471,10 @@ export const tr: Record<TranslationKey, string> = {
   "log.clipboardDeniedDesc": "Tarayıcı izin vermediyse Ctrl+V ile yapıştırabilirsin.",
   "log.sourceCleared": "Kaynak temizlendi.",
   "log.previewQuality": "Önizleme kalitesi: {height}p.",
+  "log.audioTrack": "Ses parçası: {name}.",
+  "log.subtitleTrack": "Altyazı: {name}.",
+  "log.subtitleOff": "Altyazı kapatıldı.",
+  "log.subtitleLoadFailed": "Altyazı yüklenemedi",
   "log.proxyEnabled": "CORS proxy açıldı.",
   "log.proxyDisabled": "CORS proxy kapatıldı.",
   "log.durationUnavailable": "Süre bilgisi alınamadı",

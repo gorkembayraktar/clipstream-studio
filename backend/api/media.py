@@ -8,6 +8,7 @@ from services.prober import ProbeError, probe_url
 from services.proxy import proxy_request
 from services.request_headers import sanitize_headers
 from services.resolver import ResolveError, resolve_url
+from services.subtitles import SubtitleError, build_webvtt
 
 
 async def resolve_endpoint(request):
@@ -57,6 +58,35 @@ async def probe_endpoint(request):
         return JSONResponse({"success": False, "error": str(exc)}, status_code=exc.status_code)
 
 
+async def subtitles_endpoint(request):
+    """HLS altyazı playlist'ini tek bir WebVTT metnine dönüştürür."""
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse(
+            {"success": False, "error": t("error.invalidBody")}, status_code=400
+        )
+
+    url = str(data.get("url", "")).strip()
+    if not url:
+        return JSONResponse(
+            {"success": False, "error": t("error.urlEmpty")}, status_code=400
+        )
+
+    try:
+        vtt = await build_webvtt(
+            getattr(request.app.state, "http", None),
+            url,
+            sanitize_headers(data.get("headers")),
+        )
+    except SubtitleError as exc:
+        return JSONResponse(
+            {"success": False, "error": str(exc)}, status_code=exc.status_code
+        )
+
+    return JSONResponse({"success": True, "vtt": vtt})
+
+
 async def proxy_endpoint(request):
     return await proxy_request(request)
 
@@ -64,5 +94,6 @@ async def proxy_endpoint(request):
 routes = [
     Route("/api/media/resolve", resolve_endpoint, methods=["POST"]),
     Route("/api/media/probe", probe_endpoint, methods=["POST"]),
+    Route("/api/media/subtitles", subtitles_endpoint, methods=["POST"]),
     Route("/api/media/proxy", proxy_endpoint, methods=["GET"]),
 ]

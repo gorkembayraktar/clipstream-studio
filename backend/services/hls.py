@@ -11,6 +11,8 @@ import re
 from typing import Any, Optional
 from urllib.parse import urljoin
 
+from core.i18n import t
+
 STREAM_INF = re.compile(r"#EXT-X-STREAM-INF:(?P<attrs>.+)")
 ATTRIBUTE = re.compile(r'(?P<key>[A-Z0-9\-]+)=(?P<value>"[^"]*"|[^,]*)')
 RESOLUTION = re.compile(r"(?P<width>\d+)x(?P<height>\d+)")
@@ -75,6 +77,66 @@ def is_hls_content_type(content_type: Optional[str]) -> bool:
     return mime in HLS_CONTENT_TYPES or "mpegurl" in mime
 
 
+class HlsRequestError(Exception):
+    """HLS playlist isteği kullanıcıya gösterilebilir bir nedenle başarısız oldu."""
+
+    def __init__(self, message: str, status_code: int = 502) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def hls_status_error(status: int) -> HlsRequestError:
+    if status in (401, 403):
+        return HlsRequestError(t("error.hlsForbidden", status=status), 403)
+    if status == 404:
+        return HlsRequestError(t("error.hlsNotFound"), 404)
+    if status == 429:
+        return HlsRequestError(t("error.hlsRateLimited"), 429)
+    return HlsRequestError(t("error.hlsServer", status=status), 502)
+
+
+async def detect_hls_result(
+    client, url: str, headers: Optional[dict[str, str]] = None
+) -> tuple[bool, Optional[int]]:
+    """HLS tespiti ve erişim hatası durum kodunu birlikte döner."""
+    if ".m3u8" in (url or "").lower():
+        return True, None
+    if client is None:
+        return False, None
+
+    request_headers = headers or None
+    head_status: Optional[int] = None
+
+    try:
+        response = await client.head(url, headers=request_headers)
+        head_status = response.status_code
+        if response.status_code < 400 and is_hls_content_type(
+            response.headers.get("content-type")
+        ):
+            return True, None
+    except Exception:
+        pass
+
+    try:
+        async with client.stream("GET", url, headers=request_headers) as response:
+            if response.status_code >= 400:
+                return False, response.status_code
+            if is_hls_content_type(response.headers.get("content-type")):
+                return True, None
+
+            prefix = b""
+            async for chunk in response.aiter_bytes():
+                prefix += chunk
+                if len(prefix) >= 1024:
+                    break
+            return (
+                prefix.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"#EXTM3U"),
+                None,
+            )
+    except Exception:
+        return False, head_status if head_status and head_status >= 400 else None
+
+
 async def detect_hls(
     client, url: str, headers: Optional[dict[str, str]] = None
 ) -> bool:
@@ -86,37 +148,8 @@ async def detect_hls(
     birkaç KB okunup `#EXTM3U` imzası aranır. Doğrudan MP4'lerde tam dosya
     indirilmez; akış erken kapatılır.
     """
-    if ".m3u8" in (url or "").lower():
-        return True
-    if client is None:
-        return False
-
-    request_headers = headers or None
-
-    try:
-        response = await client.head(url, headers=request_headers)
-        if response.status_code < 400 and is_hls_content_type(
-            response.headers.get("content-type")
-        ):
-            return True
-    except Exception:
-        pass
-
-    try:
-        async with client.stream("GET", url, headers=request_headers) as response:
-            if response.status_code >= 400:
-                return False
-            if is_hls_content_type(response.headers.get("content-type")):
-                return True
-
-            prefix = b""
-            async for chunk in response.aiter_bytes():
-                prefix += chunk
-                if len(prefix) >= 1024:
-                    break
-            return prefix.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"#EXTM3U")
-    except Exception:
-        return False
+    is_hls, _status = await detect_hls_result(client, url, headers)
+    return is_hls
 
 
 def is_master_playlist(text: str) -> bool:
@@ -158,6 +191,8 @@ def parse_playlist_variants(text: str, base_url: str) -> list[dict[str, Any]]:
                 # Varyant ayrı bir ses grubuna bağlıysa (AUDIO="audio0") bu kimlik
                 # ses playlist'ini eşleştirmek için kullanılır.
                 "audio_group": attributes.get("AUDIO", ""),
+                # Altyazı grubu (SUBTITLES="subs") da aynı mantıkla eşleşir.
+                "subtitle_group": attributes.get("SUBTITLES", ""),
             }
         )
 
@@ -197,19 +232,21 @@ async def select_best_variant(
 MEDIA_TAG = re.compile(r"#EXT-X-MEDIA:(?P<attrs>.+)")
 
 
-def find_audio_playlist(
-    text: str, base_url: str, group_id: Optional[str] = None
-) -> Optional[str]:
-    """Master playlist'teki ses grubunun adresini döner (varsa).
+def parse_media_renditions(
+    text: str, base_url: str, media_type: str = "AUDIO"
+) -> list[dict[str, Any]]:
+    """Master playlist'teki `EXT-X-MEDIA` rendition'larını döner.
 
-    `group_id` verilirse yalnızca o `GROUP-ID`'ye ait rendition'lar eşleşir;
-    grup içinde `DEFAULT=YES` olan tercih edilir. Dalga formu çıkarımı gibi
-    yalnızca sesin gerektiği işlerde tam videoyu indirmek yerine küçük ses
-    playlist'ini kullanmayı sağlar.
+    Aynı grup içinde birden çok ses/altyazı rendition'ı olabilir. Her kayıt
+    kararlı bir `id` taşır; kullanıcı seçimi yeniden çözümlemede URL değişse
+    bile bu kimlikle korunabilir.
     """
-    fallback: Optional[str] = None
-    for line in (item.strip() for item in text.splitlines()):
-        match = MEDIA_TAG.match(line)
+    wanted = media_type.upper()
+    tracks: list[dict[str, Any]] = []
+    used_ids: set[str] = set()
+
+    for raw_line in text.splitlines():
+        match = MEDIA_TAG.match(raw_line.strip())
         if not match:
             continue
 
@@ -217,21 +254,61 @@ def find_audio_playlist(
             item.group("key"): item.group("value").strip('"')
             for item in ATTRIBUTE.finditer(match.group("attrs"))
         }
-        if attributes.get("TYPE", "").upper() != "AUDIO":
-            continue
-        if group_id is not None and attributes.get("GROUP-ID") != group_id:
+        if attributes.get("TYPE", "").upper() != wanted:
             continue
 
         uri = attributes.get("URI")
         if not uri:
             continue
-        candidate = urljoin(base_url, uri)
-        if attributes.get("DEFAULT", "").upper() == "YES":
-            return candidate
-        if fallback is None:
-            fallback = candidate
 
-    return fallback
+        group_id = attributes.get("GROUP-ID", "")
+        name = attributes.get("NAME", "") or group_id or wanted.title()
+        language = attributes.get("LANGUAGE", "")
+        base_id = f"{group_id}|{language}|{name}"
+        track_id = base_id
+        suffix = 2
+        while track_id in used_ids:
+            track_id = f"{base_id}#{suffix}"
+            suffix += 1
+        used_ids.add(track_id)
+
+        tracks.append(
+            {
+                "id": track_id,
+                "group_id": group_id,
+                "name": name,
+                "language": language or None,
+                "url": urljoin(base_url, uri),
+                "hls": True,
+                "default": attributes.get("DEFAULT", "").upper() == "YES",
+                "autoselect": attributes.get("AUTOSELECT", "").upper() == "YES",
+                "forced": attributes.get("FORCED", "").upper() == "YES",
+            }
+        )
+
+    return tracks
+
+
+def default_rendition(tracks: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Grup içinde DEFAULT, yoksa AUTOSELECT, yoksa ilk rendition'ı seçer."""
+    if not tracks:
+        return None
+    return (
+        next((track for track in tracks if track.get("default")), None)
+        or next((track for track in tracks if track.get("autoselect")), None)
+        or tracks[0]
+    )
+
+
+def find_audio_playlist(
+    text: str, base_url: str, group_id: Optional[str] = None
+) -> Optional[str]:
+    """Master playlist'teki varsayılan ses rendition'ının adresini döner."""
+    tracks = parse_media_renditions(text, base_url, "AUDIO")
+    if group_id is not None:
+        tracks = [track for track in tracks if track["group_id"] == group_id]
+    selected = default_rendition(tracks)
+    return selected["url"] if selected else None
 
 
 async def list_variants(
@@ -248,10 +325,18 @@ async def list_variants(
 
     try:
         response = await client.get(url, headers=headers or None)
-        response.raise_for_status()
+    except Exception as exc:
+        if "timeout" in type(exc).__name__.lower():
+            raise HlsRequestError(t("error.hlsTimeout"), 504) from exc
+        raise HlsRequestError(t("error.hlsNetwork"), 502) from exc
+
+    if response.status_code >= 400:
+        raise hls_status_error(response.status_code)
+
+    try:
         text = response.text
-    except Exception:
-        return []
+    except Exception as exc:
+        raise HlsRequestError(t("error.hlsNetwork"), 502) from exc
 
     if not is_master_playlist(text):
         return []
@@ -262,10 +347,28 @@ async def list_variants(
         for item in parse_playlist_variants(text, base_url)
         if item["height"] > 0
     ]
+    all_audio_tracks = parse_media_renditions(text, base_url, "AUDIO")
+    all_subtitle_tracks = parse_media_renditions(text, base_url, "SUBTITLES")
     for item in variants:
         group = item.get("audio_group") or ""
-        item["audio_url"] = (
-            find_audio_playlist(text, base_url, group) if group else None
+        tracks = (
+            [track for track in all_audio_tracks if track["group_id"] == group]
+            if group
+            else []
+        )
+        selected = default_rendition(tracks)
+        item["audio_tracks"] = tracks
+        item["audio_url"] = selected["url"] if selected else None
+
+        subtitle_group = item.get("subtitle_group") or ""
+        item["subtitle_tracks"] = (
+            [
+                track
+                for track in all_subtitle_tracks
+                if track["group_id"] == subtitle_group
+            ]
+            if subtitle_group
+            else []
         )
     variants.sort(
         key=lambda item: (

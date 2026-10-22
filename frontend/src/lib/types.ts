@@ -3,6 +3,37 @@
 /** Kaynak platformu: doğrudan medya akışı, yerel dosya ya da yt-dlp ile çözülen platform. */
 export type SourcePlatform = "direct" | "youtube" | "twitter" | "instagram" | "local"
 
+/** HLS master playlist'indeki WebVTT altyazı rendition'ı. */
+export interface HlsSubtitleTrack {
+  /** Grup/dil/ad üzerinden kararlı kimlik. */
+  id: string
+  group_id: string
+  name: string
+  language?: string | null
+  /** Altyazı medya playlist'i (WebVTT parçaları). */
+  url: string
+  hls?: boolean
+  default?: boolean
+  autoselect?: boolean
+  forced?: boolean
+}
+
+/** HLS master playlist'indeki alternatif ses rendition'ı. */
+export interface HlsAudioTrack {
+  /** Grup/dil/ad üzerinden kararlı kimlik; kalite değişince seçim korunur. */
+  id: string
+  group_id: string
+  name: string
+  language?: string | null
+  /** Ses playlist'i (genellikle `.m3u8`). */
+  url: string
+  /** Ses akışı HLS ise hls.js ile bağlanır. */
+  hls?: boolean
+  default?: boolean
+  autoselect?: boolean
+  forced?: boolean
+}
+
 export interface ResolveResponse {
   success: boolean
   /** Kaynak platformu: "youtube" | "twitter" | "instagram" | "direct" */
@@ -23,6 +54,10 @@ export interface ResolveResponse {
   has_audio?: boolean | null
   /** Video akışı sessizse kullanılacak ses-yalnız akış adresi. */
   audio_url?: string | null
+  /** Master playlist'teki alternatif ses rendition'ları (varsa). */
+  audio_tracks?: HlsAudioTrack[]
+  /** Master playlist'teki WebVTT altyazı rendition'ları (varsa). */
+  subtitle_tracks?: HlsSubtitleTrack[]
   /** Kaynak panelindeki kalite listesi (en yüksek kalite başta). */
   variants?: StreamVariant[]
   /** curl ile yapıştırılan başlıklar için proxy belirteci (yalnızca doğrudan kaynak). */
@@ -42,10 +77,20 @@ export interface StreamVariant {
   has_audio?: boolean | null
   /** Görüntü-only varyant için ayrı ses akışı adresi. */
   audio_url?: string | null
+  /** Varyantın ses grubundaki alternatif rendition'lar. */
+  audio_tracks?: HlsAudioTrack[]
+  /** Varyantın altyazı grubundaki WebVTT rendition'ları. */
+  subtitle_tracks?: HlsSubtitleTrack[]
   /** Ayrı ses akışı HLS ise tarayıcıda hls.js ile bağlanır. */
   audio_hls?: boolean
   /** Varsayılan önizleme varyantı (1080p'yi aşmayan en yüksek kalite). */
   default?: boolean
+}
+
+export interface SubtitleResponse {
+  success: boolean
+  /** Birleştirilmiş WebVTT metni. */
+  vtt: string
 }
 
 export interface ProbeResponse {

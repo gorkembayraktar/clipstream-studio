@@ -85,6 +85,7 @@ export function ExportPanel() {
   const { t } = useI18n()
   const streamUrl = useSourceStore((s) => s.streamUrl)
   const audioUrl = useSourceStore((s) => s.audioUrl)
+  const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const meta = useSourceStore((s) => s.meta)
   const headers = useSourceStore((s) => s.headers)
   const trim = useEditStore((s) => s.trim)
@@ -144,8 +145,10 @@ export function ExportPanel() {
           }
         : null
 
-    // Kaynağın sesi yoksa (ör. YouTube HLS) ses ayrı akıştan eklenir.
-    const separateAudio = meta && !meta.hasAudio && audioUrl ? audioUrl : null
+    // Kaynağın sesi yoksa (ör. YouTube HLS) ses ayrı akıştan eklenir. Alternatif
+    // bir ses rendition'ı seçildiyse kaynaktaki gömülü ses yerine o kullanılır.
+    const separateAudio =
+      audioTrackId && audioUrl ? audioUrl : meta && !meta.hasAudio ? audioUrl : null
 
     startExport.mutate({
       url: streamUrl,

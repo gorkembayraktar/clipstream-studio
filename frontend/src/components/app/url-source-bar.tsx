@@ -51,6 +51,10 @@ export function UrlSourceBar() {
   const platform = useSourceStore((s) => s.platform)
   const sourcePath = useSourceStore((s) => s.sourcePath)
   const audioUrl = useSourceStore((s) => s.audioUrl)
+  const audioTracks = useSourceStore((s) => s.audioTracks)
+  const audioTrackId = useSourceStore((s) => s.audioTrackId)
+  const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
+  const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const useProxy = useSourceStore((s) => s.useProxy)
   const meta = useSourceStore((s) => s.meta)
   const variants = useSourceStore((s) => s.variants)
@@ -62,6 +66,8 @@ export function UrlSourceBar() {
   const setInputUrl = useSourceStore((s) => s.setInputUrl)
   const setUseProxy = useSourceStore((s) => s.setUseProxy)
   const setSource = useSourceStore((s) => s.setSource)
+  const setAudioTrackId = useSourceStore((s) => s.setAudioTrackId)
+  const setSubtitleTrackId = useSourceStore((s) => s.setSubtitleTrackId)
   const setPreviewHeight = useSourceStore((s) => s.setPreviewHeight)
   const setMeta = useSourceStore((s) => s.setMeta)
   const setSourceLoading = useSourceStore((s) => s.setSourceLoading)
@@ -159,6 +165,8 @@ export function UrlSourceBar() {
         resolution: resolved.resolution ?? null,
         platform,
         audioUrl: resolved.audio_url ?? null,
+        audioTracks: resolved.audio_tracks ?? [],
+        subtitleTracks: resolved.subtitle_tracks ?? [],
         variants: resolved.variants ?? [],
         isHls: Boolean(
           resolved.is_m3u8 || resolved.variants?.some((variant) => variant.hls),
@@ -531,6 +539,110 @@ export function UrlSourceBar() {
                       >
                         {item.label}
                         {item.default ? t("source.recommended") : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {audioTracks.length > 1 && (
+              <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
+                <span
+                  className="text-[11px] text-muted-foreground"
+                  title={t("source.audioTrackTitle")}
+                >
+                  {t("source.audioTrack")}
+                </span>
+                <Select
+                  value={
+                    audioTrackId ??
+                    audioTracks.find((track) => track.default)?.id ??
+                    audioTracks[0].id
+                  }
+                  onValueChange={(value) => {
+                    setAudioTrackId(value)
+                    const track = audioTracks.find((item) => item.id === value)
+                    log(
+                      "info",
+                      t("log.audioTrack", {
+                        name: track?.name ?? value,
+                      }),
+                    )
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="w-[132px] text-xs"
+                    aria-label={t("source.audioTrackAria")}
+                    title={t("source.audioTrackTitle")}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="end" className="min-w-[160px]">
+                    {audioTracks.map((track) => (
+                      <SelectItem
+                        key={track.id}
+                        value={track.id}
+                        className="text-xs"
+                      >
+                        {track.name}
+                        {track.language && track.language.toLowerCase() !== track.name.toLowerCase()
+                          ? ` (${track.language.toUpperCase()})`
+                          : ""}
+                        {track.default ? t("source.recommended") : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {subtitleTracks.length > 0 && (
+              <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
+                <span
+                  className="text-[11px] text-muted-foreground"
+                  title={t("source.subtitlesTitle")}
+                >
+                  {t("source.subtitles")}
+                </span>
+                <Select
+                  value={subtitleTrackId ?? "__off__"}
+                  onValueChange={(value) => {
+                    const next = value === "__off__" ? null : value
+                    setSubtitleTrackId(next)
+                    const track = subtitleTracks.find((item) => item.id === next)
+                    log(
+                      "info",
+                      track
+                        ? t("log.subtitleTrack", { name: track.name })
+                        : t("log.subtitleOff"),
+                    )
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="w-[132px] text-xs"
+                    aria-label={t("source.subtitlesAria")}
+                    title={t("source.subtitlesTitle")}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="end" className="min-w-[160px]">
+                    <SelectItem value="__off__" className="text-xs">
+                      {t("source.subtitlesOff")}
+                    </SelectItem>
+                    {subtitleTracks.map((track) => (
+                      <SelectItem
+                        key={track.id}
+                        value={track.id}
+                        className="text-xs"
+                      >
+                        {track.name}
+                        {track.language &&
+                        track.language.toLowerCase() !== track.name.toLowerCase()
+                          ? ` (${track.language.toUpperCase()})`
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

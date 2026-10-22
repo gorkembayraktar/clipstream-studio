@@ -151,6 +151,15 @@
   max-height: 100%;
 }
 
+/* HLS WebVTT altyazıları: koyu zeminde okunaklı, videoyu çok kaplamayan cue'lar. */
+.stage-video::cue {
+  background: rgb(0 0 0 / 0.72);
+  color: #fff;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
+}
+
 [data-slot="video-stage"]:fullscreen .stage-strip {
   flex: 0 0 auto;
 }

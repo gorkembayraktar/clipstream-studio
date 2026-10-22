@@ -23,6 +23,25 @@ export function useHlsSource(
 
     let hls: HlsJs | null = null
     let disposed = false
+    const reported = new Set<string>()
+    let mediaRecoveryAttempted = false
+
+    /** Aynı fatal hatayı her yeniden denemede tekrar toast'lamamak için. */
+    const report = (
+      key: string,
+      title: string,
+      description: string,
+      level: "error" | "warn" = "error",
+    ) => {
+      if (reported.has(key)) return
+      reported.add(key)
+      log(level, title, description)
+      if (level === "error") {
+        toast.error(title, { description })
+      } else {
+        toast.warning(title, { description })
+      }
+    }
 
     const setup = async () => {
       // Uzantısız HLS playlist'lerinde URL kontrolü yetersiz kalır; backend'in
@@ -43,30 +62,120 @@ export function useHlsSource(
           })
           hls.on(Hls.Events.ERROR, (_event, data) => {
             if (!data.fatal || !hls) return
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                log(
+
+            const response = (
+              data as {
+                response?: { code?: number; text?: string }
+              }
+            ).response
+            const code = response?.code
+            const details = String(data.details)
+            const isSegment = details.toLowerCase().includes("frag")
+            const isCodec =
+              details.includes("Codec") ||
+              details.includes("codec") ||
+              details.includes("manifestIncompatibleCodecs")
+
+            if (code === 401 || code === 403) {
+              report(
+                `forbidden-${code}`,
+                translate("hls.errorForbiddenTitle"),
+                translate("hls.errorForbidden", { status: code }),
+              )
+              hls.destroy()
+              hls = null
+              return
+            }
+
+            if (code === 404) {
+              report(
+                isSegment ? "segment-404" : "playlist-404",
+                translate(
+                  isSegment
+                    ? "hls.errorSegmentTitle"
+                    : "hls.errorNotFoundTitle",
+                ),
+                translate(
+                  isSegment ? "hls.errorSegment" : "hls.errorNotFound",
+                ),
+              )
+              hls.destroy()
+              hls = null
+              return
+            }
+
+            if (code === 429) {
+              report(
+                "rate-limited",
+                translate("hls.errorRateLimitedTitle"),
+                translate("hls.errorRateLimited"),
+              )
+              hls.destroy()
+              hls = null
+              return
+            }
+
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              if (code && code >= 500) {
+                report(
+                  "server-error",
+                  translate("hls.errorServerTitle"),
+                  translate("hls.errorServer", { status: code }),
                   "warn",
-                  translate("hls.networkError"),
-                  String(data.details),
                 )
-                hls.startLoad()
-                break
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                log(
+              } else if (!code) {
+                // Durum kodu yoksa istek tarayıcıdan hiç çıkmamıştır: CORS,
+                // DNS veya ağ engeli. Proxy açmak çoğu durumda çözer.
+                report(
+                  "network-cors",
+                  translate("hls.errorCorsTitle"),
+                  translate("hls.errorCors"),
+                )
+              }
+              // Geçici ağ hatalarında hls.js'in kendi yeniden denemesine izin ver.
+              hls.startLoad()
+              return
+            }
+
+            if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              if (isCodec) {
+                report(
+                  "codec",
+                  translate("hls.errorCodecTitle"),
+                  translate("hls.errorCodec"),
+                )
+                hls.destroy()
+                hls = null
+                return
+              }
+              if (!mediaRecoveryAttempted) {
+                mediaRecoveryAttempted = true
+                report(
+                  "media-recovery",
+                  translate("hls.errorCodecTitle"),
+                  translate("hls.errorCodec"),
                   "warn",
-                  translate("hls.mediaError"),
-                  String(data.details),
                 )
                 hls.recoverMediaError()
-                break
-              default:
-                log("error", translate("hls.fatal"), String(data.details))
-                toast.error(translate("hls.fatalTitle"), {
-                  description: String(data.details),
-                })
-                hls.destroy()
+                return
+              }
+              report(
+                "media-fatal",
+                translate("hls.fatalTitle"),
+                translate("hls.mediaError"),
+              )
+              hls.destroy()
+              hls = null
+              return
             }
+
+            report(
+              "fatal",
+              translate("hls.fatalTitle"),
+              translate("hls.errorGeneric", { details }),
+            )
+            hls.destroy()
+            hls = null
           })
           hls.loadSource(src)
           hls.attachMedia(el)

@@ -39,6 +39,13 @@ async def waveform_endpoint(request):
     audio_url = data.get("audio_url")
     audio_url = audio_url.strip() if isinstance(audio_url, str) and audio_url.strip() else None
 
+    audio_track = data.get("audio_track")
+    audio_track = (
+        audio_track.strip()[:200]
+        if isinstance(audio_track, str) and audio_track.strip()
+        else None
+    )
+
     try:
         payload = await build_waveform(
             url,
@@ -47,6 +54,7 @@ async def waveform_endpoint(request):
             force=bool(data.get("force")),
             client=getattr(request.app.state, "http", None),
             audio_url=audio_url,
+            audio_track=audio_track,
             headers=sanitize_headers(data.get("headers")),
         )
     except WaveformError as exc:
@@ -87,6 +95,13 @@ async def waveform_stream_endpoint(request):
         else None
     )
 
+    audio_track = data.get("audio_track")
+    audio_track = (
+        audio_track.strip()[:200]
+        if isinstance(audio_track, str) and audio_track.strip()
+        else None
+    )
+
     async def events():
         async for event in stream_waveform(
             url,
@@ -95,6 +110,7 @@ async def waveform_stream_endpoint(request):
             force=bool(data.get("force")),
             client=getattr(request.app.state, "http", None),
             audio_url=audio_url,
+            audio_track=audio_track,
             headers=sanitize_headers(data.get("headers")),
         ):
             yield (

@@ -1,4 +1,4 @@
-"""CORS proxy'si: uzak yayınları tarayıcıya aktarır ve m3u8 içeriklerini yeniden yazar."""
+"""CORS proxy'si: uzak yayınları tarayıcıya aktarır ve HLS playlist'lerini yeniden yazar."""
 import re
 import urllib.parse
 from typing import Optional
@@ -30,8 +30,11 @@ def _is_playlist(parsed: urllib.parse.ParseResult) -> bool:
     YouTube HLS segment URL'leri playlist yolunu da içerir
     (`.../playlist/index.m3u8/govp/slices=.../file/seg.ts`); bu yüzden metinde
     `.m3u8` aramak segmenti yanlışlıkla playlist sayar ve akış bozulur.
+
+    `.txt` uzantısı da kabul edilir: bazı CDN'ler HLS playlist'ini düz metin
+    olarak sunar ve `#EXTM3U` kontrolü gövde okunduktan sonra yapılır.
     """
-    return parsed.path.lower().rstrip("/").endswith((".m3u8", ".m3u"))
+    return parsed.path.lower().rstrip("/").endswith((".m3u8", ".m3u", ".txt"))
 
 
 def _rewrite_playlist(text: str, base_url: str, token: Optional[str] = None) -> str:

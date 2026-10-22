@@ -1,4 +1,4 @@
-"""CORS proxy'sinin uzantısız HLS playlist'lerini ve sıkıştırılmış yanıtları aktarımı."""
+"""CORS proxy'sinin uzantısız/`.txt` HLS playlist'lerini ve sıkıştırılmış yanıtları aktarımı."""
 import sys
 import unittest
 from pathlib import Path
@@ -12,6 +12,7 @@ if str(BACKEND_DIR) not in sys.path:
 from services.proxy import proxy_request  # noqa: E402
 
 URL = "https://cdn.example.com/mc/extensionless-playlist"
+TXT_URL = "https://cdn.example.com/mc/playlist.txt"
 
 MASTER_PLAYLIST = b"""#EXTM3U
 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio0",NAME="Turkish",DEFAULT=YES,URI="/audio/tr"
@@ -102,6 +103,20 @@ class ExtensionlessPlaylistProxyTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('URI="/audio/tr"', body)
         self.assertIn("https%3A%2F%2Fcdn.example.com%2Fvideo%2F1080", body)
         self.assertIn("https%3A%2F%2Fcdn.example.com%2Faudio%2Ftr", body)
+
+    async def test_txt_playlist_is_detected_and_rewritten_as_plain_text(self):
+        upstream = FakeUpstream(
+            MASTER_PLAYLIST,
+            headers={"content-type": "text/plain; charset=utf-8"},
+            url=TXT_URL,
+        )
+        response = await proxy_request(FakeRequest(upstream, TXT_URL))
+
+        body = (await _read_body(response)).decode()
+        self.assertEqual(response.media_type, "application/vnd.apple.mpegurl")
+        self.assertIn("https%3A%2F%2Fcdn.example.com%2Fvideo%2F1080", body)
+        self.assertIn("https%3A%2F%2Fcdn.example.com%2Faudio%2Ftr", body)
+        self.assertNotIn("\n/video/1080", body)
 
     async def test_media_playlist_segments_and_init_map_are_rewritten(self):
         upstream = FakeUpstream(

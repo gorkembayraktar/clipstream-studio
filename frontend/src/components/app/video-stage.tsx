@@ -13,6 +13,7 @@ import { StreamStatusBadge } from "@/components/app/stream-status-badge"
 import { Timeline } from "@/components/app/timeline"
 import { TrimBar } from "@/components/app/trim-bar"
 import { useHlsSource } from "@/hooks/use-hls-source"
+import { useSubtitleVtt } from "@/hooks/use-subtitles"
 import { useFullscreen } from "@/hooks/use-fullscreen"
 import { translate, useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
@@ -37,6 +38,10 @@ export function VideoStage() {
   const useProxy = useSourceStore((s) => s.useProxy)
   const platform = useSourceStore((s) => s.platform)
   const audioUrl = useSourceStore((s) => s.audioUrl)
+  const audioTrackId = useSourceStore((s) => s.audioTrackId)
+  const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
+  const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
+  const headers = useSourceStore((s) => s.headers)
   const variants = useSourceStore((s) => s.variants)
   const sourceIsHls = useSourceStore((s) => s.isHls)
   const headerToken = useSourceStore((s) => s.headerToken)
@@ -52,7 +57,15 @@ export function VideoStage() {
     variants[0] ??
     null
   const previewStreamUrl = previewVariant?.url ?? streamUrl
-  const previewAudioUrl = previewVariant ? previewVariant.audio_url ?? null : audioUrl
+  // Kalite değişse de seçili ses rendition'ı kararlı kimlikle eşlenir; o
+  // varyantta yoksa varyantın varsayılan sesine düşülür.
+  const previewAudioTrack =
+    previewVariant?.audio_tracks?.find((track) => track.id === audioTrackId) ??
+    previewVariant?.audio_tracks?.find((track) => track.default) ??
+    null
+  const previewAudioUrl = previewVariant
+    ? (previewAudioTrack?.url ?? previewVariant.audio_url ?? null)
+    : audioUrl
   /** Seçili varyantın HLS bilgisi; varyant yoksa kaynak seviyesindeki tespit. */
   const playerIsHls = previewVariant?.hls ?? sourceIsHls
 
@@ -73,9 +86,43 @@ export function VideoStage() {
     : null
   /** Ses akışı HLS (ör. ayrı ses grubu) ise `src` yerine hls.js ile bağlanır. */
   const audioIsHls = Boolean(
-    audioSrc && ((previewVariant?.audio_hls ?? false) || isHlsUrl(audioSrc)),
+    audioSrc &&
+      (previewAudioTrack?.hls ||
+        (previewVariant?.audio_hls ?? false) ||
+        isHlsUrl(audioSrc)),
   )
   useHlsSource(videoRef, playerSrc, playerIsHls)
+
+  // Önizleme varyantında aynı altyazı grubu varsa onu, yoksa kaynağın
+  // varsayılan varyantındaki rendition'ı kullan.
+  const previewSubtitleTrack = subtitleTrackId
+    ? (previewVariant?.subtitle_tracks?.find(
+        (track) => track.id === subtitleTrackId,
+      ) ??
+      subtitleTracks.find((track) => track.id === subtitleTrackId) ??
+      null)
+    : null
+  const {
+    src: subtitleSrc,
+    error: subtitleError,
+  } = useSubtitleVtt(previewSubtitleTrack, headers)
+
+  useEffect(() => {
+    if (!subtitleError) return
+    toast.warning(translate("log.subtitleLoadFailed"), {
+      description: subtitleError.message,
+    })
+  }, [subtitleError])
+
+  /** Blob VTT yüklendiğinde yalnızca kendi altyazı track'imizi görünür yap. */
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    const target = Array.from(el.textTracks).find(
+      (track) => track.id === "clipstream-subtitle",
+    )
+    if (target) target.mode = subtitleSrc ? "showing" : "disabled"
+  }, [subtitleSrc, playerSrc])
 
   const audioRef = useRef<HTMLAudioElement>(null)
   /** Kullanıcı oynatmak istiyor mu? Tarayıcının kendiliğinden duraklatmasını ayırt eder. */
@@ -113,7 +160,39 @@ export function VideoStage() {
       hls = new Hls({ enableWorker: true })
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data.fatal || !hls) return
-        log("error", translate("log.audioHlsError"), String(data.details))
+        const response = (
+          data as {
+            response?: { code?: number; text?: string }
+          }
+        ).response
+        const code = response?.code
+        const details = String(data.details)
+        log("error", translate("log.audioHlsError"), details)
+        if (code === 401 || code === 403) {
+          toast.error(translate("hls.errorForbiddenTitle"), {
+            description: translate("hls.errorForbidden", { status: code }),
+          })
+        } else if (code === 404) {
+          toast.error(translate("hls.errorNotFoundTitle"), {
+            description: translate("hls.errorNotFound"),
+          })
+        } else if (code === 429) {
+          toast.error(translate("hls.errorRateLimitedTitle"), {
+            description: translate("hls.errorRateLimited"),
+          })
+        } else if (code && code >= 500) {
+          toast.warning(translate("hls.errorServerTitle"), {
+            description: translate("hls.errorServer", { status: code }),
+          })
+        } else if (!code && details.toLowerCase().includes("codec")) {
+          toast.error(translate("hls.errorCodecTitle"), {
+            description: translate("hls.errorCodec"),
+          })
+        } else if (!code) {
+          toast.error(translate("hls.errorCorsTitle"), {
+            description: translate("hls.errorCors"),
+          })
+        }
         hls.destroy()
         hls = null
       })
@@ -647,7 +726,19 @@ export function VideoStage() {
           ref={videoRef}
           className="stage-video max-h-[58vh] w-full object-contain"
           playsInline
-        />
+        >
+          {subtitleSrc && previewSubtitleTrack && (
+            <track
+              key={subtitleSrc}
+              id="clipstream-subtitle"
+              kind="subtitles"
+              src={subtitleSrc}
+              srcLang={previewSubtitleTrack.language || "und"}
+              label={previewSubtitleTrack.name}
+              default
+            />
+          )}
+        </video>
 
         {/* Video akışı sessizse (YouTube HLS): ses ayrı kanaldan eşlenir. */}
         <audio

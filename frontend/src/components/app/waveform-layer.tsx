@@ -72,13 +72,17 @@ export function WaveformLayer({ duration }: { duration: number }) {
   const streamUrl = useSourceStore((s) => s.streamUrl)
   const origin = useSourceStore((s) => s.inputUrl)
   const audioUrl = useSourceStore((s) => s.audioUrl)
+  const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const hasAudio = useSourceStore((s) => s.meta?.hasAudio)
+  const waveformAudioUrl =
+    audioTrackId || hasAudio === false ? audioUrl : null
   const { data } = useWaveform(
     streamUrl,
     origin,
     duration,
-    hasAudio === false ? audioUrl : null,
+    waveformAudioUrl,
     hasAudio ?? null,
+    audioTrackId,
   )
 
   const hostRef = useRef<HTMLDivElement>(null)

@@ -9,15 +9,18 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from services.hls import detect_hls, is_hls_content_type, quality_height  # noqa: E402
-from services.resolver import _resolve_direct  # noqa: E402
+from services.resolver import ResolveError, _resolve_direct  # noqa: E402
 
 URL = "https://cdn.example.com/mc/extensionless-playlist"
 
 MASTER_PLAYLIST = """#EXTM3U
-#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio0",NAME="Türkçe",URI="/audio/tr"
-#EXT-X-STREAM-INF:BANDWIDTH=2102974,RESOLUTION=1920x1080,AUDIO="audio0"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio0",NAME="Türkçe",LANGUAGE="tr",DEFAULT=YES,AUTOSELECT=YES,URI="/audio/tr"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio0",NAME="English",LANGUAGE="en",AUTOSELECT=YES,URI="/audio/en"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Türkçe",LANGUAGE="tr",DEFAULT=YES,URI="/subs/tr"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="English",LANGUAGE="en",URI="/subs/en"
+#EXT-X-STREAM-INF:BANDWIDTH=2102974,RESOLUTION=1920x1080,AUDIO="audio0",SUBTITLES="subs"
 /video/1080
-#EXT-X-STREAM-INF:BANDWIDTH=1392003,RESOLUTION=1280x720,AUDIO="audio0"
+#EXT-X-STREAM-INF:BANDWIDTH=1392003,RESOLUTION=1280x720,AUDIO="audio0",SUBTITLES="subs"
 /video/720
 """
 
@@ -160,6 +163,29 @@ class ExtensionlessResolveTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["variants"][0]["audio_url"], "https://cdn.example.com/audio/tr")
         self.assertTrue(result["variants"][0]["audio_hls"])
         self.assertEqual(result["audio_url"], "https://cdn.example.com/audio/tr")
+        self.assertEqual(len(result["audio_tracks"]), 2)
+        self.assertEqual(
+            [track["name"] for track in result["audio_tracks"]],
+            ["Türkçe", "English"],
+        )
+        self.assertEqual(result["audio_tracks"][1]["url"], "https://cdn.example.com/audio/en")
+        self.assertTrue(result["audio_tracks"][0]["default"])
+        self.assertEqual(
+            [track["id"] for track in result["variants"][0]["audio_tracks"]],
+            ["audio0|tr|Türkçe", "audio0|en|English"],
+        )
+        self.assertEqual(len(result["variants"][1]["audio_tracks"]), 2)
+        self.assertEqual(
+            result["variants"][1]["audio_url"],
+            "https://cdn.example.com/audio/tr",
+        )
+        self.assertEqual(len(result["subtitle_tracks"]), 2)
+        self.assertEqual(
+            [track["url"] for track in result["subtitle_tracks"]],
+            ["https://cdn.example.com/subs/tr", "https://cdn.example.com/subs/en"],
+        )
+        self.assertTrue(result["subtitle_tracks"][0]["default"])
+        self.assertEqual(len(result["variants"][0]["subtitle_tracks"]), 2)
         self.assertFalse(result["has_audio"])
         self.assertEqual(result["stream_url"], "https://cdn.example.com/video/1080")
 
@@ -191,6 +217,53 @@ class ExtensionlessResolveTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(result["is_m3u8"])
         self.assertEqual(len(result["variants"]), 2)
+
+    async def test_txt_playlist_is_detected_and_resolved(self):
+        txt_url = "https://cdn.example.com/mc/playlist.txt"
+        client = FakeClient(
+            head_type="text/plain",
+            body=MASTER_PLAYLIST.encode(),
+        )
+        result = await _resolve_direct(txt_url, client)
+
+        self.assertTrue(result["is_m3u8"])
+        self.assertEqual(len(result["variants"]), 2)
+        self.assertEqual(len(result["audio_tracks"]), 2)
+        self.assertEqual(len(result["subtitle_tracks"]), 2)
+        self.assertEqual(
+            result["stream_url"],
+            "https://cdn.example.com/video/1080",
+        )
+
+
+class HlsAccessErrorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_m3u8_forbidden_reports_actionable_error(self):
+        class ForbiddenClient:
+            async def get(self, url, headers=None):
+                return FakeResponse(status_code=403, body=b"forbidden")
+
+        with self.assertRaises(ResolveError) as context:
+            await _resolve_direct(
+                "https://cdn.example.com/protected/master.m3u8",
+                ForbiddenClient(),
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIn("403", str(context.exception))
+
+    async def test_extensionless_forbidden_is_not_returned_as_playable(self):
+        class ForbiddenClient:
+            async def head(self, url, headers=None):
+                return FakeResponse(status_code=403, body=b"")
+
+            def stream(self, method, url, headers=None):
+                return FakeStream(FakeResponse(status_code=403, body=b""))
+
+        with self.assertRaises(ResolveError) as context:
+            await _resolve_direct(URL, ForbiddenClient())
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIn("403", str(context.exception))
 
 
 class HlsQualityLabelTests(unittest.TestCase):

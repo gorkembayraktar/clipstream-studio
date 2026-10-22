@@ -92,6 +92,7 @@ async def build_waveform(
     force: bool = False,
     client: Any = None,
     audio_url: Optional[str] = None,
+    audio_track: Optional[str] = None,
     headers: Any = None,
 ) -> dict[str, Any]:
     """Kaynağın dalga formunu üretir (varsa önbellekten döner).
@@ -107,7 +108,7 @@ async def build_waveform(
         source, optimized = audio_url, True
     else:
         source, optimized = await _select_source(client, origin, url, headers)
-    cache_key = _cache_key(source, origin, headers)
+    cache_key = _cache_key(source, origin, headers, audio_track)
 
     if not force:
         cached = _read_cache(cache_key)
@@ -379,6 +380,7 @@ async def stream_waveform(
     force: bool = False,
     client: Any = None,
     audio_url: Optional[str] = None,
+    audio_track: Optional[str] = None,
     headers: Any = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Waveform'u NDJSON olayları olarak üretir (kademeli çizim için)."""
@@ -395,7 +397,7 @@ async def stream_waveform(
             source, optimized = audio_url, True
         else:
             source, optimized = await _select_source(client, origin, url, headers)
-        cache_key = _cache_key(source, origin, headers)
+        cache_key = _cache_key(source, origin, headers, audio_track)
 
         if not force:
             cached = _read_cache(cache_key)
@@ -806,11 +808,22 @@ def _kill(process: Any) -> None:
 
 
 # ----------------------------------------------------------------- önbellek
-def _cache_key(source: str, origin: Optional[str], headers: Any) -> str:
+def _cache_key(
+    source: str,
+    origin: Optional[str],
+    headers: Any,
+    audio_track: Optional[str] = None,
+) -> str:
     """Önbellek anahtarı: CDN'in ürettiği geçici yolu değil, kullanıcının
     girdiği kaynağı (`origin`) esas alır. Böylece master her açılışta farklı
-    bir CDN yolu döndürse de aynı video önbellekten gelir."""
+    bir CDN yolu döndürse de aynı video önbellekten gelir.
+
+    Alternatif ses rendition'ı seçildiğinde `audio_track` anahtara eklenir;
+    aksi halde farklı diller aynı dalga formu önbelleğini paylaşırdı.
+    """
     stable = origin or source
+    if audio_track:
+        stable = f"{stable}|audio:{audio_track}"
     return hashlib.sha1(
         f"{CACHE_VERSION}|{header_fingerprint(headers)}|{stable}".encode("utf-8")
     ).hexdigest()

@@ -56,6 +56,14 @@ export const en = {
   "source.previewQualityAria": "Preview quality",
   "source.qualityTitle": "Playback quality (does not affect export)",
   "source.recommended": " (recommended)",
+  "source.audioTrack": "Audio",
+  "source.audioTrackTitle": "Audio rendition used for preview and export",
+  "source.audioTrackAria": "Audio track",
+  "source.subtitles": "Subtitles",
+  "source.subtitlesTitle":
+    "WebVTT subtitles shown in the preview (not burned into exports)",
+  "source.subtitlesAria": "Subtitle track",
+  "source.subtitlesOff": "Off",
   "source.openNewTab": "Open in new tab",
   "source.openNewTabTitle": "Open the file in the browser's native player",
   "source.noCopy": "no copy",
@@ -360,6 +368,28 @@ export const en = {
   "hls.loadingMedia": "Loading video source: {src}",
   "hls.audioConnecting": "Audio stream is HLS: connecting hls.js to the audio element…",
   "hls.audioError": "Audio stream (HLS) error.",
+  "hls.errorForbiddenTitle": "HLS stream access denied",
+  "hls.errorForbidden":
+    "The server returned HTTP {status}. The link may have expired or require cookie/referer headers. Reload it with Curl / headers in the Source panel.",
+  "hls.errorNotFoundTitle": "HLS playlist not found",
+  "hls.errorNotFound":
+    "The server returned HTTP 404. The stream may have been removed or the URL may have expired.",
+  "hls.errorRateLimitedTitle": "HLS server is rate-limiting requests",
+  "hls.errorRateLimited":
+    "HTTP 429 was returned. Wait a moment and retry; if needed, choose a lower quality.",
+  "hls.errorServerTitle": "HLS server returned a temporary error",
+  "hls.errorServer":
+    "The server returned HTTP {status}. Refresh the page or reload the source to retry.",
+  "hls.errorCorsTitle": "HLS stream could not be reached",
+  "hls.errorCors":
+    "The browser blocked the request (CORS, DNS, or network). Enable the CORS proxy in the Source panel; use Curl / headers for protected streams.",
+  "hls.errorSegmentTitle": "HLS segment could not be loaded",
+  "hls.errorSegment":
+    "The stream may be incomplete or the CDN segment is temporarily unavailable. Change the quality and try again.",
+  "hls.errorCodecTitle": "HLS codec is not supported by the browser",
+  "hls.errorCodec":
+    "The browser cannot decode this audio/video codec (for example HEVC or AC-3). Choose a variant or quality with H.264/AAC.",
+  "hls.errorGeneric": "HLS playback error: {details}",
 
   "video.audioDisconnected":
     "Audio stream disconnected; reloading and aligning to the video position.",
@@ -444,6 +474,10 @@ export const en = {
   "log.clipboardDeniedDesc": "If the browser blocked it, paste with Ctrl+V.",
   "log.sourceCleared": "Source cleared.",
   "log.previewQuality": "Preview quality: {height}p.",
+  "log.audioTrack": "Audio track: {name}.",
+  "log.subtitleTrack": "Subtitles: {name}.",
+  "log.subtitleOff": "Subtitles turned off.",
+  "log.subtitleLoadFailed": "Could not load subtitles",
   "log.proxyEnabled": "CORS proxy enabled.",
   "log.proxyDisabled": "CORS proxy disabled.",
   "log.durationUnavailable": "Could not read duration",

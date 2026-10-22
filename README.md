@@ -27,9 +27,45 @@
 
 ---
 
+## Desteklenen Kaynaklar
+
+<table>
+  <tr>
+    <td align="center" width="64"><img src="docs/logos/youtube.svg" width="30" alt="YouTube logosu"></td>
+    <td><strong>YouTube</strong><br><sub>Video ve kısa video bağlantıları; <code>yt-dlp</code> ile çözülür.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/logos/x.svg" width="30" alt="X logosu"></td>
+    <td><strong>X (Twitter)</strong><br><sub>Gönderi video bağlantıları; <code>yt-dlp</code> ile çözülür.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/logos/instagram.svg" width="30" alt="Instagram logosu"></td>
+    <td><strong>Instagram</strong><br><sub>Herkese açık gönderi ve reel bağlantıları; <code>yt-dlp</code> ile çözülür.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/logos/hls.svg" width="30" alt="HLS Stream logosu"></td>
+    <td><strong>m3u8 / HLS Stream</strong><br><sub>Master ve media playlist'ler; <code>.m3u8</code>, <code>.txt</code> ve uzantısız HLS adresleri. Mux, Cloudflare Stream, Bunny Stream gibi sağlayıcılar dahil.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/logos/ffmpeg.svg" width="30" alt="FFmpeg logosu"></td>
+    <td><strong>Doğrudan MP4 / WebM</strong><br><sub>HTTP(S) üzerinden erişilen video dosyaları.</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/logos/local-file.svg" width="30" alt="Yerel dosya logosu"></td>
+    <td><strong>Yerel dosyalar</strong><br><sub>Gözat veya sürükle-bırak; MP4, WebM ve FFmpeg'in okuyabildiği diğer biçimler.</sub></td>
+  </tr>
+</table>
+
+> YouTube, X ve Instagram için `yt-dlp` gerekir. HLS ve doğrudan dosya kaynakları `yt-dlp` olmadan çalışır.
+>
+> <sub>Marka logoları Simple Icons (CC0) üzerinden alınmıştır; HLS ve yerel dosya simgeleri bu proje için çizilmiştir.</sub>
+
 ## Özellikler
 
-- **Kaynaklar:** MP4/WebM, HLS (`.m3u8`), YouTube, X ve Instagram.
+- **Kaynaklar:** YouTube, X, Instagram, HLS (`.m3u8` / `.txt` / uzantısız), doğrudan MP4/WebM ve yerel dosyalar.
+- **Çoklu ses:** HLS master playlist'lerindeki alternatif ses rendition'ları önizlemede seçilebilir; seçim dışa aktarmaya da uygulanır.
+- **Altyazı:** HLS WebVTT altyazıları önizlemede açılıp kapatılabilir ve dil seçilebilir. Altyazılar şimdilik yalnızca önizlemede gösterilir, çıktıya yakılmaz.
+- **HLS hata tanılama:** 403, 404, 429, CORS/ağ, eksik segment ve desteklenmeyen codec hataları eyleme dönük mesajlarla bildirilir.
 - **Kesme:** Zaman çizelgesinden giriş/çıkış; noktalar birbirini geçerse otomatik yer değiştirir.
 - **Kırpma:** Video üzerinde sürükle-boyutlandır; 16:9, 9:16, 1:1, 4:5 ve serbest oranlar.
 - **Dışa aktarma:** MP4 (hızlı/hassas), GIF ve MP3; canlı ilerleme, tahmini kalan süre ve iptal.
@@ -86,7 +122,8 @@ Klipler `exports/` klasörüne kaydedilir. Sürükle-bırak ile eklenen geçici 
 - **FFmpeg bulunamadı:** `ffmpeg` ve `ffprobe` PATH'te olmalı. Kurulumdan sonra terminali yeniden aç.
 - **YouTube/X/Instagram açılmıyor:** `pip install -U yt-dlp` ile güncelle.
 - **8765 portu kullanımda:** Çalışan sunucuyu `durdur.bat` ile kapat.
-- **HLS oynamıyor:** Bu sürüm `.m3u8` adreslerini destekler; `.txt` master playlist'leri desteklenmez.
+- **HLS oynamıyor:** 403, 404, 429, CORS/ağ, eksik segment ve codec hataları arayüzde nedeniyle birlikte gösterilir. 403 için **Gelişmiş bağlantı** ile `curl`/başlıkları ekle; CORS için kaynak panelindeki CORS proxy'yi aç. `.txt` ve uzantısız HLS adresleri de desteklenir; sunucu `.txt` içeriğinde `#EXTM3U` döndürüyorsa playlist olarak işlenir.
+- **Altyazı görünmüyor:** HLS master playlist'inde `TYPE=SUBTITLES` rendition'ı olmalı. Altyazı kaynağı ayrı bir HTTP isteği gerektirdiğinden 403/CORS durumunda kaynak başlıklarını veya proxy'yi kullan.
 - **Korumalı medya:** Kaynak panelindeki **Gelişmiş bağlantı** ile `curl` komutunu referer/cookie başlıklarıyla birlikte yapıştır.
 
 ## Geliştirme

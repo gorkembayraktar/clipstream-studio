@@ -15,7 +15,7 @@ from services.segment_downloader import (  # noqa: E402
     MediaPlaylist,
     MediaSegment,
 )
-from services.waveform import NoAudioError, stream_waveform  # noqa: E402
+from services.waveform import NoAudioError, _cache_key, stream_waveform  # noqa: E402
 
 
 async def collect(events) -> list[dict]:
@@ -185,6 +185,34 @@ class StreamingWaveformTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(events[1]["count"], 2)
         write_cache.assert_called_once()
+
+
+class WaveformCacheKeyTests(unittest.TestCase):
+    def test_audio_track_keeps_alternate_renditions_apart(self):
+        origin = "https://cdn.example.com/master"
+        default_key = _cache_key("https://cdn.example.com/audio/tr", origin, None)
+        english_key = _cache_key(
+            "https://cdn.example.com/audio/en",
+            origin,
+            None,
+            "audio0|en|English",
+        )
+        repeated_key = _cache_key(
+            "https://cdn.example.com/audio/en?token=changed",
+            origin,
+            None,
+            "audio0|en|English",
+        )
+
+        self.assertNotEqual(default_key, english_key)
+        self.assertEqual(english_key, repeated_key)
+
+    def test_legacy_call_without_track_keeps_old_key(self):
+        origin = "https://cdn.example.com/master"
+        self.assertEqual(
+            _cache_key("https://cdn.example.com/audio/tr", origin, None),
+            _cache_key("https://cdn.example.com/audio/tr", origin, None, None),
+        )
 
 
 if __name__ == "__main__":
