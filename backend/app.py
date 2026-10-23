@@ -32,6 +32,7 @@ from api import jobs as jobs_api
 from api import library as library_api
 from api import local as local_api
 from api import media as media_api
+from api import storyboard as storyboard_api
 from api import waveform as waveform_api
 from config import (
     EXPORTS_DIR,
@@ -46,6 +47,7 @@ from core.i18n import LanguageMiddleware, current_language, t
 from core.jobs import JobManager
 from services.local_media import cleanup_uploads
 from services.segment_downloader import cleanup_stale_temp_dirs
+from services.storyboard import cleanup_storyboards
 
 
 def _fallback_html() -> str:
@@ -107,6 +109,8 @@ def create_app() -> Starlette:
     cleanup_uploads(UPLOADS_MAX_AGE_DAYS)
     # Çökme sonrası kalan waveform indirme klasörleri de temizlenir.
     cleanup_stale_temp_dirs()
+    # Süresi geçen / fazla storyboard dosyaları açılışta temizlenir.
+    cleanup_storyboards()
 
     routes = [
         *media_api.routes,
@@ -115,6 +119,7 @@ def create_app() -> Starlette:
         *jobs_api.routes,
         *library_api.routes,
         *waveform_api.routes,
+        *storyboard_api.routes,
         *frames_api.routes,
     ]
 

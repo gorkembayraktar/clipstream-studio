@@ -18,6 +18,8 @@ interface SourceInfo {
   platform: SourcePlatform
   /** Kopyasız yerel kaynakta dosyanın gerçek yolu (arayüzde gösterilir). */
   sourcePath?: string | null
+  /** Kaynağın yüklendiği özgün adres (HLS master / sayfa URL'si). */
+  originUrl?: string | null
   /** Video akışı sessizse (ör. YouTube HLS) sesin alınacağı ayrı akış. */
   audioUrl?: string | null
   /** Master playlist'teki alternatif ses rendition'ları. */
@@ -52,6 +54,8 @@ interface SourceState {
   subtitleTrackId: string | null
   /** Yerel kaynakta gösterilecek konum (dosya yolu/adı); diğerlerinde null. */
   sourcePath: string | null
+  /** Kaynağın yüklendiği özgün adres; URL çubuğu değişse de sabit kalır. */
+  sourceOrigin: string | null
   /** Kaynakta bulunan önizleme kalite varyantları (en yüksek kalite başta). */
   variants: StreamVariant[]
   /** Kaynak HLS mi? (uzantısız playlist'ler dahil) */
@@ -90,6 +94,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   subtitleTracks: [],
   subtitleTrackId: null,
   sourcePath: null,
+  sourceOrigin: null,
   variants: [],
   isHls: false,
   headers: null,
@@ -133,6 +138,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       subtitleTracks,
       subtitleTrackId: null,
       sourcePath: source.sourcePath ?? null,
+      sourceOrigin: source.originUrl ?? null,
       variants,
       isHls: source.isHls,
       headers: source.headers ?? null,
@@ -199,6 +205,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       subtitleTracks: [],
       subtitleTrackId: null,
       sourcePath: null,
+      sourceOrigin: null,
       variants: [],
       isHls: false,
       headers: null,

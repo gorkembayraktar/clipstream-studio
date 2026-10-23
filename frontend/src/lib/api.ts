@@ -10,6 +10,7 @@ import type {
   LocalUploadResponse,
   ProbeResponse,
   ResolveResponse,
+  StoryboardBatchMeta,
   SubtitleResponse,
   WaveformResponse,
 } from "@/lib/types"
@@ -164,6 +165,20 @@ export const api = {
     post<{ success: boolean; dialog_closed: boolean; remux_stopped: boolean }>(
       "/api/local/cancel",
     ),
+  /** Zaman çizelgesi storyboard'u: istenen 10 karelik grubu hazırlayıp döner. */
+  storyboard: (
+    payload: {
+      url: string
+      origin?: string
+      duration: number
+      /** Yerel dosyanın kalıcı kimliği (yeniden başlatmada önbellek için). */
+      identity?: string
+      headers?: Record<string, string>
+      /** Kademeli önizleme grubu (0 tabanlı). */
+      batch?: number
+    },
+    signal?: AbortSignal,
+  ) => post<StoryboardBatchMeta>("/api/storyboard", payload, { signal }),
   waveform: (payload: {
     url: string
     origin?: string

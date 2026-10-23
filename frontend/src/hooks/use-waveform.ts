@@ -39,7 +39,7 @@ function decodeBuckets(encoded: string): Uint8Array {
  */
 export function useWaveform(
   url: string | null,
-  origin: string,
+  origin: string | null,
   duration: number,
   audioUrl: string | null = null,
   hasAudio: boolean | null = null,

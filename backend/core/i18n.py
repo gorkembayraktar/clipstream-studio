@@ -281,6 +281,27 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "FFmpeg could not extract the waveform.",
         "FFmpeg dalga formu çıkaramadı.",
     ),
+    # ------------------------------------------------------- storyboard
+    "error.storyboardDuration": (
+        "The source duration is not known yet; the storyboard cannot be prepared.",
+        "Kaynak süresi henüz bilinmiyor; storyboard hazırlanamadı.",
+    ),
+    "error.storyboardBatch": (
+        "Invalid storyboard batch.",
+        "Geçersiz storyboard grubu.",
+    ),
+    "error.storyboardTimeout": (
+        "Storyboard generation timed out (the source may be slow).",
+        "Storyboard üretimi zaman aşımına uğradı (kaynak yavaş olabilir).",
+    ),
+    "error.storyboardFailed": (
+        "Could not prepare the timeline storyboard.",
+        "Zaman çizelgesi storyboard'u hazırlanamadı.",
+    ),
+    "error.storyboardNotFound": (
+        "Storyboard image was not found.",
+        "Storyboard görseli bulunamadı.",
+    ),
     # ------------------------------------------------------------- kare
     "error.frameQueueFull": (
         "The frame request queue is full. Try again shortly.",

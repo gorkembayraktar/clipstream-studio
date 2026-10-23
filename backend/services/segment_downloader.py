@@ -76,6 +76,20 @@ class DownloadedMedia:
 
 
 @dataclass
+class DownloadedSegments:
+    """Storyboard için seçilmiş HLS segmentlerinin yerel kopyaları."""
+
+    temp_dir: Path
+    paths: dict[int, Path]
+    starts: dict[int, float]
+    durations: dict[int, float]
+
+    def cleanup(self) -> None:
+        """Geçici segment klasörünü siler."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+
+@dataclass
 class DownloadedChunk:
     """Kademeli waveform için indirilip birleştirilmiş zaman aralığı."""
 
@@ -233,6 +247,32 @@ async def load_hls_playlist(
     return playlist
 
 
+def locate_segment(
+    playlist: MediaPlaylist, at: float
+) -> Optional[tuple[int, float]]:
+    """Kaynak zamanını (segment indeksi, segment içi ofset) olarak döner.
+
+    Storyboard kareleri seyrek seçildiği için her kare için yalnızca ilgili
+    segment indirilir. Zaman playlist sonunun ötesindeyse son segmentin son
+    karesine kelepçelenir.
+    """
+    if not playlist.segments:
+        return None
+
+    total = sum(max(0.0, segment.duration) for segment in playlist.segments)
+    if total <= 0:
+        return None
+    at = max(0.0, min(float(at), total - 0.001))
+
+    cursor = 0.0
+    for index, segment in enumerate(playlist.segments):
+        duration = max(0.0, segment.duration)
+        if at < cursor + duration or index == len(playlist.segments) - 1:
+            return index, max(0.0, at - cursor)
+        cursor += duration
+    return None
+
+
 async def _fetch_to_file(
     client: Any,
     url: str,
@@ -271,6 +311,128 @@ def _merge_parts(parts: list[Path], destination: Path) -> None:
         for part in parts:
             with part.open("rb") as source:
                 shutil.copyfileobj(source, output, length=1 << 20)
+
+
+async def download_hls_segments(
+    client: Any,
+    playlist: Optional[MediaPlaylist],
+    indices: list[int],
+    headers: Optional[dict[str, str]] = None,
+    *,
+    temp_root: Path = WAVEFORM_TEMP_DIR,
+    concurrency: int = SEGMENT_CONCURRENCY,
+    timeout: float = DOWNLOAD_TIMEOUT_SECONDS,
+) -> Optional[DownloadedSegments]:
+    """Yalnızca istenen HLS segmentlerini paralel indirir.
+
+    Storyboard kareleri seyrek olduğu için tüm playlist'i indirmek yerine
+    her karenin bulunduğu segment alınır. fMP4 playlist'lerde init bölümü
+    her segmentin başına eklenir; böylece her parça tek başına çözülebilir.
+    Uygun olmayan playlist veya indirme hatasında None döner.
+    """
+    if (
+        client is None
+        or playlist is None
+        or not playlist.endlist
+        or playlist.encrypted
+        or playlist.byterange
+        or not playlist.segments
+    ):
+        return None
+
+    selected = sorted(
+        {
+            int(index)
+            for index in indices
+            if 0 <= int(index) < len(playlist.segments)
+        }
+    )
+    if not selected:
+        return None
+
+    temp_root.mkdir(parents=True, exist_ok=True)
+    temp_dir = Path(tempfile.mkdtemp(prefix="sb-", dir=temp_root))
+    started = time.perf_counter()
+
+    try:
+        init_path: Optional[Path] = None
+        if playlist.init_url:
+            init_path = temp_dir / "init.bin"
+            await _fetch_to_file(client, playlist.init_url, init_path, headers)
+
+        semaphore = asyncio.Semaphore(max(1, concurrency))
+
+        async def fetch(index: int) -> tuple[int, Path]:
+            destination = temp_dir / f"segment-{index:06d}.bin"
+            async with semaphore:
+                await _fetch_to_file(
+                    client,
+                    playlist.segments[index].url,
+                    destination,
+                    headers,
+                )
+            if init_path is None:
+                return index, destination
+
+            merged = temp_dir / f"segment-{index:06d}.mp4"
+            _merge_parts([init_path, destination], merged)
+            try:
+                destination.unlink()
+            except OSError:
+                pass
+            return index, merged
+
+        tasks = [asyncio.create_task(fetch(index)) for index in selected]
+        try:
+            results = list(
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks),
+                    timeout=timeout,
+                )
+            )
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+        except Exception as exc:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            logger.warning(
+                "hls: storyboard segmentleri indirilemedi (%.1f sn): %s",
+                time.perf_counter() - started,
+                exc,
+            )
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None
+
+        starts: dict[int, float] = {}
+        durations: dict[int, float] = {}
+        cursor = 0.0
+        for index, segment in enumerate(playlist.segments):
+            starts[index] = cursor
+            durations[index] = max(0.0, segment.duration)
+            cursor += durations[index]
+
+        logger.info(
+            "hls: storyboard %d segment %.1f sn'de indirildi",
+            len(selected),
+            time.perf_counter() - started,
+        )
+        return DownloadedSegments(
+            temp_dir=temp_dir,
+            paths=dict(results),
+            starts=starts,
+            durations=durations,
+        )
+    except asyncio.CancelledError:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.warning("hls: storyboard segment hatası: %s", exc)
+        return None
 
 
 async def download_hls_media(

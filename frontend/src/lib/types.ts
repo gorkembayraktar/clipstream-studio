@@ -293,6 +293,54 @@ export type WaveformStreamEvent =
   | WaveformDoneEvent
   | WaveformErrorEvent
 
+/** `POST /api/storyboard` — 10 karelik kademeli önizleme grubu. */
+export interface StoryboardBatchMeta {
+  success: boolean
+  /** Storyboard'un kapsadığı süre (sn). */
+  duration: number
+  /** Kareler arasındaki süre (sn, en az 2). */
+  interval: number
+  tile_width: number
+  tile_height: number
+  /** Toplam hedef kare sayısı (en fazla 100). */
+  count: number
+  batch_size: number
+  total_batches: number
+  /** Bu grubun sırası (0 tabanlı). */
+  batch: number
+  batch_count: number
+  /** Son grup yüklendiyse true. */
+  complete: boolean
+  /** Bu sprite'ın sütun/satır sayısı. */
+  columns: number
+  rows: number
+  /** Gruptaki karelerin toplam storyboard indeksleri. */
+  indices: number[]
+  /** Gruptaki karelerin kaynaktaki zamanları (sn). */
+  times: number[]
+  /** Uzun ömürlü önbellekli JPEG sprite adresi. */
+  sheet_url: string
+  /** Disk önbelleği anahtarı. */
+  source_key: string
+  created_at: number
+  cached: boolean
+  /** HLS'te hafif varyant kullanıldıysa true. */
+  optimized: boolean
+  error?: string
+}
+
+/** İstemcide yüklenen storyboard gruplarının birleşik görünümü. */
+export interface StoryboardMeta {
+  duration: number
+  interval: number
+  tile_width: number
+  tile_height: number
+  /** Toplam hedef kare sayısı. */
+  count: number
+  complete: boolean
+  batches: StoryboardBatchMeta[]
+}
+
 export interface ExportFile {
   name: string
   size_mb: number

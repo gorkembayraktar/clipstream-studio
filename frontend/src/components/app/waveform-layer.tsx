@@ -70,7 +70,7 @@ function drawBars(
 
 export function WaveformLayer({ duration }: { duration: number }) {
   const streamUrl = useSourceStore((s) => s.streamUrl)
-  const origin = useSourceStore((s) => s.inputUrl)
+  const origin = useSourceStore((s) => s.sourceOrigin)
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const hasAudio = useSourceStore((s) => s.meta?.hasAudio)

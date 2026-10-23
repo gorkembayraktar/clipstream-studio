@@ -1,14 +1,16 @@
 /** İnteraktif zaman çizelgesi: oynatma imleci + Giriş/Çıkış tutamaçları + kare önizleme. */
 import { useCallback, useMemo, useRef, useState } from "react"
+import type { CSSProperties } from "react"
 
 import { Loader2Icon } from "lucide-react"
 
 import { cn } from "cn"
 
 import { WaveformLayer } from "@/components/app/waveform-layer"
-import { useFramePreview } from "@/hooks/use-frame-preview"
+import { useStoryboard } from "@/hooks/use-storyboard"
 import { useI18n } from "@/i18n"
 import { clamp, formatClock, formatTime } from "@/lib/format"
+import type { StoryboardMeta } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
 import { useEditStore } from "@/stores/edit-store"
 import { useSourceStore } from "@/stores/source-store"
@@ -45,6 +47,40 @@ function tickStep(duration: number): number {
   const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600]
   const target = duration / 10
   return steps.find((step) => step >= target) ?? 3600
+}
+
+/** Yüklenen gruplar arasından zamana en yakın kareyi CSS ile kırpar. */
+function storyboardFrame(meta: StoryboardMeta, time: number) {
+  let selected: { batch: StoryboardMeta["batches"][number]; index: number } | null = null
+  let selectedDistance = Infinity
+
+  for (const batch of meta.batches) {
+    for (let index = 0; index < batch.times.length; index += 1) {
+      const distance = Math.abs(batch.times[index] - time)
+      if (distance < selectedDistance) {
+        selectedDistance = distance
+        selected = { batch, index }
+      }
+    }
+  }
+
+  if (!selected) return null
+  const { batch, index } = selected
+  const column = index % batch.columns
+  const row = Math.floor(index / batch.columns)
+
+  return {
+    /** Kareyi temsil eden zaman (yaklaşık). */
+    time: batch.times[index],
+    style: {
+      width: batch.tile_width,
+      height: batch.tile_height,
+      backgroundImage: `url("${batch.sheet_url}")`,
+      backgroundSize: `${batch.columns * batch.tile_width}px ${batch.rows * batch.tile_height}px`,
+      backgroundPosition: `-${column * batch.tile_width}px -${row * batch.tile_height}px`,
+      backgroundRepeat: "no-repeat",
+    } satisfies CSSProperties,
+  }
 }
 
 export function Timeline() {
@@ -105,7 +141,6 @@ export function Timeline() {
       // Balon çizelgenin kenarlarından taşmasın diye yatay konum sınırlanır
       const half = PREVIEW_WIDTH / 2 + 4
       setHover({ left: clamp(x, half, Math.max(half, bounds.width - half)), time: timeAt(event.clientX) })
-      requestPreview(timeAt(event.clientX))
     }
 
     const target = dragRef.current
@@ -184,20 +219,17 @@ export function Timeline() {
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
   const streamUrl = useSourceStore((s) => s.streamUrl)
-  const inputUrl = useSourceStore((s) => s.inputUrl)
   const [hover, setHover] = useState<{ left: number; time: number } | null>(null)
   const {
-    preview,
-    loading: previewLoading,
-    failed: previewFailed,
-    request: requestPreview,
-    cancel: cancelPreview,
-  } = useFramePreview(streamUrl, inputUrl, duration)
+    meta: storyboard,
+    failed: storyboardFailed,
+  } = useStoryboard(streamUrl, duration)
+  const storyboardTile =
+    hover && storyboard ? storyboardFrame(storyboard, hover.time) : null
 
   const handlePointerLeave = () => {
     if (dragRef.current) return
     setHover(null)
-    cancelPreview()
   }
 
   const startPct = pct(trim.start)
@@ -314,30 +346,28 @@ export function Timeline() {
         >
           <div className="overflow-hidden rounded-md border border-border/70 bg-black shadow-xl">
             <div className="relative" style={{ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}>
-              {preview && (
-                <img
-                  src={preview.src}
-                  alt=""
-                  width={PREVIEW_WIDTH}
-                  height={PREVIEW_HEIGHT}
-                  draggable={false}
-                  className="block"
-                />
-              )}
-              {!preview && previewFailed && (
-                <div className="flex h-full w-full items-center justify-center text-[10px] text-white/50">
-                  {t("timeline.noPreview")}
+              {storyboardTile ? (
+                <div style={storyboardTile.style} aria-hidden />
+              ) : storyboardFailed ? (
+                <div className="flex h-full w-full items-center justify-center px-3 text-center text-[10px] leading-tight text-white/60">
+                  {t("timeline.storyboardFailed")}
                 </div>
-              )}
-              {previewLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-[10px] text-white/60">
                   <Loader2Icon className="size-4 animate-spin text-white/80" />
+                  {t("timeline.storyboardLoading")}
                 </div>
               )}
             </div>
           </div>
-          <div className="mt-1 rounded bg-black/85 px-1.5 py-0.5 text-center font-mono text-[10px] text-white/90">
-            {formatTime(hover.time, true)}
+          <div className="mt-1 w-40 rounded bg-black/85 px-1.5 py-0.5 text-center font-mono text-[10px] text-white/90">
+            <div>{formatTime(hover.time, true)}</div>
+            {storyboardTile &&
+              Math.abs(storyboardTile.time - hover.time) >= 0.05 && (
+                <div className="text-[9px] text-white/50">
+                  ≈{formatTime(storyboardTile.time, true)}
+                </div>
+              )}
           </div>
         </div>
       )}

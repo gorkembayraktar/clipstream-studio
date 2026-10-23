@@ -15,8 +15,10 @@ from services.segment_downloader import (  # noqa: E402
     HlsDownloadError,
     download_hls_media,
     download_hls_range,
+    download_hls_segments,
     iter_hls_chunks,
     load_hls_playlist,
+    locate_segment,
     parse_media_playlist,
 )
 
@@ -154,6 +156,77 @@ class MediaPlaylistParseTests(unittest.TestCase):
 /video/1080
 """
         self.assertIsNone(parse_media_playlist(master, PLAYLIST_URL))
+
+
+class StoryboardSegmentTests(unittest.IsolatedAsyncioTestCase):
+    def test_locate_segment_returns_index_and_offset(self):
+        playlist = parse_media_playlist(PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+
+        self.assertEqual(locate_segment(playlist, 0.0), (0, 0.0))
+        self.assertEqual(locate_segment(playlist, 4.5), (1, 0.5))
+        self.assertEqual(locate_segment(playlist, 13.9), (1, 9.9))
+        self.assertEqual(locate_segment(playlist, 14.5), (2, 0.5))
+        index, offset = locate_segment(playlist, 999.0)
+        self.assertEqual(index, 2)
+        self.assertAlmostEqual(offset, 5.999, places=3)
+
+    async def test_only_selected_segments_are_downloaded_and_init_is_prepended(self):
+        base = "https://cdn.example.com/path/"
+        bodies = {
+            base + "init.mp4": b"INIT",
+            base + "seg1.jpg": b"ONE",
+            base + "seg2.jpg": b"TWO",
+            base + "seg3.jpg": b"THREE",
+        }
+        playlist = parse_media_playlist(PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+
+        with tempfile.TemporaryDirectory() as root:
+            temp_root = Path(root)
+            download = await download_hls_segments(
+                FakeClient(bodies=bodies),
+                playlist,
+                [0, 2],
+                temp_root=temp_root,
+            )
+
+            self.assertIsNotNone(download)
+            assert download is not None
+            self.assertEqual(download.paths[0].read_bytes(), b"INITONE")
+            self.assertEqual(download.paths[2].read_bytes(), b"INITTHREE")
+            self.assertEqual(download.starts[1], 4.0)
+            self.assertEqual(download.durations[2], 6.0)
+            self.assertEqual(list(temp_root.iterdir()), [download.temp_dir])
+
+            temp_dir = download.temp_dir
+            download.cleanup()
+            self.assertFalse(temp_dir.exists())
+            self.assertEqual(list(temp_root.iterdir()), [])
+
+    async def test_segment_failure_cleans_temp_and_returns_none(self):
+        base = "https://cdn.example.com/path/"
+        playlist = parse_media_playlist(PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+
+        with tempfile.TemporaryDirectory() as root:
+            temp_root = Path(root)
+            with patch("services.segment_downloader.SEGMENT_RETRIES", 1):
+                download = await download_hls_segments(
+                    FakeClient(
+                        bodies={
+                            base + "init.mp4": b"INIT",
+                            base + "seg2.jpg": b"TWO",
+                        },
+                        fail_urls={base + "seg2.jpg"},
+                    ),
+                    playlist,
+                    [1],
+                    temp_root=temp_root,
+                )
+
+            self.assertIsNone(download)
+            self.assertEqual(list(temp_root.iterdir()), [])
 
 
 class ParallelDownloadTests(unittest.IsolatedAsyncioTestCase):

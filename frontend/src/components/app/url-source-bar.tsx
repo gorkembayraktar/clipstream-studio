@@ -164,6 +164,7 @@ export function UrlSourceBar() {
         title: resolved.title ?? null,
         resolution: resolved.resolution ?? null,
         platform,
+        originUrl: url,
         audioUrl: resolved.audio_url ?? null,
         audioTracks: resolved.audio_tracks ?? [],
         subtitleTracks: resolved.subtitle_tracks ?? [],
