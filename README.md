@@ -21,13 +21,13 @@
 </p>
 
 <p align="center">
-  <a href="docs/demo.mp4">
-    <img src="docs/demo.gif" alt="ClipStream Studio demo" width="860">
+  <a href="docs/demo-v2.mp4">
+    <img src="docs/demo-v2.gif" alt="ClipStream Studio demo" width="860">
   </a>
 </p>
 
 <p align="center">
-  <sub>Demo source: Mux HLS test stream · <a href="docs/demo.mp4">Watch the MP4</a></sub>
+  <sub>Demo source: Mux HLS test stream · <a href="docs/demo-v2.mp4">Watch the MP4</a></sub>
 </p>
 
 ---
