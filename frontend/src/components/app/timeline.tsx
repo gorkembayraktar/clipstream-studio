@@ -169,7 +169,8 @@ export function Timeline() {
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
     dragRef.current = target
-    seek(target === "start" ? trim.start : trim.end)
+    // Playhead zaten imlecin üzerinde; tıklama anında konumu değiştirme.
+    if (target !== "playhead") seek(target === "start" ? trim.start : trim.end)
   }
 
   const beginRangeDrag = (event: React.PointerEvent) => {
@@ -253,14 +254,22 @@ export function Timeline() {
             </div>
           ))}
 
-          {/* Oynatma imleci */}
+          {/* Oynatma imleci — geniş görünmez tutamaç, görünür çizgi içinde */}
           {duration > 0 && (
             <div
+              role="slider"
+              aria-label={t("timeline.playhead")}
+              aria-valuemin={0}
+              aria-valuemax={duration}
+              aria-valuenow={currentTime}
               data-slot="timeline-playhead"
-              className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 bg-red-500"
+              title={t("timeline.playheadDrag")}
+              onPointerDown={beginHandleDrag("playhead")}
+              className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
               style={{ left: `${pct(currentTime)}%` }}
             >
-              <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-500" />
+              <div className="pointer-events-none absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
             </div>
           )}
 

@@ -233,6 +233,8 @@ export const en = {
   "crop.aspect": "Aspect ratio",
 
   "timeline.rangeTitle": "Clip range — drag to move, click to seek",
+  "timeline.playhead": "Playhead",
+  "timeline.playheadDrag": "Playhead — drag",
   "timeline.inPoint": "In point",
   "timeline.outPoint": "Out point",
   "timeline.inPointDrag": "In point — drag",

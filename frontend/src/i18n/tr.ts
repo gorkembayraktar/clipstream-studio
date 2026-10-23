@@ -231,6 +231,8 @@ export const tr: Record<TranslationKey, string> = {
   "crop.aspect": "En-boy oranı",
 
   "timeline.rangeTitle": "Klip aralığı — sürükle: taşı, tıkla: imleci getir",
+  "timeline.playhead": "Oynatma imleci",
+  "timeline.playheadDrag": "Oynatma imleci — sürükle",
   "timeline.inPoint": "Giriş noktası",
   "timeline.outPoint": "Çıkış noktası",
   "timeline.inPointDrag": "Giriş noktası — sürükle",
