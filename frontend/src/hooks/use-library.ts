@@ -5,16 +5,30 @@ import { toast } from "sonner"
 
 import { translate } from "@/i18n"
 import { api } from "@/lib/api"
+import type { ExportFile } from "@/lib/types"
 import { log } from "@/stores/log-store"
 
 export const libraryKeys = {
   all: ["library"] as const,
+  meta: (name: string, modified: number) =>
+    ["library", "meta", name, modified] as const,
 }
 
 export function useLibrary() {
   return useQuery({
     queryKey: libraryKeys.all,
     queryFn: api.listLibrary,
+  })
+}
+
+/** Yalnızca açık önizleme için ffprobe ayrıntılarını getirir. */
+export function useLibraryFileMeta(file: ExportFile | null) {
+  return useQuery({
+    queryKey: libraryKeys.meta(file?.name ?? "", file?.modified ?? 0),
+    queryFn: () => api.getLibraryFileMeta(file?.name ?? ""),
+    enabled: file !== null,
+    retry: 0,
+    staleTime: 5 * 60_000,
   })
 }
 

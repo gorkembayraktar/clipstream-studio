@@ -104,6 +104,10 @@ export interface ProbeResponse {
   fps: number
   codec: string
   has_audio: boolean
+  /** Görüntü akışı var mı? (ses-only dosyalarda false) */
+  has_video?: boolean
+  /** ffprobe format adı (ör. mov,mp4,m4a,3gp,3g2,mj2). */
+  format_name?: string
 }
 
 /** Yerel dosya yükleme / seçme yanıtı. */
@@ -295,4 +299,22 @@ export interface ExportFile {
   modified: number
   modified_str: string
   url: string
+}
+
+/** `GET /api/library/{filename}/meta` — ffprobe tabanlı medya ayrıntıları. */
+export interface LibraryFileMeta {
+  success: boolean
+  name: string
+  duration: number
+  width: number
+  height: number
+  fps: number
+  codec: string
+  has_audio: boolean
+  has_video: boolean
+  format_name: string
+  size_bytes: number
+  size_mb: number
+  /** Sonuç süreç önbelleğinden mi geldi? */
+  cached: boolean
 }

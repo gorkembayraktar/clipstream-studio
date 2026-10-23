@@ -1,29 +1,18 @@
 /** Galeri sekmesi: exports/ klasöründeki klipleri listeler, oynatır, indirir, siler. */
-import { useState, type MouseEvent } from "react"
+import { useRef, useState, type MouseEvent } from "react"
 
 import {
   DownloadIcon,
   EllipsisVerticalIcon,
-  FilmIcon,
   FolderOpenIcon,
-  ImageIcon,
-  MusicIcon,
   PlayIcon,
   RefreshCwIcon,
   Trash2Icon,
 } from "lucide-react"
 
+import { DeleteFileDialog } from "@/components/app/delete-file-dialog"
+import { FileIcon } from "@/components/app/file-icon"
 import { GalleryPreviewDialog } from "@/components/app/gallery-preview-dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -44,22 +33,29 @@ import { formatMegabytes } from "@/lib/format"
 import type { ExportFile } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
 
-function FileIcon({ name, className }: { name: string; className?: string }) {
-  const extension = name.split(".").pop()?.toLowerCase()
-  if (extension === "mp3") return <MusicIcon className={className} />
-  if (extension === "gif") return <ImageIcon className={className} />
-  return <FilmIcon className={className} />
-}
-
 export function Gallery() {
   const { t } = useI18n()
   const { data, isLoading, isFetching, refetch } = useLibrary()
   const deleteFile = useDeleteLibraryFile()
   const reveal = useRevealInExplorer()
-  const [previewFile, setPreviewFile] = useState<ExportFile | null>(null)
+  const [previewName, setPreviewName] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const refreshButtonRef = useRef<HTMLButtonElement>(null)
+  const previewTriggerRef = useRef<HTMLElement | null>(null)
   const files = data?.files ?? []
   const isRefreshing = refreshing || isFetching
+
+  // Seçim dosya adıyla tutulur: yenileme/silme sonrası nesne referansı
+  // eskise bile sıra güncel listeden yeniden hesaplanır.
+  const previewIndex = previewName
+    ? files.findIndex((file) => file.name === previewName)
+    : -1
+  const previewFile = previewIndex >= 0 ? files[previewIndex] : null
+  const previousName = previewIndex > 0 ? files[previewIndex - 1].name : null
+  const nextName =
+    previewIndex >= 0 && previewIndex < files.length - 1
+      ? files[previewIndex + 1].name
+      : null
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -78,9 +74,27 @@ export function Gallery() {
 
   // Galeri önizlemesi açılırken ana oynatıcıyı durdur: iki sesin üst üste
   // çalmasını engeller. Kullanıcı modalı kapattığında oynatmayı kendisi sürdürür.
-  const openPreview = (file: ExportFile) => {
+  const openPreview = (file: ExportFile, trigger: HTMLElement) => {
     usePlayerStore.getState().pause()
-    setPreviewFile(file)
+    previewTriggerRef.current = trigger
+    setPreviewName(file.name)
+  }
+
+  /** Modal kapanınca açan satıra/düğmeye, o artık yoksa yenile düğmesine dön. */
+  const restorePreviewFocus = () => {
+    const trigger = previewTriggerRef.current
+    if (trigger?.isConnected) {
+      trigger.focus({ preventScroll: true })
+      return
+    }
+    refreshButtonRef.current?.focus({ preventScroll: true })
+  }
+
+  const closePreview = () => {
+    setPreviewName(null)
+    // Radix içerik hemen söküldüğünde odak body'ye düşebiliyor; bir kare
+    // sonra odağı açan öğeye geri ver.
+    window.requestAnimationFrame(() => restorePreviewFocus())
   }
 
   return (
@@ -91,6 +105,7 @@ export function Gallery() {
         </p>
         <div className="flex items-center gap-0.5">
           <Button
+            ref={refreshButtonRef}
             variant="ghost"
             size="icon-xs"
             className="cursor-pointer"
@@ -130,7 +145,7 @@ export function Gallery() {
               <GalleryItem
                 key={file.name}
                 file={file}
-                onPreview={() => openPreview(file)}
+                onPreview={(trigger) => openPreview(file, trigger)}
                 onDelete={() => deleteFile.mutate(file.name)}
                 onReveal={() => reveal.mutate(file.name)}
                 deleting={deleteFile.isPending && deleteFile.variables === file.name}
@@ -142,8 +157,19 @@ export function Gallery() {
 
       <GalleryPreviewDialog
         file={previewFile}
-        onClose={() => setPreviewFile(null)}
+        files={files}
+        position={previewIndex + 1}
+        total={files.length}
+        previousName={previousName}
+        nextName={nextName}
+        onNavigate={setPreviewName}
+        onClose={closePreview}
+        onDeleteSuccess={(name) => {
+          if (name) setPreviewName(name)
+          else closePreview()
+        }}
         onReveal={(name) => reveal.mutate(name)}
+        onRestoreFocus={restorePreviewFocus}
       />
     </div>
   )
@@ -151,7 +177,7 @@ export function Gallery() {
 
 interface GalleryItemProps {
   file: ExportFile
-  onPreview: () => void
+  onPreview: (trigger: HTMLElement) => void
   onDelete: () => void
   onReveal: () => void
   deleting: boolean
@@ -165,12 +191,14 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
   const handleDoubleClick = (event: MouseEvent<HTMLLIElement>) => {
     if ((event.target as HTMLElement).closest("button, a")) return
     event.preventDefault()
-    onPreview()
+    event.currentTarget.focus({ preventScroll: true })
+    onPreview(event.currentTarget)
   }
 
   return (
     <li
-      className="group flex cursor-pointer items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5 ring-1 ring-transparent transition-all duration-150 hover:bg-muted/70 hover:shadow-sm hover:ring-border/60 active:bg-muted/80"
+      tabIndex={-1}
+      className="group flex cursor-pointer items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5 ring-1 ring-transparent transition-all duration-150 outline-none hover:bg-muted/70 hover:shadow-sm hover:ring-border/60 focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/80"
       onDoubleClick={handleDoubleClick}
     >
       <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
@@ -187,7 +215,7 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
           variant="ghost"
           size="icon-xs"
           className="cursor-pointer"
-          onClick={onPreview}
+          onClick={(event) => onPreview(event.currentTarget)}
           title={t("gallery.preview")}
         >
           <PlayIcon />
@@ -229,22 +257,13 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
         </DropdownMenu>
       </div>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("gallery.deleteTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("gallery.deleteDescription", { name: file.name })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("gallery.deleteCancel")}</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={onDelete}>
-              {t("gallery.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteFileDialog
+        open={deleteOpen}
+        fileName={file.name}
+        pending={deleting}
+        onOpenChange={setDeleteOpen}
+        onConfirm={onDelete}
+      />
     </li>
   )
 }

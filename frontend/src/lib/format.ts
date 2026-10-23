@@ -21,6 +21,13 @@ export function formatMegabytes(megabytes: number): string {
   return `${formatDecimal(megabytes, 2)} MB`
 }
 
+/** Kare hızını yerel ondalık ayırıcıyla yazar: "29,97 fps" / "29.97 fps". */
+export function formatFrameRate(fps: number): string {
+  if (!Number.isFinite(fps) || fps <= 0) return ""
+  const rounded = Math.round(fps * 100) / 100
+  return `${formatDecimal(rounded, Number.isInteger(rounded) ? 0 : 2)} fps`
+}
+
 /** Baytı okunur biçime çevirir: "950 KB", "4,3 GB" / "4.3 GB". */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"

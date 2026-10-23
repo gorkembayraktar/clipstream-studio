@@ -33,7 +33,7 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
         command += ffmpeg_input_args(headers, USER_AGENT)
     command += [
         "-show_entries",
-        "format=duration,size,bit_rate:stream=width,height,r_frame_rate,avg_frame_rate,codec_name,codec_type,duration",
+        "format=duration,size,bit_rate,format_name:stream=width,height,r_frame_rate,avg_frame_rate,codec_name,codec_type,duration",
         "-of", "json",
         source,
     ]
@@ -68,6 +68,7 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
     if duration <= 0 and video:
         duration = _to_float(video.get("duration"))
     size_bytes = int(_to_float(info.get("format", {}).get("size")))
+    stream = video or audio
 
     return {
         "success": True,
@@ -77,8 +78,11 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
         "width": int((video or {}).get("width") or 0),
         "height": int((video or {}).get("height") or 0),
         "fps": round(_to_rate((video or {}).get("r_frame_rate")) or _to_rate((video or {}).get("avg_frame_rate")), 3),
-        "codec": (video or {}).get("codec_name", "unknown"),
+        # Ses-only dosyalarda da anlamlı bir codec adı döndür.
+        "codec": (stream or {}).get("codec_name", "unknown"),
         "has_audio": audio is not None,
+        "has_video": video is not None,
+        "format_name": info.get("format", {}).get("format_name", ""),
         "raw": info,
     }
 

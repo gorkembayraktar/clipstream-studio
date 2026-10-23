@@ -18,11 +18,30 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable
 }
 
+/** Modal içindeki ve native medya kontrollerindeki tuşları ana oynatıcıya gönderme. */
+function isModalOrMediaTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(
+    target.closest(
+      "video, audio, [data-slot='dialog-content'], [data-slot='alert-dialog-content']",
+    ),
+  )
+}
+
+function hasOpenDialog(): boolean {
+  return Boolean(
+    document.querySelector(
+      "[data-slot='dialog-content'][data-state='open'], [data-slot='alert-dialog-content'][data-state='open']",
+    ),
+  )
+}
+
 export function useKeyboardShortcuts() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return
-      if (isEditableTarget(event.target)) return
+      if (isEditableTarget(event.target) || isModalOrMediaTarget(event.target)) return
+      if (hasOpenDialog()) return
 
       const player = usePlayerStore.getState()
       const edit = useEditStore.getState()

@@ -5,6 +5,7 @@ import type {
   ExportFile,
   ExportJob,
   ExportRequest,
+  LibraryFileMeta,
   LocalPickResponse,
   LocalUploadResponse,
   ProbeResponse,
@@ -274,6 +275,8 @@ export const api = {
     post<{ success: boolean; message?: string }>(`/api/jobs/${jobId}/cancel`),
 
   listLibrary: () => request<{ files: ExportFile[] }>("/api/library"),
+  getLibraryFileMeta: (name: string) =>
+    request<LibraryFileMeta>(`/api/library/${encodeURIComponent(name)}/meta`),
   deleteLibraryFile: (name: string) =>
     request<{ success: boolean; message?: string }>(
       `/api/library/${encodeURIComponent(name)}`,
