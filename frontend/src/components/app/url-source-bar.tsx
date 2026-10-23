@@ -57,6 +57,7 @@ export function UrlSourceBar() {
   const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const useProxy = useSourceStore((s) => s.useProxy)
   const meta = useSourceStore((s) => s.meta)
+  const isLive = useSourceStore((s) => s.isLive)
   const variants = useSourceStore((s) => s.variants)
   const previewHeight = useSourceStore((s) => s.previewHeight)
   const headers = useSourceStore((s) => s.headers)
@@ -460,7 +461,7 @@ export function UrlSourceBar() {
                       {resolution}
                     </Badge>
                   )}
-                  {meta && meta.duration > 0 && (
+                  {!isLive && meta && meta.duration > 0 && (
                     <Badge
                       variant="outline"
                       className="h-[17px] px-1.5 text-[10px] tabular-nums"

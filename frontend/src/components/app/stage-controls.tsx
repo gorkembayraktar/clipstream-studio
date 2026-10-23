@@ -22,6 +22,7 @@ import { useFullscreen } from "@/hooks/use-fullscreen"
 import { useI18n } from "@/i18n"
 import { cn } from "cn"
 import { usePlayerStore } from "@/stores/player-store"
+import { useSourceStore } from "@/stores/source-store"
 
 /** Hız menüsündeki hazır oynatma hızları. */
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3]
@@ -48,6 +49,7 @@ export function StageControls() {
   const playing = usePlayerStore((s) => s.playing)
   const currentTime = usePlayerStore((s) => s.currentTime)
   const duration = usePlayerStore((s) => s.duration)
+  const isLive = useSourceStore((s) => s.isLive)
   const volume = usePlayerStore((s) => s.volume)
   const muted = usePlayerStore((s) => s.muted)
   const playbackRate = usePlayerStore((s) => s.playbackRate)
@@ -70,9 +72,19 @@ export function StageControls() {
       <div className="pointer-events-auto">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
           <div className="inline-flex h-7 min-w-0 items-center justify-self-start rounded-md bg-black/50 px-2 font-mono text-[11px] tabular-nums whitespace-nowrap text-white/70 shadow-[0_2px_10px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-sm">
-            <span className="text-white/90">{formatTransportTime(currentTime)}</span>
-            <span className="mx-1 text-white/30">/</span>
-            <span>{formatTransportTime(duration)}</span>
+            {isLive ? (
+              // Canlı yayında bitiş süresi bilinmez; toplam süre gösterme.
+              <span className="inline-flex items-center gap-1.5 font-sans font-semibold tracking-wide text-white/90">
+                <span className="size-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
+                {t("status.live")}
+              </span>
+            ) : (
+              <>
+                <span className="text-white/90">{formatTransportTime(currentTime)}</span>
+                <span className="mx-1 text-white/30">/</span>
+                <span>{formatTransportTime(duration)}</span>
+              </>
+            )}
           </div>
 
           <div className="flex items-center gap-0.5">

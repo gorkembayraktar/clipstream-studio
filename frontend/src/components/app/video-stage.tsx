@@ -560,7 +560,10 @@ export function VideoStage() {
     }
 
     const onLoadedMetadata = () => {
-      const duration = Number.isFinite(el.duration) ? el.duration : 0
+      // Canlı HLS'te tarayıcı yalnızca kayar pencere süresini bildirir; bunu
+      // toplam süre sanıp zaman çizelgesine/rozetlere yazma.
+      const live = useSourceStore.getState().isLive
+      const duration = live ? 0 : Number.isFinite(el.duration) ? el.duration : 0
       clearSeekNote()
       applyPlaybackRate()
       measuredForSource = false

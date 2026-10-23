@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import urllib.parse
+import urllib.request
 from typing import Any, Callable, Optional
 
 from core.i18n import t
@@ -75,6 +76,10 @@ def _quality_height(fmt: dict[str, Any]) -> int:
     """
     width = int(fmt.get("width") or 0)
     height = int(fmt.get("height") or 0)
+    if not width or not height:
+        match = re.match(r"^\s*(\d+)\s*x\s*(\d+)", str(fmt.get("resolution") or ""))
+        if match:
+            width, height = int(match.group(1)), int(match.group(2))
     if width > 0 and height > 0:
         return min(width, height)
     return height
@@ -240,6 +245,64 @@ def is_tiktok_url(url: str) -> bool:
     return host == "tiktok.com" or host.endswith(".tiktok.com")
 
 
+def _tiktok_live_uploader(url: str) -> Optional[str]:
+    """`/@kullanici/live` biçimindeki TikTok canlı yayın kullanıcısını döndürür."""
+    path = urllib.parse.urlparse(url).path
+    match = re.match(r"^/@([\w.-]+)/live/?$", path, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _lookup_tiktok_live_room(uploader: str, referer: str) -> Optional[str]:
+    """TikTok web API'sinden canlı oda kimliğini alır.
+
+    TikTok'un profil sayfası bot koruması nedeniyle yt-dlp'ye oda kimliği
+    vermeyebiliyor. Bu genel JSON uç noktası oda kimliğini doğrudan döndürür;
+    ardından yt-dlp mobil paylaşım URL'siyle (profil sayfasına girmeden)
+    yayın akışlarını çözebilir.
+
+    Oda kesin olarak kapalıysa `ResolveError`, API'ye ulaşılamazsa `None`
+    döndürür. `None` durumunda eski yöntem (doğrudan URL) denenir.
+    """
+    query = urllib.parse.urlencode({"aid": "1988", "sourceType": "54", "uniqueId": uploader})
+    request = urllib.request.Request(
+        f"https://www.tiktok.com/api-live/user/room/?{query}",
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            "Accept": "application/json, text/plain, */*",
+            "Referer": referer,
+            "Origin": "https://www.tiktok.com",
+        },
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=12) as response:
+            payload = json.loads(response.read().decode("utf-8", errors="ignore"))
+    except Exception:
+        return None
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        return None
+
+    live_room = data.get("liveRoom")
+    if not isinstance(live_room, dict):
+        return None
+
+    user = data.get("user") if isinstance(data.get("user"), dict) else {}
+    room_id = user.get("roomId")
+    status = live_room.get("status")
+    if str(status) == "2" and room_id:
+        return str(room_id)
+    if status is not None:
+        # Oda kaydı var ama yayında değil (status 4 = bitmiş/çevrimdışı).
+        raise ResolveError(t("error.tiktokOffline"))
+    return None
+
+
 def normalize_url(url: str) -> str:
     """Şemasız yapıştırılan bağlantıları (ör. `x.com/...`) `https://` ile tamamlar."""
     text = (url or "").strip()
@@ -302,7 +365,7 @@ def find_ytdlp_command() -> Optional[list[str]]:
 async def resolve_url(
     url: str, client=None, headers: Optional[dict[str, str]] = None
 ) -> dict[str, Any]:
-    """YouTube/X/Instagram linklerini doğrudan oynatılabilir akışa çözer;
+    """YouTube/X/Instagram/TikTok linklerini doğrudan oynatılabilir akışa çözer;
     diğer URL'leri (m3u8 master ise tek varyanta indirgeyerek) döndürür.
 
     `headers` yalnızca doğrudan medya bağlantılarında kullanılır (curl ile
@@ -313,6 +376,19 @@ async def resolve_url(
     platform = platform_of(url)
     if platform == "direct":
         return await _resolve_direct(url, client, headers)
+
+    # TikTok profil sayfası bot korumasına takılıp oda kimliğini vermeyebilir.
+    # Canlı oda kimliğini web API'sinden alıp yt-dlp'ye mobil paylaşım URL'si
+    # vererek profil sayfası adımını tamamen atlarız.
+    target_url = url
+    if platform == "tiktok":
+        uploader = _tiktok_live_uploader(url)
+        if uploader:
+            room_id = await asyncio.to_thread(
+                _lookup_tiktok_live_room, uploader, url
+            )
+            if room_id:
+                target_url = f"https://m.tiktok.com/share/live/{room_id}/"
 
     command = find_ytdlp_command()
     if not command:
@@ -325,7 +401,7 @@ async def resolve_url(
     dump_command = command + ["--dump-single-json", "--no-playlist", "--no-warnings"]
     if shutil.which("node"):
         dump_command.extend(["--js-runtimes", "node"])
-    dump_command.append(url)
+    dump_command.append(target_url)
 
     process = await asyncio.create_subprocess_exec(
         *dump_command,
@@ -375,16 +451,19 @@ async def resolve_url(
     elif platform == "instagram":
         variants = _instagram_variants(formats)
     elif platform == "tiktok":
-        picked = _pick_tiktok_stream(formats, live=is_live)
-        variants = [
-            _variant(
-                picked["url"],
-                picked["height"],
-                hls=picked["hls"],
-                has_audio=picked["has_audio"],
-                audio_url=None,
-            )
-        ] if picked else []
+        if is_live:
+            variants = _tiktok_live_variants(formats)
+        else:
+            picked = _pick_tiktok_stream(formats, live=False)
+            variants = [
+                _variant(
+                    picked["url"],
+                    picked["height"],
+                    hls=picked["hls"],
+                    has_audio=picked["has_audio"],
+                    audio_url=None,
+                )
+            ] if picked else []
     else:
         variants = _hls_variants(formats)
 
@@ -417,6 +496,16 @@ async def resolve_url(
         variant["audio_url"] = None if variant["has_audio"] else audio_url
         variant["default"] = _variant_quality(variant) == default_height
 
+    selected_headers = next(
+        (
+            fmt.get("http_headers")
+            for fmt in formats
+            if fmt.get("url") == best["url"]
+            and isinstance(fmt.get("http_headers"), dict)
+        ),
+        None,
+    )
+
     return {
         "success": True,
         "platform": platform,
@@ -441,7 +530,7 @@ async def resolve_url(
         #: TikTok CDN'i çoğu zaman sayfa referer'ı ister; API bunu proxy
         #: belirtecine kaydeder ve yanıttan çıkarır.
         "http_headers": (
-            {"Referer": "https://www.tiktok.com/"}
+            {**(selected_headers or {}), "Referer": "https://www.tiktok.com/"}
             if platform == "tiktok"
             else None
         ),
@@ -566,15 +655,84 @@ def _pick_tiktok_stream(
                     float(fmt.get("tbr") or 0),
                 ),
             )
+            # Aynı URL `hls-pull` ve `hls-hd` gibi birden çok kayıtta
+            # görünebilir; çözünürlük bilgisi yalnızca birinde olabilir.
+            same_url = [fmt for fmt in hls_formats if fmt.get("url") == best["url"]]
+            height = max((_quality_height(fmt) for fmt in same_url), default=0)
             return {
                 "url": best["url"],
-                "height": _quality_height(best),
+                "height": height,
                 "hls": True,
                 # Canlı HLS akışı sesiyle birlikte gelir; yt-dlp acodec
                 # bildirmediğinde ayrı ses akışı aramak yanlış olur.
                 "has_audio": (best.get("acodec") or "aac") != "none",
             }
     return _pick_stream(formats)
+
+
+def _tiktok_live_variants(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """TikTok canlı yayınının sunduğu HLS kalitelerini listeler.
+
+    Aynı HLS URL'si yt-dlp çıktısında `hls-hd` ve `hls-pull` gibi birden çok
+    kayıtla gelebilir; URL'leri tekilleştirip her çözünürlük için en yüksek bit
+    hızlı kaydı tutarız. Böylece arayüzdeki önizleme kalitesi seçicisi canlı
+    yayınlarda da çalışır.
+    """
+    hls_formats = [
+        fmt
+        for fmt in formats
+        if fmt.get("url")
+        and _is_hls_format(fmt)
+        and (fmt.get("vcodec") or "") != "none"
+    ]
+    if not hls_formats:
+        return []
+
+    by_url: dict[str, dict[str, Any]] = {}
+    for fmt in hls_formats:
+        url = fmt["url"]
+        height = _quality_height(fmt)
+        tbr = float(fmt.get("tbr") or 0)
+        current = by_url.get(url)
+        if current is None or (height, tbr) > (current["height"], current["tbr"]):
+            by_url[url] = {"url": url, "height": height, "tbr": tbr, "fmt": fmt}
+
+    by_height: dict[int, dict[str, Any]] = {}
+    unknown: list[dict[str, Any]] = []
+    for item in by_url.values():
+        if item["height"] <= 0:
+            unknown.append(item)
+            continue
+        current = by_height.get(item["height"])
+        if current is None or item["tbr"] > current["tbr"]:
+            by_height[item["height"]] = item
+
+    items = sorted(by_height.values(), key=lambda item: item["height"], reverse=True)
+    if not items and unknown:
+        # Çözünürlük bilgisi yoksa tek bir en iyi akış sun; aynı 0p etiketiyle
+        # birden çok seçenek göstermenin anlamı yok.
+        items = [
+            max(
+                unknown,
+                key=lambda item: (
+                    float(item["fmt"].get("quality") or 0),
+                    item["tbr"],
+                ),
+            )
+        ]
+
+    return [
+        _variant(
+            item["url"],
+            item["height"],
+            hls=True,
+            # Canlı HLS akışı sesiyle birlikte gelir; yt-dlp acodec
+            # bildirmediğinde ayrı ses akışı aramak yanlış olur.
+            has_audio=(item["fmt"].get("acodec") or "aac") != "none",
+            audio_url=None,
+        )
+        for item in items
+    ]
 
 
 def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:

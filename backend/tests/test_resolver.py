@@ -10,7 +10,14 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from services import resolver  # noqa: E402
-from services.resolver import _pick_tiktok_stream, platform_of  # noqa: E402
+from services.resolver import (  # noqa: E402
+    ResolveError,
+    _lookup_tiktok_live_room,
+    _pick_tiktok_stream,
+    _tiktok_live_uploader,
+    _tiktok_live_variants,
+    platform_of,
+)
 
 
 class TikTokPlatformTests(unittest.TestCase):
@@ -30,6 +37,73 @@ class TikTokPlatformTests(unittest.TestCase):
         self.assertEqual(platform_of("https://x.com/user/status/1"), "twitter")
         self.assertEqual(platform_of("https://instagram.com/p/abc"), "instagram")
         self.assertEqual(platform_of("https://cdn.example.com/video.mp4"), "direct")
+
+    def test_live_uploader_is_extracted_only_from_live_path(self):
+        self.assertEqual(
+            _tiktok_live_uploader("https://www.tiktok.com/@testuser/live"),
+            "testuser",
+        )
+        self.assertIsNone(
+            _tiktok_live_uploader("https://www.tiktok.com/@testuser/video/123")
+        )
+        self.assertIsNone(_tiktok_live_uploader("https://m.tiktok.com/share/live/123"))
+
+
+class FakeResponse:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode("utf-8")
+
+
+class TikTokLiveLookupTests(unittest.TestCase):
+    def test_live_room_id_is_returned_when_status_is_two(self):
+        payload = {
+            "data": {
+                "user": {"roomId": "7699840766693657351"},
+                "liveRoom": {"status": 2},
+            }
+        }
+        with patch.object(
+            resolver.urllib.request, "urlopen", return_value=FakeResponse(payload)
+        ):
+            room_id = _lookup_tiktok_live_room(
+                "testuser", "https://www.tiktok.com/@testuser/live"
+            )
+
+        self.assertEqual(room_id, "7699840766693657351")
+
+    def test_closed_room_raises_offline_error(self):
+        payload = {
+            "data": {
+                "user": {"roomId": "123"},
+                "liveRoom": {"status": 4},
+            }
+        }
+        with patch.object(
+            resolver.urllib.request, "urlopen", return_value=FakeResponse(payload)
+        ):
+            with self.assertRaises(ResolveError):
+                _lookup_tiktok_live_room(
+                    "testuser", "https://www.tiktok.com/@testuser/live"
+                )
+
+    def test_api_failure_falls_back_to_ytdlp(self):
+        with patch.object(
+            resolver.urllib.request, "urlopen", side_effect=OSError("blocked")
+        ):
+            self.assertIsNone(
+                _lookup_tiktok_live_room(
+                    "testuser", "https://www.tiktok.com/@testuser/live"
+                )
+            )
 
 
 class TikTokStreamTests(unittest.TestCase):
@@ -64,6 +138,60 @@ class TikTokStreamTests(unittest.TestCase):
         self.assertTrue(picked["hls"])
         self.assertEqual(picked["url"], "https://cdn.example.com/live-1080.m3u8")
         self.assertTrue(picked["has_audio"])
+
+    def test_live_variants_list_all_available_hls_qualities(self):
+        formats = [
+            {
+                "url": "https://cdn.example.com/live-720.m3u8",
+                "ext": "mp4",
+                "protocol": "m3u8_native",
+                "vcodec": "h264",
+                "height": 720,
+                "tbr": 1800,
+            },
+            {
+                "url": "https://cdn.example.com/live-1080.m3u8",
+                "ext": "mp4",
+                "protocol": "m3u8_native",
+                "vcodec": "h264",
+                "height": 1080,
+                "tbr": 3000,
+            },
+            # yt-dlp aynı URL'yi çözünürlük bilgisi olmadan tekrar edebilir.
+            {
+                "url": "https://cdn.example.com/live-720.m3u8",
+                "ext": "mp4",
+                "protocol": "m3u8_native",
+                "vcodec": "h264",
+            },
+        ]
+
+        variants = _tiktok_live_variants(formats)
+
+        self.assertEqual([variant["label"] for variant in variants], ["1080p", "720p"])
+        self.assertEqual(
+            [variant["url"] for variant in variants],
+            [
+                "https://cdn.example.com/live-1080.m3u8",
+                "https://cdn.example.com/live-720.m3u8",
+            ],
+        )
+        self.assertTrue(all(variant["hls"] for variant in variants))
+        self.assertTrue(all(variant["has_audio"] for variant in variants))
+
+    def test_live_variants_are_empty_without_hls(self):
+        self.assertEqual(
+            _tiktok_live_variants(
+                [
+                    {
+                        "url": "https://cdn.example.com/live.flv",
+                        "ext": "flv",
+                        "vcodec": "h264",
+                    }
+                ]
+            ),
+            [],
+        )
 
     def test_live_falls_back_to_flv_when_hls_is_missing(self):
         picked = _pick_tiktok_stream(
@@ -135,15 +263,24 @@ class TikTokResolvePayloadTests(unittest.IsolatedAsyncioTestCase):
                 },
             ],
         }
+        captured: dict[str, tuple] = {}
+
+        async def fake_exec(*args, **kwargs):
+            captured["args"] = args
+            return FakeProcess(payload)
+
         with patch.object(resolver, "find_ytdlp_command", return_value=["yt-dlp"]):
             with patch.object(
-                resolver.asyncio,
-                "create_subprocess_exec",
-                return_value=FakeProcess(payload),
+                resolver, "_lookup_tiktok_live_room", return_value="7699840766693657351"
             ):
-                result = await resolver.resolve_url(
-                    "https://www.tiktok.com/@user/live"
-                )
+                with patch.object(
+                    resolver.asyncio,
+                    "create_subprocess_exec",
+                    side_effect=fake_exec,
+                ):
+                    result = await resolver.resolve_url(
+                        "https://www.tiktok.com/@user/live"
+                    )
 
         self.assertEqual(result["platform"], "tiktok")
         self.assertTrue(result["is_tiktok"])
@@ -152,6 +289,10 @@ class TikTokResolvePayloadTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result["is_m3u8"])
         self.assertEqual(result["stream_url"], "https://cdn.example.com/live.m3u8")
         self.assertEqual(result["http_headers"]["Referer"], "https://www.tiktok.com/")
+        self.assertIn(
+            "https://m.tiktok.com/share/live/7699840766693657351/",
+            captured["args"],
+        )
 
 
 if __name__ == "__main__":
