@@ -54,7 +54,7 @@ export const tr: Record<TranslationKey, string> = {
   "shortcut.trimOut": "Çıkış",
   "shortcut.loop": "Döngü",
 
-  "source.urlPlaceholder": "Bağlantı yapıştır · YouTube / X / Instagram",
+  "source.urlPlaceholder": "Bağlantı yapıştır · YouTube / X / Instagram / TikTok",
   "source.urlAria": "Video bağlantısı",
   "source.paste": "Panodan yapıştır",
   "source.resolving": "Çözümleniyor",
@@ -108,6 +108,8 @@ export const tr: Record<TranslationKey, string> = {
   "source.platformYoutube": "YouTube",
   "source.platformX": "X (Twitter)",
   "source.platformInstagram": "Instagram",
+  "source.platformTiktok": "TikTok",
+  "source.live": "LIVE",
 
   "export.selectRange": "Seçili aralığı klip olarak kaydet",
   "export.selection": "Seçili aralık",
@@ -135,6 +137,7 @@ export const tr: Record<TranslationKey, string> = {
   "export.export": "Dışa Aktar",
   "export.exportNew": "Yeni Klip Dışa Aktar",
   "export.startTitle": "Süren işlemler varken de yeni klip başlatabilirsin",
+  "export.liveDisabled": "Canlı kaynak · dışa aktarmak için sonlu bir klip yükle",
   "export.processing": "İşlenen klip: {count} — aralarından yeni iş başlatılabilir.",
   "export.settings": "Çıktı ayarları",
   "export.options": "Seçenekler",
@@ -240,6 +243,7 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.storyboardLoading": "Önizleme hazırlanıyor…",
   "timeline.storyboardFailed": "Önizleme kullanılamıyor",
   "timeline.loadSource": "Zaman çizelgesi için bir kaynak yükle",
+  "timeline.live": "LIVE kaynak · sonlu bir klip yüklenene kadar düzenleme kapalı",
 
   "player.seekBack": "5 sn geri (←)",
   "player.playPause": "Oynat / Durdur (Boşluk)",
@@ -276,6 +280,7 @@ export const tr: Record<TranslationKey, string> = {
   "status.buffering": "Arabelleğe Alınıyor...",
   "status.playing": "Oynatılıyor",
   "status.ready": "Hazır",
+  "status.live": "LIVE",
   "status.frameLoading": "Kare Yükleniyor...",
   "status.frameLoaded": "Kare Yüklendi",
   "status.error": "Hata Oluştu",
@@ -486,13 +491,15 @@ export const tr: Record<TranslationKey, string> = {
   "log.curlHeadersDirectOnly":
     "curl başlıkları yalnızca doğrudan medya bağlantılarında kullanılır.",
   "log.noAccountCookies":
-    "YouTube / X / Instagram için hesap çerezi kullanılmaz.",
+    "YouTube / X / Instagram / TikTok için hesap çerezi kullanılmaz.",
   "log.platformDetected": "{platform} linki tespit edildi, akış adresi alındı.",
   "log.corsAutoEnabled":
     "{platform} akışları CORS engelli: CORS proxy otomatik açıldı.",
   "log.headersApplied": "{count} HTTP başlığı uygulanacak{cookie}.",
   "log.cookieIncluded": " (cookie dahil)",
   "log.sourceReady": "Kaynak hazır: {title}",
+  "log.liveSource": "TikTok LIVE kaynağı çözümlendi.",
+  "log.liveSourceHint": "Canlı oynatma etkin; zaman çizelgesi düzenleme ve dışa aktarma kapalı.",
   "log.resolution": "çözünürlük: {resolution}",
   "log.audioSeparate":
     "Bu akış yalnızca görüntü içeriyor; ses ayrı akıştan eşlenerek oynatılacak.",

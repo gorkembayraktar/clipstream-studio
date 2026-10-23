@@ -57,7 +57,7 @@ export const en = {
   "shortcut.trimOut": "Set out",
   "shortcut.loop": "Loop",
 
-  "source.urlPlaceholder": "Paste a link · YouTube / X / Instagram",
+  "source.urlPlaceholder": "Paste a link · YouTube / X / Instagram / TikTok",
   "source.urlAria": "Video link",
   "source.paste": "Paste from clipboard",
   "source.resolving": "Resolving",
@@ -110,6 +110,8 @@ export const en = {
   "source.platformYoutube": "YouTube",
   "source.platformX": "X (Twitter)",
   "source.platformInstagram": "Instagram",
+  "source.platformTiktok": "TikTok",
+  "source.live": "LIVE",
 
   "export.selectRange": "Save the selected range as a clip",
   "export.selection": "Selected range",
@@ -137,6 +139,7 @@ export const en = {
   "export.export": "Export",
   "export.exportNew": "Export new clip",
   "export.startTitle": "You can start a new clip while other jobs are running",
+  "export.liveDisabled": "Live source · load a finite clip to export",
   "export.processing": "Processing clips: {count} — you can start a new job in the meantime.",
   "export.settings": "Output settings",
   "export.options": "Options",
@@ -242,6 +245,7 @@ export const en = {
   "timeline.storyboardLoading": "Preparing preview…",
   "timeline.storyboardFailed": "Preview unavailable",
   "timeline.loadSource": "Load a source to use the timeline",
+  "timeline.live": "LIVE source · editing is unavailable until a finite clip is loaded",
 
   "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",
@@ -278,6 +282,7 @@ export const en = {
   "status.buffering": "Buffering…",
   "status.playing": "Playing",
   "status.ready": "Ready",
+  "status.live": "LIVE",
   "status.frameLoading": "Loading frame…",
   "status.frameLoaded": "Frame loaded",
   "status.error": "An error occurred",
@@ -489,13 +494,15 @@ export const en = {
   "log.curlHeadersDirectOnly":
     "curl headers are only used for direct media links.",
   "log.noAccountCookies":
-    "Account cookies are not used for YouTube / X / Instagram.",
+    "Account cookies are not used for YouTube / X / Instagram / TikTok.",
   "log.platformDetected": "{platform} link detected; stream address resolved.",
   "log.corsAutoEnabled":
     "{platform} streams are CORS-blocked: the CORS proxy was enabled automatically.",
   "log.headersApplied": "Applying {count} HTTP headers{cookie}.",
   "log.cookieIncluded": " (including cookie)",
   "log.sourceReady": "Source ready: {title}",
+  "log.liveSource": "TikTok LIVE source resolved.",
+  "log.liveSourceHint": "Live playback is active; timeline editing and export are disabled.",
   "log.resolution": "resolution: {resolution}",
   "log.audioSeparate":
     "This stream contains video only; audio will be played from a separate stream.",

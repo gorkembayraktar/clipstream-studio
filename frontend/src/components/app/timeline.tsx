@@ -88,13 +88,15 @@ export function Timeline() {
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
   const metaDuration = useSourceStore((s) => s.meta?.duration ?? 0)
+  const isLive = useSourceStore((s) => s.isLive)
 
   const playerDuration = usePlayerStore((s) => s.duration)
   const currentTime = usePlayerStore((s) => s.currentTime)
   const bufferedEnd = usePlayerStore((s) => s.bufferedEnd)
   const seek = usePlayerStore((s) => s.seek)
 
-  const duration = playerDuration || metaDuration
+  // Canlı yayında sonlu bir süre yoktur; timeline/trim/storyboard devre dışı.
+  const duration = isLive ? 0 : playerDuration || metaDuration
 
   const trackRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragTarget | null>(null)
@@ -374,7 +376,7 @@ export function Timeline() {
 
       {duration <= 0 && (
         <p className="mt-1.5 text-center text-xs text-muted-foreground">
-          {t("timeline.loadSource")}
+          {isLive ? t("timeline.live") : t("timeline.loadSource")}
         </p>
       )}
     </div>

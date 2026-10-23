@@ -1,7 +1,7 @@
 /** Backend API'si ile paylaşılan veri sözleşmeleri. */
 
 /** Kaynak platformu: doğrudan medya akışı, yerel dosya ya da yt-dlp ile çözülen platform. */
-export type SourcePlatform = "direct" | "youtube" | "twitter" | "instagram" | "local"
+export type SourcePlatform = "direct" | "youtube" | "twitter" | "instagram" | "tiktok" | "local"
 
 /** HLS master playlist'indeki WebVTT altyazı rendition'ı. */
 export interface HlsSubtitleTrack {
@@ -36,13 +36,19 @@ export interface HlsAudioTrack {
 
 export interface ResolveResponse {
   success: boolean
-  /** Kaynak platformu: "youtube" | "twitter" | "instagram" | "direct" */
+  /** Kaynak platformu: "youtube" | "twitter" | "instagram" | "tiktok" | "direct" */
   platform?: SourcePlatform
   is_youtube: boolean
   /** X (Twitter) bağlantısı mı? */
   is_twitter?: boolean
   /** Instagram bağlantısı mı? */
   is_instagram?: boolean
+  /** TikTok bağlantısı mı? */
+  is_tiktok?: boolean
+  /** Kaynak canlı yayın mı? */
+  is_live?: boolean
+  /** yt-dlp canlı durumu (`is_live`, `was_live`, `not_live`). */
+  live_status?: string | null
   is_m3u8: boolean
   stream_url: string
   original_url?: string

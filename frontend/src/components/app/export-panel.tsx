@@ -84,6 +84,7 @@ function ToggleRow({
 export function ExportPanel() {
   const { t } = useI18n()
   const streamUrl = useSourceStore((s) => s.streamUrl)
+  const isLive = useSourceStore((s) => s.isLive)
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const meta = useSourceStore((s) => s.meta)
@@ -119,7 +120,7 @@ export function ExportPanel() {
   })()
 
   const clipDuration = trim.end - trim.start
-  const invalidRange = !streamUrl || clipDuration <= 0.05
+  const invalidRange = isLive || !streamUrl || clipDuration <= 0.05
   const modeLabel = cutMode === "fast" ? t("export.fast") : t("export.exact")
   const summaryMeta = [
     modeLabel,
@@ -133,7 +134,7 @@ export function ExportPanel() {
     .join(" · ")
 
   const handleExport = () => {
-    if (!streamUrl || invalidRange) return
+    if (!streamUrl || invalidRange || isLive) return
 
     const cropPayload: CropPayload | null =
       crop.enabled && crop.rect && meta
@@ -312,7 +313,7 @@ export function ExportPanel() {
         className="h-9 w-full"
         onClick={handleExport}
         disabled={invalidRange || startExport.isPending}
-        title={t("export.startTitle")}
+        title={isLive ? t("export.liveDisabled") : t("export.startTitle")}
       >
         {startExport.isPending ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
         {activeJobIds.length > 0 ? t("export.exportNew") : t("export.export")}

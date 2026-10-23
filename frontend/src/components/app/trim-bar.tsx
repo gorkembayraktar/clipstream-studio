@@ -8,6 +8,7 @@ import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
 import { useEditStore } from "@/stores/edit-store"
+import { useSourceStore } from "@/stores/source-store"
 
 interface TimeInputProps {
   value: number
@@ -49,9 +50,10 @@ export function TrimBar() {
   const { t } = useI18n()
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
+  const isLive = useSourceStore((s) => s.isLive)
 
   const clip = trim.end - trim.start
-  const invalid = clip <= 0.05
+  const invalid = isLive || clip <= 0.05
 
   return (
     <div
@@ -67,6 +69,7 @@ export function TrimBar() {
           value={trim.start}
           onCommit={(value) => setTrim({ start: value })}
           label={t("trim.in")}
+          disabled={isLive}
         />
       </label>
 
@@ -79,6 +82,7 @@ export function TrimBar() {
           value={trim.end}
           onCommit={(value) => setTrim({ end: value })}
           label={t("trim.out")}
+          disabled={isLive}
         />
       </label>
 
@@ -91,7 +95,7 @@ export function TrimBar() {
         )}
       >
         <ScissorsIcon className="size-3.5" />
-        {compactDuration(Math.max(0, clip))}
+        {isLive ? t("source.live") : compactDuration(Math.max(0, clip))}
       </span>
     </div>
   )

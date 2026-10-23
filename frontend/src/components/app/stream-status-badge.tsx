@@ -24,6 +24,7 @@ export function StreamStatusBadge({ className }: { className?: string }) {
   const { t } = useI18n()
   const sourceLoading = useSourceStore((s) => s.sourceLoading)
   const hasSource = useSourceStore((s) => s.streamUrl !== null)
+  const isLive = useSourceStore((s) => s.isLive)
   const playing = usePlayerStore((s) => s.playing)
   const buffering = usePlayerStore((s) => s.buffering)
   const note = usePlayerStore((s) => s.statusNote)
@@ -47,7 +48,11 @@ export function StreamStatusBadge({ className }: { className?: string }) {
     label = t("status.buffering")
   } else {
     tone = "ready"
-    label = playing ? t("status.playing") : t("status.ready")
+    label = isLive
+      ? t("status.live")
+      : playing
+        ? t("status.playing")
+        : t("status.ready")
   }
 
   const detail = tone === "ready" && videoWidth > 0 ? `${videoWidth}×${videoHeight}` : null

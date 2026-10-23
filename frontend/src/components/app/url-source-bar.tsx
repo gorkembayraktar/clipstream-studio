@@ -98,9 +98,11 @@ export function UrlSourceBar() {
         ? t("source.platformX")
         : platform === "instagram"
           ? t("source.platformInstagram")
-          : platform === "local"
-            ? t("source.platformLocal")
-            : null
+          : platform === "tiktok"
+            ? t("source.platformTiktok")
+            : platform === "local"
+              ? t("source.platformLocal")
+              : null
 
   const handleLoad = async (
     overrideUrl?: string,
@@ -136,7 +138,9 @@ export function UrlSourceBar() {
             ? t("source.platformX")
             : platform === "instagram"
               ? t("source.platformInstagram")
-              : null
+              : platform === "tiktok"
+                ? t("source.platformTiktok")
+                : null
       if (label) {
         log("info", t("log.platformDetected", { platform: label }))
         // Harici platformların CDN'leri CORS başlığı göndermez → proxy gerekir.
@@ -172,6 +176,7 @@ export function UrlSourceBar() {
         isHls: Boolean(
           resolved.is_m3u8 || resolved.variants?.some((variant) => variant.hls),
         ),
+        isLive: Boolean(resolved.is_live),
         headers: effectiveHeaders,
         headerToken: resolved.header_token ?? null,
       })
@@ -188,34 +193,38 @@ export function UrlSourceBar() {
         )
       }
 
-      try {
-        const probe = await api.probe(resolved.stream_url, effectiveHeaders)
-        // Video elementinin bildirdiği boyut/süre korunur: ffprobe çok varyantlı
-        // HLS'te yalnızca ilk varyantı görebilir. fps ise ffprobe'dan alınır.
-        const existing = useSourceStore.getState().meta
-        setMeta({
-          width: existing?.width || probe.width,
-          height: existing?.height || probe.height,
-          duration: existing?.duration || probe.duration,
-          hasAudio: probe.has_audio,
-          fps: probe.fps > 0 ? probe.fps : undefined,
-        })
-        log(
-          "success",
-          t("log.probeSuccess"),
-          t("log.probeDetail", {
-            width: probe.width,
-            height: probe.height,
-            duration: formatTime(probe.duration),
-            audio: probe.has_audio ? t("log.probeAudioYes") : t("log.probeAudioNo"),
-            fps: probe.fps > 0 ? `, ${probe.fps} fps` : "",
-          }),
-        )
-      } catch (probeError) {
-        const message =
-          probeError instanceof Error ? probeError.message : t("log.probeFailedFallback")
-        log("warn", t("log.probeFailed"), message)
-        toast.warning(t("log.durationUnavailable"), { description: message })
+      if (resolved.is_live) {
+        log("info", t("log.liveSource"), t("log.liveSourceHint"))
+      } else {
+        try {
+          const probe = await api.probe(resolved.stream_url, effectiveHeaders)
+          // Video elementinin bildirdiği boyut/süre korunur: ffprobe çok varyantlı
+          // HLS'te yalnızca ilk varyantı görebilir. fps ise ffprobe'dan alınır.
+          const existing = useSourceStore.getState().meta
+          setMeta({
+            width: existing?.width || probe.width,
+            height: existing?.height || probe.height,
+            duration: existing?.duration || probe.duration,
+            hasAudio: probe.has_audio,
+            fps: probe.fps > 0 ? probe.fps : undefined,
+          })
+          log(
+            "success",
+            t("log.probeSuccess"),
+            t("log.probeDetail", {
+              width: probe.width,
+              height: probe.height,
+              duration: formatTime(probe.duration),
+              audio: probe.has_audio ? t("log.probeAudioYes") : t("log.probeAudioNo"),
+              fps: probe.fps > 0 ? `, ${probe.fps} fps` : "",
+            }),
+          )
+        } catch (probeError) {
+          const message =
+            probeError instanceof Error ? probeError.message : t("log.probeFailedFallback")
+          log("warn", t("log.probeFailed"), message)
+          toast.warning(t("log.durationUnavailable"), { description: message })
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

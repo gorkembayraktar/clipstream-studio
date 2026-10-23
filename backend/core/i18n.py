@@ -224,6 +224,16 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "yt-dlp could not retrieve video information.",
         "yt-dlp video bilgilerini alamadı.",
     ),
+    "error.tiktokOffline": (
+        "This TikTok account is not currently live.",
+        "Bu TikTok hesabı şu anda canlı yayında değil.",
+    ),
+    "error.tiktokLogin": (
+        "TikTok requires a login for this room. The app does not use account "
+        "cookies; only public live rooms can be resolved.",
+        "TikTok bu oda için oturum açmayı istiyor. Uygulama hesap çerezi "
+        "kullanmaz; yalnızca herkese açık canlı odalar çözülebilir.",
+    ),
     "error.noPlayableStream": (
         "No playable video stream was found.",
         "Oynatılabilir bir video akışı bulunamadı.",

@@ -30,6 +30,8 @@ interface SourceInfo {
   variants?: StreamVariant[]
   /** Kaynak HLS mi? Uzantısız playlist'lerde backend içerik tespitiyle belirlenir. */
   isHls: boolean
+  /** Kaynak canlı yayın mı? Canlı kaynakta süre/kesim/dışa aktarma devre dışıdır. */
+  isLive?: boolean
   /** curl ile yapıştırılan HTTP başlıkları (cookie/referer…). */
   headers?: Record<string, string> | null
   /** Oynatma proxy'sinin başlıkları tanıması için kısa ömürlü belirteç. */
@@ -60,6 +62,8 @@ interface SourceState {
   variants: StreamVariant[]
   /** Kaynak HLS mi? (uzantısız playlist'ler dahil) */
   isHls: boolean
+  /** Kaynak canlı yayın mı? */
+  isLive: boolean
   /** curl ile yapıştırılan HTTP başlıkları (yalnızca doğrudan kaynaklarda). */
   headers: Record<string, string> | null
   /** Oynatma proxy'sinin başlıkları tanıması için belirteç. */
@@ -97,6 +101,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   sourceOrigin: null,
   variants: [],
   isHls: false,
+  isLive: false,
   headers: null,
   headerToken: null,
   previewHeight: null,
@@ -141,6 +146,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       sourceOrigin: source.originUrl ?? null,
       variants,
       isHls: source.isHls,
+      isLive: source.isLive ?? false,
       headers: source.headers ?? null,
       headerToken: source.headerToken ?? null,
       previewHeight:
@@ -208,6 +214,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       sourceOrigin: null,
       variants: [],
       isHls: false,
+      isLive: false,
       headers: null,
       headerToken: null,
       previewHeight: null,

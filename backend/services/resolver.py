@@ -234,6 +234,12 @@ def is_instagram_url(url: str) -> bool:
     return host == "instagram.com" or host.endswith(".instagram.com")
 
 
+def is_tiktok_url(url: str) -> bool:
+    """TikTok video/canlı yayın bağlantısı mı? (yt-dlp `TikTok` / `tiktok:live`)"""
+    host = (urllib.parse.urlparse(url or "").hostname or "").lower()
+    return host == "tiktok.com" or host.endswith(".tiktok.com")
+
+
 def normalize_url(url: str) -> str:
     """Şemasız yapıştırılan bağlantıları (ör. `x.com/...`) `https://` ile tamamlar."""
     text = (url or "").strip()
@@ -243,7 +249,7 @@ def normalize_url(url: str) -> str:
 
 
 def platform_of(url: str) -> str:
-    """Bağlantının platformu: `youtube` | `twitter` | `instagram` | `direct`."""
+    """Bağlantının platformu: `youtube` | `twitter` | `instagram` | `tiktok` | `direct`."""
     url = normalize_url(url)
     if is_youtube_url(url):
         return "youtube"
@@ -251,6 +257,8 @@ def platform_of(url: str) -> str:
         return "twitter"
     if is_instagram_url(url):
         return "instagram"
+    if is_tiktok_url(url):
+        return "tiktok"
     return "direct"
 
 
@@ -339,16 +347,44 @@ async def resolve_url(
 
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="ignore").strip()
-        if platform == "instagram" and "empty media response" in message.lower():
+        lowered = message.lower()
+        if platform == "instagram" and "empty media response" in lowered:
             message = t("error.instagramLogin")
+        elif platform == "tiktok":
+            if any(
+                marker in lowered
+                for marker in (
+                    "not currently live",
+                    "is not live",
+                    "user is not live",
+                    "livestream has ended",
+                )
+            ):
+                message = t("error.tiktokOffline")
+            elif "login" in lowered or "log in" in lowered:
+                message = t("error.tiktokLogin")
         raise ResolveError(message or t("error.ytdlpNoInfo"))
 
     info = json.loads(stdout.decode("utf-8", errors="ignore"))
     formats = info.get("formats", [])
+    is_live = bool(info.get("is_live") or info.get("live_status") == "is_live")
+    live_status = info.get("live_status") or ("is_live" if is_live else None)
+
     if platform == "twitter":
         variants = _twitter_variants(formats)
     elif platform == "instagram":
         variants = _instagram_variants(formats)
+    elif platform == "tiktok":
+        picked = _pick_tiktok_stream(formats, live=is_live)
+        variants = [
+            _variant(
+                picked["url"],
+                picked["height"],
+                hls=picked["hls"],
+                has_audio=picked["has_audio"],
+                audio_url=None,
+            )
+        ] if picked else []
     else:
         variants = _hls_variants(formats)
 
@@ -387,6 +423,9 @@ async def resolve_url(
         "is_youtube": platform == "youtube",
         "is_twitter": platform == "twitter",
         "is_instagram": platform == "instagram",
+        "is_tiktok": platform == "tiktok",
+        "is_live": is_live,
+        "live_status": live_status,
         "is_m3u8": best["hls"],
         "stream_url": best["url"],
         "original_url": url,
@@ -399,6 +438,13 @@ async def resolve_url(
         "subtitle_tracks": [],
         #: Kaynak panelindeki kalite listesi (varsayılan `default: true` ile işaretli).
         "variants": variants,
+        #: TikTok CDN'i çoğu zaman sayfa referer'ı ister; API bunu proxy
+        #: belirtecine kaydeder ve yanıttan çıkarır.
+        "http_headers": (
+            {"Referer": "https://www.tiktok.com/"}
+            if platform == "tiktok"
+            else None
+        ),
     }
 
 
@@ -419,6 +465,9 @@ async def _resolve_direct(
         "is_youtube": False,
         "is_twitter": False,
         "is_instagram": False,
+        "is_tiktok": False,
+        "is_live": False,
+        "live_status": None,
         "is_m3u8": is_hls,
         "stream_url": url,
         "resolution": "",
@@ -484,6 +533,50 @@ def _has_audio(fmt: dict[str, Any]) -> bool:
     return bool(acodec and acodec != "none")
 
 
+def _is_hls_format(fmt: dict[str, Any]) -> bool:
+    protocol = str(fmt.get("protocol") or "").lower()
+    url = str(fmt.get("url") or "").lower()
+    return (
+        protocol.startswith("m3u8")
+        or (fmt.get("ext") or "").lower() in {"m3u8", "m3u"}
+        or ".m3u8" in url
+    )
+
+
+def _pick_tiktok_stream(
+    formats: list[dict[str, Any]], *, live: bool
+) -> Optional[dict[str, Any]]:
+    """TikTok için oynatılabilir akışı seç.
+
+    Canlı yayınlarda tarayıcı FLV oynatamaz; bu yüzden önce HLS varyantı
+    aranır. TikTok normal videolarında ise mevcut ilerici MP4 seçimi kullanılır.
+    """
+    if live:
+        hls_formats = [
+            fmt
+            for fmt in formats
+            if fmt.get("url") and _is_hls_format(fmt)
+        ]
+        if hls_formats:
+            best = max(
+                hls_formats,
+                key=lambda fmt: (
+                    float(fmt.get("quality") or 0),
+                    _quality_height(fmt),
+                    float(fmt.get("tbr") or 0),
+                ),
+            )
+            return {
+                "url": best["url"],
+                "height": _quality_height(best),
+                "hls": True,
+                # Canlı HLS akışı sesiyle birlikte gelir; yt-dlp acodec
+                # bildirmediğinde ayrı ses akışı aramak yanlış olur.
+                "has_audio": (best.get("acodec") or "aac") != "none",
+            }
+    return _pick_stream(formats)
+
+
 def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     """Öncelik: HLS manifest > sesli ilerici MP4 > herhangi bir video akışı."""
     best: Optional[dict[str, Any]] = None
@@ -522,7 +615,7 @@ def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
             return {
                 "url": fmt["url"],
                 "height": _quality_height(fmt),
-                "hls": False,
+                "hls": _is_hls_format(fmt),
                 "has_audio": _has_audio(fmt),
             }
 

@@ -37,8 +37,10 @@ async def resolve_endpoint(request):
         )
 
     # Başlıklar URL'ye yazılmaz: oynatma proxy'si kısa ömürlü belirteçle kullanır.
-    if result.get("platform") == "direct":
-        result["header_token"] = register_headers(headers)
+    if result.get("platform") in {"direct", "tiktok"}:
+        extra_headers = result.pop("http_headers", None) or {}
+        proxy_headers = {**extra_headers, **headers}
+        result["header_token"] = register_headers(proxy_headers) if proxy_headers else None
     return JSONResponse(result)
 
 
