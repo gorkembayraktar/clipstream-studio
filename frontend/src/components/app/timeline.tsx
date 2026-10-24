@@ -229,8 +229,9 @@ export function Timeline() {
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
     dragRef.current = target
-    // Playhead zaten imlecin üzerinde; tıklama anında konumu değiştirme.
-    if (target !== "playhead") seek(target === "start" ? trim.start : trim.end)
+    // Giriş/çıkış tutamağını sürüklerken oynatma imleci yerinde kalır.
+    // Aksi halde kırmızı imleç tutamağın üzerine atlayıp ayrı bir tutamak
+    // gibi görünüyordu. İmleç yalnızca kendi tutamağından sürüklenir.
   }
 
   const beginRangeDrag = (event: React.PointerEvent) => {
