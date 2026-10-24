@@ -140,11 +140,102 @@ function uploadLocalFile(
   })
 }
 
+export interface ResolveProgressEvent {
+  type: "progress" | "done" | "error" | "cancelled"
+  percent?: number
+  stage?: "resolving" | "downloading" | "transcoding" | "ready"
+  detail?: string
+  result?: ResolveResponse
+  error?: string
+  is_ytdlp_missing?: boolean
+  status_code?: number
+}
+
+async function resolveStream(
+  url: string,
+  headers?: Record<string, string> | null,
+  options?: {
+    onProgress?: (event: ResolveProgressEvent) => void
+    signal?: AbortSignal
+  },
+): Promise<ResolveResponse> {
+  const response = await fetch("/api/media/resolve/stream", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept-Language": acceptLanguage(),
+    },
+    body: JSON.stringify({ url, headers: headers ?? undefined }),
+    signal: options?.signal,
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    let message = translate("api.httpFailed", { status: response.status })
+    try {
+      const data = JSON.parse(text)
+      if (data?.error) message = data.error
+    } catch {
+      // noop
+    }
+    throw new ApiError(message, response.status)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new ApiError(translate("api.unreachable"), 0)
+  }
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() ?? ""
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      try {
+        const event = JSON.parse(trimmed) as ResolveProgressEvent
+        if (event.type === "progress") {
+          options?.onProgress?.(event)
+        } else if (event.type === "done" && event.result) {
+          return event.result
+        } else if (event.type === "cancelled") {
+          throw new DOMException(translate("log.uploadCancelled"), "AbortError")
+        } else if (event.type === "error") {
+          throw new ApiError(event.error || translate("api.unreachable"), event.status_code || 400)
+        }
+      } catch (e) {
+        if (e instanceof ApiError || (e instanceof DOMException && e.name === "AbortError")) {
+          throw e
+        }
+      }
+    }
+  }
+
+  throw new ApiError(translate("api.unreachable"), 400)
+}
+
 export const api = {
   resolve: (url: string, headers?: Record<string, string> | null) =>
     post<ResolveResponse>("/api/media/resolve", { url, headers: headers ?? undefined }),
-  probe: (url: string, headers?: Record<string, string> | null) =>
-    post<ProbeResponse>("/api/media/probe", { url, headers: headers ?? undefined }),
+  resolveStream,
+  probe: (
+    url: string,
+    headers?: Record<string, string> | null,
+    headerToken?: string | null,
+  ) =>
+    post<ProbeResponse>("/api/media/probe", {
+      url,
+      headers: headers ?? undefined,
+      header_token: headerToken ?? undefined,
+    }),
   /** HLS altyazı playlist'ini tek bir WebVTT metnine dönüştürür. */
   subtitles: (
     url: string,

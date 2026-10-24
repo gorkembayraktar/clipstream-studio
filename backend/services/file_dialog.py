@@ -1,12 +1,10 @@
-"""Windows'ta yerel dosya seçim penceresi (kopyasız kaynak).
+﻿"""Windows'ta yerel dosya seÃ§im penceresi (kopyasÄ±z kaynak).
 
-Tarayıcı, dosya seçicide seçilen dosyanın **gerçek yolunu** vermez (güvenlik).
-Kopyasız çalışabilmek için pencereyi sunucu açar: tkinter ayrı bir Python
-sürecinde çalıştırılır (konsol penceresi görünmez), seçilen yol UTF-8 bir
-geçici dosyaya yazılır ve oradan okunur.
+Birincil yÃ¶ntem: PowerShell + .NET Windows.Forms.OpenFileDialog
+  - Her zaman en Ã¶nde (topmost) aÃ§Ä±lÄ±r
+  - Tkinter/GUI sorunlarÄ±ndan baÄŸÄ±msÄ±z
 
-`cancel_dialog()` açık pencereyi kapatır: süreç sonlandırıldığında pencere de
-kaybolur, `choose_video_file` boş dize (iptal) döner.
+Yedek yÃ¶ntem: Tkinter (PowerShell baÅŸarÄ±sÄ±z olursa)
 """
 import os
 import subprocess
@@ -17,7 +15,48 @@ from pathlib import Path
 
 from core.i18n import t
 
-_DIALOG_SCRIPT = r"""
+#: AynÄ± anda yalnÄ±zca bir pencere aÃ§Ä±lÄ±r (Ã§ift tÄ±klama korumasÄ±).
+_dialog_lock = threading.Lock()
+#: AÃ§Ä±k pencere sÃ¼reci (iptal iÃ§in) ve iptal bayraÄŸÄ±.
+_active_process: "subprocess.Popen[str] | None" = None
+#: Pencere henÃ¼z aÃ§Ä±lmamÄ±ÅŸken gelen iptalleri yakalamak iÃ§in.
+_pending_pick = False
+_cancel_requested = False
+
+
+class DialogUnavailable(Exception):
+    """Dosya seÃ§im penceresi aÃ§Ä±lamadÄ± (platform/destek eksik vb.)."""
+
+
+class DialogAlreadyOpen(Exception):
+    """AÃ§Ä±k bir dosya seÃ§im penceresi zaten var."""
+    pass
+
+
+def cancel_dialog() -> bool:
+    """AÃ§Ä±k dosya seÃ§im penceresini kapatÄ±r; bekleyen iÅŸlem yoksa False dÃ¶ner."""
+    global _cancel_requested
+
+    process = _active_process
+    if process is None and not _pending_pick:
+        return False
+
+    _cancel_requested = True
+    if process is None or process.poll() is not None:
+        return True
+
+    try:
+        process.terminate()
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+    except Exception:
+        return False
+    return True
+
+
+_TKINTER_SCRIPT = r"""
 import sys
 import traceback
 from pathlib import Path
@@ -43,7 +82,6 @@ try:
     root.attributes("-topmost", True)
     root.update()
     if timeout_ms > 0:
-        # Test/otomatik kapanma: pencere belirtilen süre sonra kendiliğinden kapanır.
         root.after(timeout_ms, root.destroy)
     chosen = filedialog.askopenfilename(
         parent=root,
@@ -73,75 +111,35 @@ finally:
         pass
 """
 
-#: Aynı anda yalnızca bir pencere açılır (çift tıklama koruması).
-_dialog_lock = threading.Lock()
-#: Açık pencere süreci (iptal için) ve iptal bayrağı.
-_active_process: "subprocess.Popen[str] | None" = None
-#: Pencere henüz açılmamışken gelen iptalleri yakalamak için.
-_pending_pick = False
-_cancel_requested = False
 
-
-class DialogUnavailable(Exception):
-    """Dosya seçim penceresi açılamadı (platform/tkinter eksik vb.)."""
-
-
-def cancel_dialog() -> bool:
-    """Açık dosya seçim penceresini kapatır; bekleyen işlem yoksa False döner."""
-    global _cancel_requested
-
-    process = _active_process
-    if process is None and not _pending_pick:
-        return False
-
-    # Pencere henüz açılmadıysa bayrak, açılış anında yakalanır.
-    _cancel_requested = True
-    if process is None or process.poll() is not None:
-        return True
-
+def _start_powershell_dialog(title: str) -> "subprocess.Popen[str] | None":
+    """PowerShell + topmost form ile OpenFileDialog baÅŸlatÄ±r. Hata olursa None dÃ¶ner."""
+    safe_title = title.replace("'", "").replace('"', "")
+    ps_script = (
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;"
+        "$OutputEncoding = [System.Text.Encoding]::UTF8;"
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "$d = New-Object System.Windows.Forms.OpenFileDialog;"
+        f"$d.Title = '{safe_title}';"
+        "$d.Filter = 'Video files (*.mp4;*.mkv;*.mov;*.webm;*.avi;*.ts;*.m4v;*.mts;*.m2ts;*.flv;*.wmv;*.3gp;*.ogv;*.mpg;*.mpeg)"
+        "|*.mp4;*.mkv;*.mov;*.webm;*.avi;*.ts;*.m4v;*.mts;*.m2ts;*.flv;*.wmv;*.3gp;*.ogv;*.mpg;*.mpeg"
+        "|All files (*.*)|*.*';"
+        "$d.InitialDirectory = [Environment]::GetFolderPath('MyVideos');"
+        "$d.RestoreDirectory = $true;"
+        "$helper = New-Object System.Windows.Forms.Form;"
+        "$helper.TopMost = $true;"
+        "$helper.ShowInTaskbar = $false;"
+        "$helper.WindowState = 'Minimized';"
+        # ShowDialog'Ä±n sahibi gÃ¶rÃ¼nÃ¼r olmalÄ±; Hide() modal pencerenin
+        # aÃ§Ä±lmamasÄ±na veya Tkinter yedeÄŸine dÃ¼ÅŸmesine neden oluyordu.
+        "$helper.Show();"
+        "$r = $d.ShowDialog($helper);"
+        "$helper.Close(); $helper.Dispose();"
+        "if ($r -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }"
+    )
     try:
-        process.terminate()
-        try:
-            process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            process.kill()
-    except Exception:
-        return False
-    return True
-
-
-def choose_video_file(timeout_ms: int = 0) -> str:
-    """Kullanıcıya dosya seçtirir; seçilen tam yolu döner (iptalde boş dize)."""
-    global _active_process, _pending_pick, _cancel_requested
-
-    if sys.platform != "win32":
-        raise DialogUnavailable(t("error.pickWindowsOnly"))
-
-    if not _dialog_lock.acquire(blocking=False):
-        raise DialogUnavailable(t("error.pickAlreadyOpen"))
-
-    _pending_pick = True
-    handle, name = tempfile.mkstemp(prefix="clip2-pick-", suffix=".txt")
-    os.close(handle)
-    result_path = Path(name)
-    _cancel_requested = False
-
-    try:
-        # İptal, pencere açılmadan önce geldiyse hiç açma.
-        if _cancel_requested:
-            return ""
-
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                _DIALOG_SCRIPT,
-                str(result_path),
-                str(max(0, int(timeout_ms or 0))),
-                t("dialog.title"),
-                t("dialog.videoFiles"),
-                t("dialog.allFiles"),
-            ],
+        return subprocess.Popen(
+            ["powershell", "-NoProfile", "-STA", "-Command", ps_script],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -149,39 +147,125 @@ def choose_video_file(timeout_ms: int = 0) -> str:
             errors="replace",
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        _active_process = process
+    except OSError:
+        return None
 
-        try:
-            _, stderr = process.communicate()
-        except Exception:
+
+def choose_video_file(timeout_ms: int = 0) -> str:
+    """KullanÄ±cÄ±ya dosya seÃ§tirir; seÃ§ilen tam yolu dÃ¶ner (iptalde boÅŸ dize)."""
+    global _active_process, _pending_pick, _cancel_requested
+
+    if sys.platform != "win32":
+        raise DialogUnavailable(t("error.pickWindowsOnly"))
+
+    # Ã–nceki istekten askÄ±da kalmÄ±ÅŸ bir sÃ¼reÃ§ varsa kapat
+    if _active_process is not None and _active_process.poll() is None:
+        cancel_dialog()
+
+    # Kilidi al; Ã¶nceki sÃ¼reÃ§ yeni sonlanÄ±yorsa 1 saniyeye kadar bekle
+    if not _dialog_lock.acquire(timeout=1.0):
+        if _active_process is not None:
             try:
-                process.kill()
+                _active_process.kill()
             except Exception:
                 pass
-            raise
+        if not _dialog_lock.acquire(timeout=0.5):
+            raise DialogAlreadyOpen(t("error.pickAlreadyOpen"))
 
-        try:
-            chosen = result_path.read_text(encoding="utf-8").strip()
-        except OSError:
-            chosen = ""
+    _pending_pick = True
+    _cancel_requested = False
 
+    try:
         if _cancel_requested:
             return ""
 
-        if process.returncode != 0 and not chosen:
-            lines = [line for line in (stderr or "").strip().splitlines() if line]
-            reason = lines[-1] if lines else t("error.pickExitCode", code=process.returncode)
-            raise DialogUnavailable(t("error.pickOpenFailed", detail=reason))
+        title = t("dialog.title")
 
-        return chosen
-    except OSError as exc:
-        raise DialogUnavailable(t("error.pickOpenFailed", detail=exc)) from None
+        # â”€â”€ Birincil: PowerShell + .NET OpenFileDialog (her zaman topmost) â”€â”€
+        proc = _start_powershell_dialog(title)
+        if proc is not None:
+            _active_process = proc
+            try:
+                stdout, _ = proc.communicate()
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                raise
+            finally:
+                _active_process = None
+
+            if _cancel_requested:
+                return ""
+
+            chosen = (stdout or "").strip()
+            if chosen:
+                return chosen
+            if proc.returncode == 0:
+                return ""  # KullanÄ±cÄ± iptal etti (normal)
+            # Hata â†’ Tkinter fallback'e dÃ¼ÅŸ
+
+        # â”€â”€ Yedek: Tkinter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        handle, name = tempfile.mkstemp(prefix="clip2-pick-", suffix=".txt")
+        os.close(handle)
+        result_path = Path(name)
+
+        try:
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    _TKINTER_SCRIPT,
+                    str(result_path),
+                    str(max(0, int(timeout_ms or 0))),
+                    title,
+                    t("dialog.videoFiles"),
+                    t("dialog.allFiles"),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            _active_process = process
+
+            try:
+                _, stderr = process.communicate()
+            except Exception:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                raise
+            finally:
+                _active_process = None
+
+            try:
+                chosen = result_path.read_text(encoding="utf-8").strip()
+            except OSError:
+                chosen = ""
+
+            if _cancel_requested:
+                return ""
+
+            if process.returncode != 0 and not chosen:
+                lines = [line for line in (stderr or "").strip().splitlines() if line]
+                reason = lines[-1] if lines else t("error.pickExitCode", code=process.returncode)
+                raise DialogUnavailable(t("error.pickOpenFailed", detail=reason))
+
+            return chosen
+        except OSError as exc:
+            raise DialogUnavailable(t("error.pickOpenFailed", detail=exc)) from None
+        finally:
+            try:
+                result_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
     finally:
-        _active_process = None
         _pending_pick = False
         _cancel_requested = False
         _dialog_lock.release()
-        try:
-            result_path.unlink(missing_ok=True)
-        except OSError:
-            pass

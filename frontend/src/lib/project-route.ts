@@ -1,6 +1,6 @@
 /** URL hash'indeki proje rotası ve uygulama sürümü.
  *
- * Kanonik adres: `http://127.0.0.1:8765/#project/?v=1.0.0`
+ * Kanonik adres: `http://127.0.0.1:8765/#project/?v=<sürüm>`
  * Hash sunucuya gönderilmez; proje rotası istemci tarafında korunur.
  */
 import { APP_VERSION } from "@/lib/app-version"

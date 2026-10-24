@@ -74,14 +74,18 @@ async def proxy_request(request) -> Response:
     http = request.app.state.http
 
     # curl ile yapıştırılan başlıklar (cookie/referer…) belirteçle geri alınır.
+    # Tüm key'ler lowercase normalize edilir; böylece token'dan gelen "Referer"
+    # ile aşağıda set edilen "referer" çakışıp httpx'e çift başlık gitmiyor.
     token = request.query_params.get("t")
-    custom_headers = get_headers(token)
+    custom_headers = {k.lower(): v for k, v in get_headers(token).items()}
 
     headers = dict(BROWSER_HEADERS)
-    headers["User-Agent"] = request.app.state.user_agent
+    headers["user-agent"] = request.app.state.user_agent
     if "range" in request.headers:
         headers["range"] = request.headers["range"]
-    headers["referer"] = f"{parsed.scheme}://{parsed.netloc}/"
+    # Token'dan explicit Referer geliyorsa CDN host'tan türetileni yazma.
+    if "referer" not in custom_headers:
+        headers["referer"] = f"{parsed.scheme}://{parsed.netloc}/"
     headers.update(custom_headers)
     # Range her zaman tarayıcıdan gelen aralıktır (kaynak başlığı olamaz).
     if "range" in request.headers:

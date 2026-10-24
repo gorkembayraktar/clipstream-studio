@@ -42,6 +42,42 @@ import { useSourceStore } from "@/stores/source-store"
 
 const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
 
+function CircleProgress({ percent }: { percent: number }) {
+  const radius = 14
+  const circumference = 2 * Math.PI * radius
+  const clamped = Math.min(100, Math.max(0, percent))
+  const offset = circumference - (clamped / 100) * circumference
+
+  return (
+    <div className="relative flex size-10 shrink-0 items-center justify-center">
+      <svg className="size-full -rotate-90" viewBox="0 0 36 36">
+        <circle
+          cx="18"
+          cy="18"
+          r={radius}
+          className="stroke-muted/30"
+          strokeWidth="3.5"
+          fill="none"
+        />
+        <circle
+          cx="18"
+          cy="18"
+          r={radius}
+          className="stroke-primary transition-[stroke-dashoffset] duration-200"
+          strokeWidth="3.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </svg>
+      <span className="absolute font-mono text-[9px] font-bold tracking-tight text-foreground">
+        {Math.round(clamped)}%
+      </span>
+    </div>
+  )
+}
+
 export function UrlSourceBar() {
   const { t } = useI18n()
   const inputUrl = useSourceStore((s) => s.inputUrl)
@@ -50,6 +86,7 @@ export function UrlSourceBar() {
   const resolution = useSourceStore((s) => s.resolution)
   const platform = useSourceStore((s) => s.platform)
   const sourcePath = useSourceStore((s) => s.sourcePath)
+  const previewCopy = useSourceStore((s) => s.previewCopy)
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const audioTracks = useSourceStore((s) => s.audioTracks)
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
@@ -75,6 +112,25 @@ export function UrlSourceBar() {
   const clearSource = useSourceStore((s) => s.clearSource)
 
   const [resolving, setResolving] = useState(false)
+  const [resolveProgress, setResolveProgress] = useState<number | null>(null)
+  const [resolveStage, setResolveStage] = useState<string | null>(null)
+  const [resolveDetail, setResolveDetail] = useState<string>("")
+  const resolveAbortRef = useRef<AbortController | null>(null)
+
+  const handleCancelResolve = () => {
+    if (resolveAbortRef.current) {
+      resolveAbortRef.current.abort()
+      resolveAbortRef.current = null
+    }
+    setResolving(false)
+    setSourceLoading(false)
+    setResolveProgress(null)
+    setResolveStage(null)
+    setResolveDetail("")
+    log("warn", t("source.resolveCancelled"))
+    toast.info(t("source.resolveCancelled"))
+  }
+
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [curlText, setCurlText] = useState("")
   const parsedCurl = useMemo(() => parseCurl(curlText), [curlText])
@@ -117,11 +173,28 @@ export function UrlSourceBar() {
     const requestedHeaders =
       headersOverride && Object.keys(headersOverride).length > 0 ? headersOverride : null
 
+    const controller = new AbortController()
+    resolveAbortRef.current = controller
     setResolving(true)
     setSourceLoading(true)
+    setResolveProgress(0)
+    setResolveStage("resolving")
+    setResolveDetail("")
     log("info", t("log.sourceResolving", { url }))
     try {
-      const resolved = await api.resolve(url, requestedHeaders)
+      const resolved = await api.resolveStream(url, requestedHeaders, {
+        onProgress: (event) => {
+          if (event.percent !== undefined) {
+            // İlerleme geriye sıçramasın (metadata/indirme geçişi).
+            setResolveProgress((previous) =>
+              Math.max(previous ?? 0, event.percent ?? 0),
+            )
+          }
+          if (event.stage) setResolveStage(event.stage)
+          if (event.detail !== undefined) setResolveDetail(event.detail)
+        },
+        signal: controller.signal,
+      })
       const platform =
         resolved.platform ?? (resolved.is_youtube ? "youtube" : "direct")
       const effectiveHeaders = platform === "direct" ? requestedHeaders : null
@@ -198,7 +271,7 @@ export function UrlSourceBar() {
         log("info", t("log.liveSource"), t("log.liveSourceHint"))
       } else {
         try {
-          const probe = await api.probe(resolved.stream_url, effectiveHeaders)
+          const probe = await api.probe(resolved.stream_url, effectiveHeaders, resolved.header_token)
           // Video elementinin bildirdiği boyut/süre korunur: ffprobe çok varyantlı
           // HLS'te yalnızca ilk varyantı görebilir. fps ise ffprobe'dan alınır.
           const existing = useSourceStore.getState().meta
@@ -228,6 +301,9 @@ export function UrlSourceBar() {
         }
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return
+      }
       const message = error instanceof Error ? error.message : String(error)
       if (error instanceof ApiError && error.status === 422) {
         log(
@@ -241,8 +317,12 @@ export function UrlSourceBar() {
         toast.error(t("log.sourceLoadFailed"), { description: message })
       }
     } finally {
+      resolveAbortRef.current = null
       setResolving(false)
       setSourceLoading(false)
+      setResolveProgress(null)
+      setResolveStage(null)
+      setResolveDetail("")
     }
   }
 
@@ -344,6 +424,37 @@ export function UrlSourceBar() {
           }}
         />
 
+        {resolving && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 p-2.5 shadow-xs">
+            <div className="flex min-w-0 items-center gap-3">
+              <CircleProgress percent={resolveProgress ?? 0} />
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {resolveStage === "downloading"
+                    ? t("source.downloadingTiktok")
+                    : resolveStage === "transcoding"
+                      ? t("source.preparingBrowser")
+                      : t("source.resolving")}
+                </p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {resolveDetail || (resolveStage === "resolving" ? t("source.examiningLink") : resolveStage === "transcoding" ? t("source.preparingBrowser") : t("source.downloadingTiktok"))}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className="h-7 shrink-0 gap-1 border-destructive/30 px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleCancelResolve}
+              title={t("source.cancelDownload")}
+            >
+              <X className="size-3" />
+              {t("common.cancel")}
+            </Button>
+          </div>
+        )}
+
         {picking || importing ? (
           <div className="space-y-1.5 rounded-xl border border-primary/25 bg-primary/5 p-2.5">
             <div className="flex items-center justify-between gap-2">
@@ -402,16 +513,9 @@ export function UrlSourceBar() {
               variant="outline"
               size="sm"
               className="h-8 justify-center gap-1.5 px-2 text-xs font-normal"
-              onClick={() => {
-                if (nativeUnavailable) fileInputRef.current?.click()
-                else void pickFile()
-              }}
+              onClick={() => void pickFile()}
               disabled={resolving}
-              title={
-                nativeUnavailable
-                  ? t("source.pickFileBrowserTitle")
-                  : t("source.pickFileNativeTitle")
-              }
+              title={t("source.pickFileNativeTitle")}
             >
               <FolderOpen className="size-3.5" />
               {t("source.pickFile")}
@@ -434,6 +538,19 @@ export function UrlSourceBar() {
               )}
             </Button>
           </div>
+        )}
+
+        {nativeUnavailable && !picking && !importing && !resolving && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-6 justify-start px-1.5 text-[10px] font-normal text-muted-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            title={t("source.pickFileBrowserTitle")}
+          >
+            {t("source.pickFileBrowser")} · {t("source.tempCopy")}
+          </Button>
         )}
 
         {/* Aktif kaynak özeti */}
@@ -674,7 +791,7 @@ export function UrlSourceBar() {
                   {t("source.openNewTab")}
                 </Button>
                 <span className="text-[10px] text-muted-foreground/70">
-                  {sourcePath ? t("source.noCopy") : t("source.tempCopy")}
+                  {sourcePath && !previewCopy ? t("source.noCopy") : t("source.tempCopy")}
                 </span>
               </div>
             ) : (

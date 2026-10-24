@@ -234,9 +234,49 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "TikTok bu oda için oturum açmayı istiyor. Uygulama hesap çerezi "
         "kullanmaz; yalnızca herkese açık canlı odalar çözülebilir.",
     ),
+    "error.tiktokDownload": (
+        "TikTok video could not be downloaded: {detail}",
+        "TikTok videosu indirilemedi: {detail}",
+    ),
+    "error.tiktokDownloadTimeout": (
+        "TikTok video download timed out.",
+        "TikTok videosu indirilirken zaman aşımına uğradı.",
+    ),
+    "error.tiktokPrepare": (
+        "TikTok video could not be prepared for playback: {detail}",
+        "TikTok videosu oynatma için hazırlanamadı: {detail}",
+    ),
     "error.noPlayableStream": (
         "No playable video stream was found.",
         "Oynatılabilir bir video akışı bulunamadı.",
+    ),
+    "progress.gettingInfo": (
+        "Getting video information…",
+        "Video bilgileri alınıyor…",
+    ),
+    "progress.queryingServer": (
+        "Querying TikTok server…",
+        "TikTok sunucusu sorgulanıyor…",
+    ),
+    "progress.scanningFormats": (
+        "Scanning video formats…",
+        "Video formatları taranıyor…",
+    ),
+    "progress.startingDownload": (
+        "Starting download…",
+        "İndirme akışı hazırlanıyor…",
+    ),
+    "progress.downloadingVideo": (
+        "Downloading video…",
+        "Video indiriliyor…",
+    ),
+    "progress.preparingBrowser": (
+        "Optimizing for browser…",
+        "Tarayıcı için optimize ediliyor…",
+    ),
+    "progress.remaining": (
+        "{speed} • Remaining {eta}",
+        "{speed} • Kalan {eta}",
     ),
     "label.source": ("Source", "Kaynak"),
     # --------------------------------------------------------- altyazı

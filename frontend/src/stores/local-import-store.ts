@@ -113,6 +113,7 @@ function applyLocalSource(result: LocalFileResponse, sourcePath: string | null):
     resolution: result.width > 0 ? `${result.width}×${result.height}` : null,
     platform: "local",
     sourcePath,
+    previewCopy: Boolean(result.remuxed),
     audioUrl: null,
     variants: [],
     isHls: false,
@@ -427,7 +428,9 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
 
       const controller = new AbortController()
       pickController = controller
-      set({ picking: true })
+      // Her denemede önce yerel (kopyasız) pencereyi dene. Önceki bir hata
+      // yüzünden tarayıcı yüklemesine (geçici kopya) kilitlenmeyi önler.
+      set({ picking: true, nativeUnavailable: false })
       log("info", translate("import.pickerOpening"))
       toast.loading(translate("import.pickerLoading"), {
         id: PICK_TOAST_ID,
@@ -447,6 +450,9 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
         if (isAbort(error)) {
           log("warn", translate("log.fileSelectionCancelled"))
           toast.info(translate("import.pickerCancelled"))
+        } else if (error instanceof ApiError && error.status === 409) {
+          // Zaten açık bir pencere var, sessizce bekle
+          return
         } else if (error instanceof ApiError && error.status === 501) {
           set({ nativeUnavailable: true })
           log("warn", translate("log.nativeUnavailable"), error.message)

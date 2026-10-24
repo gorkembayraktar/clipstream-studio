@@ -46,6 +46,7 @@ function applyLocalResult(result: LocalFileResponse): void {
     resolution: result.width > 0 ? `${result.width}×${result.height}` : null,
     platform: "local",
     sourcePath: result.path ?? null,
+    previewCopy: Boolean(result.remuxed),
     audioUrl: null,
     variants: [],
     isHls: false,

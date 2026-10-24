@@ -204,6 +204,8 @@ export interface ExportRequest {
   audio_url?: string | null
   /** curl ile yapıştırılan HTTP başlıkları (cookie/referer…). */
   headers?: Record<string, string> | null
+  /** Resolve sonrası dönen CDN başlık belirteci (TikTok Referer gibi). */
+  header_token?: string | null
 }
 
 export interface ExportJob {

@@ -74,7 +74,10 @@ if errorlevel 1 echo   WARNING: yt-dlp is missing; YouTube/X/Instagram links can
 
 REM --- 5) Start the server in a separate window ---
 echo   Starting the server...
-start "ClipStream Server" cmd /k "chcp 65001 >nul & python backend\app.py"
+set "PYTHON_EXE="
+for /f "delims=" %%P in ('where python 2^>nul') do if not defined PYTHON_EXE set "PYTHON_EXE=%%P"
+if not defined PYTHON_EXE set "PYTHON_EXE=python"
+start "ClipStream Server" cmd /k "chcp 65001 >nul & ""%PYTHON_EXE%"" backend\app.py"
 
 REM --- 6) Wait for the server to come up ---
 for /l %%i in (1,1,30) do (

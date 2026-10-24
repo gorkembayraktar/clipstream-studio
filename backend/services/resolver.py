@@ -1,20 +1,30 @@
 """yt-dlp ile YouTube / X (Twitter) / Instagram bağlantılarını oynatılabilir akışa çözer."""
 import asyncio
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any, Callable, Optional
 
+from config import UPLOADS_DIR
 from core.i18n import t
 from services.hls import HlsRequestError, detect_hls_result, list_variants
+from services.local_media import upload_url
 
 #: Varsayılan önizleme kalitesi üst sınırı: oynatma 1080p'de başlar (daha yüksek
 #: varyantlar listede görünür ve kullanıcı Kaynak panelinden seçebilir).
 MAX_PREVIEW_HEIGHT = 1080
+
+#: TikTok normal videoları, yt-dlp'nin ürettiği imzalı CDN adresleriyle
+#: tarayıcıdan doğrudan açılamıyor (TikTok challenge'ı CDN'de 403 veriyor).
+#: Bu yüzden video yerel önbelleğe indirilir; süreler uzun videolarda artabilir.
+TIKTOK_DOWNLOAD_TIMEOUT = 300.0
+TIKTOK_TRANSCODE_TIMEOUT = 600.0
 
 
 def _variant(
@@ -212,6 +222,11 @@ class ResolveError(Exception):
         self.ytdlp_missing = ytdlp_missing
 
 
+class ResolveCancelled(Exception):
+    """Kullanıcı çözümleme veya indirme işlemini iptal ettiğinde fırlatılır."""
+    pass
+
+
 def _source_access_error(status: int) -> ResolveError:
     """Doğrudan kaynak erişim hatalarını eyleme dönük bir mesaja çevirir."""
     if status in (401, 403):
@@ -335,35 +350,54 @@ _ytdlp_command: list[str] | None | bool = None
 
 
 def find_ytdlp_command() -> Optional[list[str]]:
-    """yt-dlp'yi PATH'te ya da mevcut Python ortamında arar (sonuç önbelleklenir)."""
-    global _ytdlp_command
-    if _ytdlp_command is not None:
-        return _ytdlp_command or None
+    """yt-dlp'yi PATH'te ya da erişilebilir tüm Python yorumlayıcılarında arar.
 
+    Bulunduğunda sonuç önbelleklenir. Bulunamadığında önbelleğe yazılmaz;
+    böylece ilk istekte kurulu olmasa bile sonraki isteklerde tekrar aranır.
+    """
+    global _ytdlp_command
+    # Daha önce başarıyla bulunduysa önbellekten dön.
+    if isinstance(_ytdlp_command, list):
+        return _ytdlp_command
+
+    # 1) PATH'te yt-dlp binary'si var mı?
     if shutil.which("yt-dlp"):
         _ytdlp_command = ["yt-dlp"]
         return _ytdlp_command
 
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "yt_dlp", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            _ytdlp_command = [sys.executable, "-m", "yt_dlp"]
-            return _ytdlp_command
-    except Exception:
-        pass
+    # 2) Birden fazla Python adayını dene: önce mevcut yorumlayıcı, sonra
+    #    Windows'ta yaygın komutlar. Farklı ortamlarda başlatılan backend
+    #    (ör. start.bat cmd /k) kendi sys.executable'ında yt_dlp olmayabilir.
+    python_candidates: list[str] = [sys.executable]
+    for name in ("py", "python", "python3"):
+        found = shutil.which(name)
+        if found and found != sys.executable:
+            python_candidates.append(found)
 
-    _ytdlp_command = False
+    for py in python_candidates:
+        try:
+            result = subprocess.run(
+                [py, "-m", "yt_dlp", "--version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                _ytdlp_command = [py, "-m", "yt_dlp"]
+                return _ytdlp_command
+        except Exception:
+            continue
+
+    # Bulunamadı — önbelleğe yazılmaz, bir sonraki istekte tekrar aranır.
     return None
 
 
 async def resolve_url(
-    url: str, client=None, headers: Optional[dict[str, str]] = None
+    url: str,
+    client=None,
+    headers: Optional[dict[str, str]] = None,
+    on_progress: Optional[Callable[[float, str, str], Any]] = None,
 ) -> dict[str, Any]:
     """YouTube/X/Instagram/TikTok linklerini doğrudan oynatılabilir akışa çözer;
     diğer URL'leri (m3u8 master ise tek varyanta indirgeyerek) döndürür.
@@ -372,6 +406,8 @@ async def resolve_url(
     yapıştırılan cookie/referer gibi başlıklar). yt-dlp platformlarında hesap
     güvenliği için çerez kullanılmaz.
     """
+    if on_progress:
+        await on_progress(0.0, "resolving", "")
     url = normalize_url(url)
     platform = platform_of(url)
     if platform == "direct":
@@ -409,8 +445,35 @@ async def resolve_url(
         stderr=asyncio.subprocess.PIPE,
     )
 
+    heartbeat_active = True
+
+    async def _heartbeat():
+        steps = [
+            (1.0, t("progress.gettingInfo")),
+            (2.0, t("progress.queryingServer")),
+            (3.0, t("progress.scanningFormats")),
+            (4.0, t("progress.startingDownload")),
+        ]
+        for pct, msg in steps:
+            await asyncio.sleep(1.8)
+            if not heartbeat_active:
+                break
+            if on_progress:
+                try:
+                    await on_progress(pct, "resolving", msg)
+                except Exception:
+                    pass
+
+    heartbeat_task = asyncio.create_task(_heartbeat())
+
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=45.0)
+    except (asyncio.CancelledError, GeneratorExit):
+        try:
+            process.kill()
+        except Exception:
+            pass
+        raise ResolveCancelled()
     except asyncio.TimeoutError:
         try:
             process.kill()
@@ -420,6 +483,9 @@ async def resolve_url(
             t("error.ytdlpTimeout"),
             status_code=504,
         ) from None
+    finally:
+        heartbeat_active = False
+        heartbeat_task.cancel()
 
     if process.returncode != 0:
         message = stderr.decode("utf-8", errors="ignore").strip()
@@ -454,16 +520,27 @@ async def resolve_url(
         if is_live:
             variants = _tiktok_live_variants(formats)
         else:
-            picked = _pick_tiktok_stream(formats, live=False)
-            variants = [
-                _variant(
-                    picked["url"],
-                    picked["height"],
-                    hls=picked["hls"],
-                    has_audio=picked["has_audio"],
-                    audio_url=None,
-                )
-            ] if picked else []
+            records = _tiktok_video_records(formats)
+            if records:
+                try:
+                    variants = await _prepare_tiktok_local_variants(
+                        command, target_url, info, records[:1], on_progress=on_progress
+                    )
+                except ResolveCancelled:
+                    raise
+                except Exception:
+                    variants = []
+            if not variants:
+                picked = _pick_tiktok_stream(formats, live=False)
+                variants = [
+                    _variant(
+                        picked["url"],
+                        picked["height"],
+                        hls=picked["hls"],
+                        has_audio=picked["has_audio"],
+                        audio_url=None,
+                    )
+                ] if picked else []
     else:
         variants = _hls_variants(formats)
 
@@ -733,6 +810,355 @@ def _tiktok_live_variants(formats: list[dict[str, Any]]) -> list[dict[str, Any]]
         )
         for item in items
     ]
+
+
+def _tiktok_nominal_height(fmt: dict[str, Any]) -> int:
+    """TikTok format kimliğindeki pazarlama kalitesini (ör. `h264_540p_...`) okur.
+
+    Gerçek kısa kenar 576 olabilir; TikTok bu formatı 540p olarak adlandırır.
+    Liste etiketi gerçek piksel yerine bu adı kullanır.
+    """
+    match = re.search(
+        r"(?:^|_)(\d{3,4})p(?:[_-]|$)",
+        str(fmt.get("format_id") or ""),
+        re.IGNORECASE,
+    )
+    if match:
+        value = int(match.group(1))
+        if 144 <= value <= 4320:
+            return value
+    return _quality_height(fmt)
+
+
+def _tiktok_video_records(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Normal TikTok videosunda indirilecek kaliteleri seçer (yüksekten alçağa).
+
+    Aynı kalitede H.264, tarayıcı uyumluluğu nedeniyle H.265'e tercih edilir.
+    Filigranlı / sesi olmayan / HLS kayıtları indirme listesine alınmaz.
+    """
+    by_quality: dict[int, dict[str, Any]] = {}
+    for fmt in formats:
+        url = str(fmt.get("url") or "")
+        if not url or _is_hls_format(fmt):
+            continue
+        if (fmt.get("ext") or "").lower() != "mp4":
+            continue
+        if not fmt.get("format_id"):
+            continue
+        vcodec = str(fmt.get("vcodec") or "").lower()
+        acodec = str(fmt.get("acodec") or "").lower()
+        if vcodec in {"", "none"} or acodec in {"", "none"}:
+            continue
+        if "watermark" in str(fmt.get("format_note") or "").lower():
+            continue
+
+        quality = _tiktok_nominal_height(fmt)
+        if quality <= 0 or quality > MAX_PREVIEW_HEIGHT:
+            continue
+        height = _quality_height(fmt)
+        if height <= 0:
+            height = quality
+
+        is_h264 = vcodec.startswith(("h264", "avc"))
+        score = (
+            1 if is_h264 else 0,
+            float(fmt.get("tbr") or 0),
+            float(fmt.get("filesize") or 0),
+        )
+        current = by_quality.get(quality)
+        if current is None or score > current["score"]:
+            by_quality[quality] = {
+                "format": fmt,
+                "quality": quality,
+                "height": height,
+                "score": score,
+            }
+
+    return [by_quality[quality] for quality in sorted(by_quality, reverse=True)]
+
+
+def _short_detail(text: str, limit: int = 300) -> str:
+    detail = " ".join((text or "").split())
+    return detail[:limit]
+
+
+def _tiktok_cache_path(video_id: str, quality: int, codec: str) -> Path:
+    safe_id = re.sub(r"[^0-9A-Za-z_-]+", "-", str(video_id or "video")).strip("-")
+    return UPLOADS_DIR / f"tiktok-{safe_id or 'video'}-{quality}p-{codec}.mp4"
+
+
+async def _download_tiktok_record(
+    command: list[str],
+    target_url: str,
+    video_id: str,
+    record: dict[str, Any],
+    on_progress: Optional[Callable[[float, str, str], Any]] = None,
+) -> str:
+    """Tek bir TikTok kalitesini indirir; H.265 ise tarayıcı için H.264'e çevirir.
+
+    TikTok'un imzalı CDN adresi tarayıcıda 403 döndüğü için oynatma ve dışa
+    aktarma yerel dosyadan yapılır. Dosya adı video kimliği + kalite olduğundan
+    aynı video tekrar açıldığında yeniden indirilmez.
+    """
+    fmt = record["format"]
+    quality = int(record["quality"])
+    format_id = str(fmt.get("format_id") or "")
+    if not format_id:
+        raise ResolveError(t("error.noPlayableStream"))
+
+    vcodec = str(fmt.get("vcodec") or "").lower()
+    source_is_h264 = vcodec.startswith(("h264", "avc"))
+    target = _tiktok_cache_path(video_id, quality, "h264")
+    if target.is_file() and target.stat().st_size > 0:
+        if on_progress:
+            await on_progress(100.0, "ready", "")
+        return upload_url(target)
+
+    source = target if source_is_h264 else _tiktok_cache_path(video_id, quality, "h265")
+    if not source.is_file() or source.stat().st_size <= 0:
+        partial = source.with_name(f"{source.stem}.part{source.suffix}")
+        try:
+            partial.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        download_command = command + [
+            "--no-playlist",
+            "--no-warnings",
+            "--newline",
+            "--progress",
+            "--no-part",
+        ]
+        if shutil.which("node"):
+            download_command.extend(["--js-runtimes", "node"])
+        download_command.extend(
+            ["-f", format_id, "-o", str(partial), target_url]
+        )
+
+        process = await asyncio.create_subprocess_exec(
+            *download_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        if on_progress:
+            await on_progress(5.0, "downloading", t("progress.downloadingVideo"))
+
+        async def _read_stdout():
+            try:
+                while True:
+                    line = await process.stdout.readline()
+                    if not line:
+                        break
+                    text = line.decode("utf-8", errors="ignore").strip()
+                    if not text:
+                        continue
+                    match = re.search(
+                        r"\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?(\S+)(?:\s+at\s+(\S+))?(?:\s+ETA\s+(\S+))?",
+                        text,
+                    )
+                    if match and on_progress:
+                        pct = float(match.group(1))
+                        speed = match.group(3) or ""
+                        eta = match.group(4) or ""
+                        detail = (
+                            t("progress.remaining", speed=speed, eta=eta)
+                            if (speed and eta)
+                            else (speed or eta)
+                        )
+                        # Genel ilerleme: metadata %0-5, indirme %5-100.
+                        # H.265'te indirme %90'da biter, kalan %10 transcode.
+                        max_target = 90.0 if not source_is_h264 else 100.0
+                        scaled_pct = 5.0 + (pct / 100.0) * (max_target - 5.0)
+                        await on_progress(scaled_pct, "downloading", detail)
+            except Exception:
+                pass
+
+        async def _read_stderr():
+            try:
+                return await process.stderr.read()
+            except Exception:
+                return b""
+
+        stdout_task = asyncio.create_task(_read_stdout())
+        stderr_task = asyncio.create_task(_read_stderr())
+        stderr_bytes = b""
+        try:
+            await asyncio.wait_for(process.wait(), timeout=TIKTOK_DOWNLOAD_TIMEOUT)
+            await stdout_task
+            stderr_bytes = await stderr_task
+        except (asyncio.CancelledError, GeneratorExit):
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                partial.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ResolveCancelled()
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                partial.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ResolveError(t("error.tiktokDownloadTimeout"), 504) from None
+
+        if process.returncode != 0:
+            try:
+                partial.unlink(missing_ok=True)
+            except OSError:
+                pass
+            detail = _short_detail(stderr_bytes.decode("utf-8", errors="ignore") if stderr_bytes else "")
+            raise ResolveError(
+                t("error.tiktokDownload", detail=detail or "yt-dlp")
+            )
+        if not partial.is_file() or partial.stat().st_size <= 0:
+            try:
+                partial.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ResolveError(
+                t("error.tiktokDownload", detail="yt-dlp")
+            )
+        os.replace(partial, source)
+
+    if not source_is_h264:
+        if target.is_file() and target.stat().st_size > 0:
+            try:
+                source.unlink(missing_ok=True)
+            except OSError:
+                pass
+            if on_progress:
+                await on_progress(100.0, "ready", "")
+            return upload_url(target)
+
+        partial_target = target.with_name(f"{target.stem}.part{target.suffix}")
+        try:
+            partial_target.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+        if on_progress:
+            await on_progress(90.0, "transcoding", t("source.preparingBrowser"))
+
+        transcode_command = [
+            "ffmpeg",
+            "-y",
+            "-nostdin",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(source),
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a:0?",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "20",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "copy",
+            "-movflags",
+            "+faststart",
+            str(partial_target),
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *transcode_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=TIKTOK_TRANSCODE_TIMEOUT
+            )
+        except (asyncio.CancelledError, GeneratorExit):
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                partial_target.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ResolveCancelled()
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                partial_target.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ResolveError(t("error.tiktokDownloadTimeout"), 504) from None
+
+        if process.returncode != 0:
+            try:
+                partial_target.unlink(missing_ok=True)
+            except OSError:
+                pass
+            detail = _short_detail(stderr.decode("utf-8", errors="ignore"))
+            raise ResolveError(
+                t("error.tiktokPrepare", detail=detail or "ffmpeg")
+            )
+        os.replace(partial_target, target)
+        try:
+            source.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    if on_progress:
+        await on_progress(100.0, "ready", "")
+
+    return upload_url(target)
+
+
+async def _prepare_tiktok_local_variants(
+    command: list[str],
+    target_url: str,
+    info: dict[str, Any],
+    records: list[dict[str, Any]],
+    on_progress: Optional[Callable[[float, str, str], Any]] = None,
+) -> list[dict[str, Any]]:
+    """Seçilen TikTok kalitelerini yerel önbelleğe indirip varyantlara çevirir."""
+    video_id = str(info.get("id") or "video")
+    variants: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for record in records:
+        try:
+            local_url = await _download_tiktok_record(
+                command, target_url, video_id, record, on_progress=on_progress
+            )
+        except ResolveCancelled:
+            raise
+        except ResolveError as exc:
+            errors.append(str(exc))
+            continue
+        variants.append(
+            _variant(
+                local_url,
+                record["height"],
+                hls=False,
+                has_audio=True,
+                audio_url=None,
+                quality_height=record["quality"],
+            )
+        )
+
+    if not variants:
+        raise ResolveError(errors[-1] if errors else t("error.noPlayableStream"))
+    return variants
 
 
 def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:

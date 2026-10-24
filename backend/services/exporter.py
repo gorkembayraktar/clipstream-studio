@@ -15,6 +15,7 @@ from services.gpu import (
     get_gpu_encoder,
     gpu_encoder_arguments,
 )
+from services.header_store import get_headers
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args, sanitize_headers
 from services.segment_downloader import DownloadedMedia, download_hls_range
@@ -156,8 +157,12 @@ def build_ffmpeg_command(
     merge_audio = bool(audio_url) and output_format == "mp4" and url != audio_url
 
     command = ["ffmpeg", "-y", "-nostdin", "-progress", "pipe:1"]
-    # curl ile yapıştırılan başlıklar (cookie/referer…) iki girişe de uygulanır.
-    input_args = ffmpeg_input_args(payload.get("headers"), USER_AGENT)
+    # curl ile yapıştırılan başlıklar ve header_token'dan (TikTok Referer gibi CDN
+    # başlıkları) birleştirilen başlıklar iki girişe de uygulanır.
+    token_headers = get_headers(payload.get("header_token"))
+    user_headers = sanitize_headers(payload.get("headers"))
+    merged_headers = {**token_headers, **user_headers} or None
+    input_args = ffmpeg_input_args(merged_headers, USER_AGENT)
     if url.startswith(("http://", "https://")):
         command += input_args
 
@@ -284,7 +289,9 @@ async def stage_hls_sources(
     if client is None:
         return staged, downloads
 
-    headers = sanitize_headers(payload.get("headers"))
+    token_headers = get_headers(payload.get("header_token"))
+    user_headers = sanitize_headers(payload.get("headers"))
+    headers = {**token_headers, **user_headers} or {}
     video_url = str(payload.get("url", "")).strip()
     audio_url = str(payload.get("audio_url") or "").strip()
     output_format = str(payload.get("output_format", "mp4")).lower()

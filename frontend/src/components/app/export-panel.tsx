@@ -89,6 +89,7 @@ export function ExportPanel() {
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const meta = useSourceStore((s) => s.meta)
   const headers = useSourceStore((s) => s.headers)
+  const headerToken = useSourceStore((s) => s.headerToken)
   const trim = useEditStore((s) => s.trim)
   const crop = useEditStore((s) => s.crop)
   const setCropEnabled = useEditStore((s) => s.setCropEnabled)
@@ -162,6 +163,7 @@ export function ExportPanel() {
       encoder: useGpu ? "gpu" : "cpu",
       audio_url: separateAudio,
       headers: headers ?? undefined,
+      header_token: headerToken ?? undefined,
     })
 
     const details = [

@@ -14,7 +14,12 @@ from starlette.routing import Route
 
 from config import MAX_UPLOAD_BYTES
 from core.i18n import t
-from services.file_dialog import DialogUnavailable, cancel_dialog, choose_video_file
+from services.file_dialog import (
+    DialogAlreadyOpen,
+    DialogUnavailable,
+    cancel_dialog,
+    choose_video_file,
+)
 from services.local_media import (
     VIDEO_EXTENSIONS,
     LocalFileCancelled,
@@ -41,6 +46,8 @@ async def pick_endpoint(request):
 
     try:
         chosen = await asyncio.to_thread(choose_video_file, timeout_ms)
+    except DialogAlreadyOpen:
+        return JSONResponse({"success": False, "already_open": True}, status_code=409)
     except DialogUnavailable as exc:
         return JSONResponse(
             {"success": False, "error": str(exc), "dialog_unavailable": True},
