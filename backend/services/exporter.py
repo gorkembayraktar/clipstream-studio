@@ -157,7 +157,7 @@ def build_ffmpeg_command(
     # Ses birleştirme yalnızca MP4 çıktısında ve ses akışı ayrı verildiğinde yapılır.
     merge_audio = bool(audio_url) and output_format == "mp4" and url != audio_url
 
-    command = ["ffmpeg", "-y", "-nostdin", "-progress", "pipe:1"]
+    command = ["ffmpeg", "-y", "-nostdin", "-nostats", "-progress", "pipe:1"]
     # curl ile yapıştırılan başlıklar ve header_token'dan (TikTok Referer gibi CDN
     # başlıkları) birleştirilen başlıklar iki girişe de uygulanır.
     token_headers = get_headers(payload.get("header_token"))
@@ -311,8 +311,12 @@ async def stage_hls_sources(
     output_format = str(payload.get("output_format", "mp4")).lower()
     primary_is_audio = output_format == "mp3" and bool(audio_url)
     primary_url = audio_url if primary_is_audio else video_url
+    # Yerel dosyalar zaten doğrudan diskten okunacak; HLS hazırlığı için
+    # HTTP üzerinden tekrar indirilmeleri büyük dosyalarda bellek/CPU israfıdır.
+    primary_is_local = local_path(primary_url) is not None
+    audio_is_local = bool(audio_url) and local_path(audio_url) is not None
 
-    if primary_url.startswith(("http://", "https://")):
+    if primary_url.startswith(("http://", "https://")) and not primary_is_local:
         media = await download_hls_range(
             client, primary_url, start, end, headers
         )
@@ -330,6 +334,7 @@ async def stage_hls_sources(
         and audio_url
         and audio_url != video_url
         and audio_url.startswith(("http://", "https://"))
+        and not audio_is_local
     ):
         audio_media = await download_hls_range(
             client, audio_url, start, end, headers
@@ -349,6 +354,23 @@ async def stage_hls_sources(
     return staged, downloads
 
 
+async def _read_stderr(process, limit: int = 64 * 1024) -> str:
+    """FFmpeg çalışırken stderr'i tüketir; yalnızca son ``limit`` baytı saklar.
+
+    stderr boru hattı dolduğunda FFmpeg yazmayı bekler. Bu nedenle stderr,
+    süreç bitene kadar değil, süreç çalışırken okunmalıdır. Uzun süren veya
+    çok uyarı üreten işlerde aksi halde dışa aktarma %0'da kilitlenir.
+    """
+    assert process.stderr is not None
+    tail = b""
+    while True:
+        chunk = await process.stderr.read(64 * 1024)
+        if not chunk:
+            break
+        tail = (tail + chunk)[-limit:]
+    return tail.decode("utf-8", errors="ignore").strip()
+
+
 async def _run_ffmpeg(
     command: list[str], job: dict[str, Any], clip_duration: float
 ) -> tuple[int, str]:
@@ -360,11 +382,11 @@ async def _run_ffmpeg(
     )
     job["process"] = process
 
-    await asyncio.gather(_read_progress(process, job, clip_duration), process.wait())
-
-    stderr_tail = ""
-    if process.stderr is not None:
-        stderr_tail = (await process.stderr.read()).decode("utf-8", errors="ignore").strip()
+    _, _, stderr_tail = await asyncio.gather(
+        _read_progress(process, job, clip_duration),
+        process.wait(),
+        _read_stderr(process),
+    )
     return process.returncode, stderr_tail
 
 

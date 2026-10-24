@@ -113,6 +113,7 @@ class FakeClient:
         self.requests: list[str] = []
 
     async def get(self, url: str, headers=None) -> FakeResponse:
+        self.requests.append(url)
         return FakeResponse(text=self.playlist, url=url)
 
     def stream(self, method: str, url: str, headers=None, timeout=None) -> FakeStream:

@@ -17,6 +17,10 @@ STREAM_INF = re.compile(r"#EXT-X-STREAM-INF:(?P<attrs>.+)")
 ATTRIBUTE = re.compile(r'(?P<key>[A-Z0-9\-]+)=(?P<value>"[^"]*"|[^,]*)')
 RESOLUTION = re.compile(r"(?P<width>\d+)x(?P<height>\d+)")
 
+#: Master playlist tespiti için okunacak en fazla bayt. Doğrudan video veya
+#: canlı akış adreslerinde yanıtın tamamını belleğe almamak için gereklidir.
+MAX_PLAYLIST_BYTES = 1 << 20
+
 #: Yayın kalitesi etiketi olarak kabul edilen standart yükseklikler. Kırpılmış
 #: (ör. 1920x800) akışlarda piksel yüksekliği kalite sınıfını yansıtmaz.
 STANDARD_HEIGHTS = {144, 240, 288, 360, 480, 540, 576, 720, 900, 1080, 1440, 2160}
@@ -212,21 +216,32 @@ async def select_best_variant(
     """Master playlist ise en iyi varyantı, media playlist ise None döner.
 
     Ağ hatalarında sessizce None döner; çağıran taraf özgün URL ile devam eder.
+    Doğrudan video veya canlı akış adreslerinde yanıtın tamamı okunmaz:
+    master playlist tespiti için yalnızca ilk `MAX_PLAYLIST_BYTES` bayt incelenir.
     """
     if client is None:
         return None
 
     try:
-        response = await client.get(url, headers=headers or None)
-        response.raise_for_status()
-        text = response.text
+        async with client.stream("GET", url, headers=headers or None) as response:
+            response.raise_for_status()
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                remaining = MAX_PLAYLIST_BYTES - len(body)
+                if remaining <= 0:
+                    break
+                body.extend(chunk[:remaining])
+                if len(body) >= MAX_PLAYLIST_BYTES:
+                    break
+            text = bytes(body).decode("utf-8", errors="replace")
+            response_url = str(getattr(response, "url", None) or url)
     except Exception:
         return None
 
     if not is_master_playlist(text):
         return None
 
-    return pick_best_variant(parse_playlist_variants(text, str(response.url)))
+    return pick_best_variant(parse_playlist_variants(text, response_url))
 
 
 MEDIA_TAG = re.compile(r"#EXT-X-MEDIA:(?P<attrs>.+)")

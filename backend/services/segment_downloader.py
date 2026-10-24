@@ -24,7 +24,12 @@ from typing import Any, AsyncIterator, Optional
 from urllib.parse import urljoin, urlparse
 
 from config import WAVEFORM_TEMP_DIR
-from services.hls import ATTRIBUTE, is_master_playlist, select_best_variant
+from services.hls import (
+    ATTRIBUTE,
+    MAX_PLAYLIST_BYTES,
+    is_master_playlist,
+    select_best_variant,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +39,6 @@ SEGMENT_CONCURRENCY = 15
 SEGMENT_RETRIES = 3
 SEGMENT_TIMEOUT = 30.0
 DOWNLOAD_TIMEOUT_SECONDS = 180.0
-#: Playlist için en fazla okunacak bayt. Doğrudan video URL'si verilse bile
-#: tüm dosyayı belleğe almadan HLS olup olmadığını anlamaya yeter.
-MAX_PLAYLIST_BYTES = 1 << 20
 
 EXTINF = re.compile(r"#EXTINF:(?P<duration>[0-9.]+)")
 MAP_TAG = re.compile(r"#EXT-X-MAP:(?P<attrs>.+)")
@@ -607,6 +609,8 @@ async def download_hls_range(
     Uygun olmayan playlist'te `None` döner ve çağıran eski yola devam eder.
     """
     if client is None:
+        return None
+    if _probably_media_file(playlist_url):
         return None
 
     playlist = await load_hls_playlist(client, playlist_url, headers)

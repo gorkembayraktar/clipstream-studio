@@ -8,7 +8,13 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from services.hls import detect_hls, is_hls_content_type, quality_height  # noqa: E402
+from services.hls import (  # noqa: E402
+    MAX_PLAYLIST_BYTES,
+    detect_hls,
+    is_hls_content_type,
+    quality_height,
+    select_best_variant,
+)
 from services.resolver import ResolveError, _resolve_direct  # noqa: E402
 
 URL = "https://cdn.example.com/mc/extensionless-playlist"
@@ -120,6 +126,46 @@ class HlsContentTypeTests(unittest.TestCase):
         self.assertTrue(is_hls_content_type("application/vnd.apple.mpegurl; charset=utf-8"))
         self.assertFalse(is_hls_content_type("video/mp4"))
         self.assertFalse(is_hls_content_type(None))
+
+
+class BestVariantSafetyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_media_prefix_is_capped(self):
+        """Doğrudan video/akış yanıtı master playlist taramasında tamamen okunmamalı."""
+
+        class HugeResponse:
+            def __init__(self) -> None:
+                self.url = URL
+                self.read = 0
+
+            def raise_for_status(self) -> None:
+                return None
+
+            async def aiter_bytes(self):
+                for _ in range(20):
+                    self.read += MAX_PLAYLIST_BYTES
+                    yield b"x" * MAX_PLAYLIST_BYTES
+
+        class HugeClient:
+            def __init__(self) -> None:
+                self.response = HugeResponse()
+
+            def stream(self, method: str, url: str, headers=None):
+                return _StreamContext(self.response)
+
+        client = HugeClient()
+        self.assertIsNone(await select_best_variant(client, URL))
+        self.assertEqual(client.response.read, MAX_PLAYLIST_BYTES)
+
+
+class _StreamContext:
+    def __init__(self, response) -> None:
+        self.response = response
+
+    async def __aenter__(self):
+        return self.response
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
 
 
 class HlsDetectionTests(unittest.IsolatedAsyncioTestCase):

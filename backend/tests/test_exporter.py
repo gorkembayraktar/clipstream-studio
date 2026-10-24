@@ -239,6 +239,25 @@ class StagingTests(unittest.IsolatedAsyncioTestCase):
         # Girdi payload'u değişmemeli; yalnızca kopya yerelleştirilir.
         self.assertEqual(payload["url"], "https://example.com/video.m3u8")
 
+    async def test_local_http_source_is_not_staged(self):
+        payload = make_payload(
+            url="http://127.0.0.1:8765/api/local/file/abc123",
+        )
+        with (
+            patch("services.exporter.local_path", return_value=Path("local.mp4")),
+            patch(
+                "services.exporter.download_hls_range",
+                new=AsyncMock(),
+            ) as download,
+        ):
+            staged, downloads = await stage_hls_sources(
+                payload, object(), 1.25, 4.75
+            )
+
+        download.assert_not_awaited()
+        self.assertEqual(staged, payload)
+        self.assertEqual(downloads, [])
+
     async def test_failed_staging_keeps_original_remote_urls(self):
         payload = make_payload(
             url="https://example.com/video.m3u8",
