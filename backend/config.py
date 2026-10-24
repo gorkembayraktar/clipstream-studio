@@ -9,6 +9,7 @@ WAVEFORM_CACHE_DIR = CACHE_DIR / "waveform"
 WAVEFORM_TEMP_DIR = CACHE_DIR / "waveform-tmp"
 STORYBOARD_CACHE_DIR = CACHE_DIR / "storyboard"
 STORYBOARD_TEMP_DIR = CACHE_DIR / "storyboard-tmp"
+THUMBNAIL_CACHE_DIR = CACHE_DIR / "thumbnails"
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 HOST = "127.0.0.1"
@@ -34,4 +35,5 @@ WAVEFORM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 WAVEFORM_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 STORYBOARD_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 STORYBOARD_TEMP_DIR.mkdir(parents=True, exist_ok=True)
+THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)

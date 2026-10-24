@@ -19,6 +19,7 @@ from services.header_store import get_headers
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args, sanitize_headers
 from services.segment_downloader import DownloadedMedia, download_hls_range
+from services.thumbnails import generate_thumbnail
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +278,14 @@ def _mark_done(job: dict[str, Any], output_path: Path) -> None:
     job["elapsed_sec"] = round(time.time() - job["started_at"], 1)
 
 
+async def _warm_thumbnail(output_path: Path) -> None:
+    """Kartlar ilk açılışta beklemesin diye export sonrası thumbnail üretir."""
+    try:
+        await asyncio.to_thread(generate_thumbnail, output_path)
+    except Exception as exc:  # en iyi çaba: export başarısını etkilemez
+        logger.warning("export: thumbnail üretilemedi: %s", exc)
+
+
 async def stage_hls_sources(
     payload: dict[str, Any],
     client: Any,
@@ -431,6 +440,7 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
 
         if returncode == 0 and output_path.exists():
             _mark_done(job, output_path)
+            await _warm_thumbnail(output_path)
             return
 
         # GPU kodlayıcı sürücü/oturum hatası verirse aynı işi CPU ile yeniden dene.
@@ -459,6 +469,7 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
                 return
             if returncode == 0 and output_path.exists():
                 _mark_done(job, output_path)
+                await _warm_thumbnail(output_path)
                 return
 
         _remove_partial_output(output_path)

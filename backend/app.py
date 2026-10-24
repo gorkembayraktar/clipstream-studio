@@ -48,6 +48,7 @@ from core.jobs import JobManager
 from services.local_media import cleanup_uploads
 from services.segment_downloader import cleanup_stale_temp_dirs
 from services.storyboard import cleanup_storyboards
+from services.thumbnails import cleanup_thumbnails
 
 
 def _fallback_html() -> str:
@@ -111,6 +112,8 @@ def create_app() -> Starlette:
     cleanup_stale_temp_dirs()
     # Süresi geçen / fazla storyboard dosyaları açılışta temizlenir.
     cleanup_storyboards()
+    # Kaynağı kalmamış veya eski imzaya ait thumbnail'lar temizlenir.
+    cleanup_thumbnails()
 
     routes = [
         *media_api.routes,

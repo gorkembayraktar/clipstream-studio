@@ -8,6 +8,7 @@ from pathlib import Path
 from config import EXPORTS_DIR, VIDEO_EXTENSIONS
 from core.i18n import t
 from services.prober import probe_url
+from services.thumbnails import delete_thumbnails
 
 
 class LibraryError(Exception):
@@ -95,6 +96,7 @@ def delete_file(filename: str) -> None:
     except OSError as exc:
         raise LibraryError(t("error.deleteFailed", detail=exc)) from exc
     _META_CACHE.pop(str(target), None)
+    delete_thumbnails(target.name)
 
 
 def reveal_in_explorer(filename: str | None = None) -> str:

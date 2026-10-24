@@ -18,6 +18,7 @@ interface ExportState {
   setFilename: (value: string) => void
   setGpuEnabled: (value: boolean) => void
   addActiveJobId: (id: string) => void
+  removeActiveJobIds: (ids: string[]) => void
 }
 
 export const useExportStore = create<ExportState>()((set) => ({
@@ -37,4 +38,11 @@ export const useExportStore = create<ExportState>()((set) => ({
         ? state
         : { activeJobIds: [id, ...state.activeJobIds] },
     ),
+  removeActiveJobIds: (ids) =>
+    set((state) => {
+      const remove = new Set(ids)
+      return {
+        activeJobIds: state.activeJobIds.filter((id) => !remove.has(id)),
+      }
+    }),
 }))

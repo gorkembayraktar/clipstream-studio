@@ -150,7 +150,10 @@ export const tr: Record<TranslationKey, string> = {
   "export.modeExact": "hassas",
 
   "jobsDock.title": "Dışa aktarma işleri",
-  "jobsDock.count": "İş: {count}",
+  "jobsDock.running": "{count} çalışıyor",
+  "jobsDock.ready": "{count} hazır",
+  "jobsDock.finished": "{count} tamamlandı",
+  "jobsDock.clearFinished": "Tamamlanan işleri temizle",
   "jobsDock.collapse": "Paneli küçült",
   "jobsDock.expand": "Paneli genişlet",
 
@@ -208,7 +211,6 @@ export const tr: Record<TranslationKey, string> = {
   "gallery.loading": "Yükleniyor…",
   "gallery.analyzing": "Ayrıntılar okunuyor…",
   "gallery.metaUnavailable": "Bazı ayrıntılar okunamadı.",
-  "gallery.navigateHint": "Gezinmek için ← / →",
 
   "job.preparing": "İş hazırlanıyor…",
   "job.starting": "Başlatılıyor…",
@@ -220,6 +222,7 @@ export const tr: Record<TranslationKey, string> = {
   "job.actions": "İşlemler",
   "job.ready": "Klip hazır",
   "job.failed": "Dışa aktarma başarısız",
+  "job.errorDetails": "Hata ayrıntıları",
   "job.cancelled": "İşlem iptal edildi.",
   "job.elapsed": "{seconds} sn",
   "job.doneLog": "Klip oluşturuldu: {name} ({size}, süre: {seconds} sn)",

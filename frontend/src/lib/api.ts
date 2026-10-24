@@ -393,4 +393,10 @@ export const api = {
       "/api/library/reveal",
       filename ? { filename } : {},
     ),
+  /** Küçük kart önizlemesi; eksikse backend ilk istekte üretir. */
+  libraryThumbnailUrl: (name: string, version?: string | number) => {
+    const query =
+      version === undefined ? "" : `?v=${encodeURIComponent(String(version))}`
+    return `/api/library/${encodeURIComponent(name)}/thumbnail${query}`
+  },
 }

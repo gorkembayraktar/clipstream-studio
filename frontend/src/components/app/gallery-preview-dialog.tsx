@@ -26,7 +26,7 @@ import {
 import { cn } from "cn"
 
 import { DeleteFileDialog } from "@/components/app/delete-file-dialog"
-import { FileIcon } from "@/components/app/file-icon"
+import { ExportThumbnail } from "@/components/app/export-thumbnail"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -318,7 +318,16 @@ function PreviewFileList({
               variant === "strip" && active && "border-ring/60",
             )}
           >
-            <FileIcon name={file.name} className="size-3.5 shrink-0" />
+            <ExportThumbnail
+              name={file.name}
+              version={file.modified}
+              iconClassName="size-3.5"
+              className={cn(
+                "shrink-0 rounded-[5px] ring-1",
+                variant === "sidebar" ? "h-7 w-12" : "h-6 w-10",
+                active ? "ring-ring/50" : "ring-border/40",
+              )}
+            />
             <span
               className={cn(
                 "min-w-0 truncate font-mono",
@@ -591,11 +600,11 @@ export function GalleryPreviewDialog({
             event.preventDefault()
             onRestoreFocus()
           }}
-          className="grid h-[100dvh] w-full! max-w-none! grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-0! overflow-hidden rounded-none! p-0! sm:h-[90dvh] sm:max-h-[52rem] sm:w-[90vw]! sm:max-w-6xl! sm:rounded-xl!"
+          className="flex! h-[100dvh] w-full! max-w-none! flex-col gap-0! overflow-hidden rounded-none! p-0! sm:h-[90dvh] sm:max-h-[52rem] sm:w-[90vw]! sm:max-w-6xl! sm:rounded-xl!"
         >
-          <DialogHeader className="min-w-0 border-b px-4 py-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <div className="min-w-0 flex-1">
+          <DialogHeader className="min-w-0 shrink-0 border-b px-4 py-3">
+            <div className="flex min-w-0 flex-wrap items-start gap-2">
+              <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <DialogTitle
                   title={file.name}
                   className="truncate font-mono text-sm"
@@ -615,7 +624,42 @@ export function GalleryPreviewDialog({
                 </DialogDescription>
               </div>
 
-              <div className="flex shrink-0 items-center gap-0.5">
+              <div className="flex w-full shrink-0 items-center justify-end gap-0.5 sm:w-auto">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  asChild
+                  title={t("gallery.download")}
+                  aria-label={t("gallery.download")}
+                >
+                  <a href={file.url} download>
+                    <DownloadIcon />
+                  </a>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onReveal(file.name)}
+                  title={t("gallery.reveal")}
+                  aria-label={t("gallery.reveal")}
+                >
+                  <FolderOpenIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(file.name)}
+                  title={t("gallery.delete")}
+                  aria-label={t("gallery.delete")}
+                >
+                  <Trash2Icon />
+                </Button>
+                <span
+                  className="mx-1 h-4 w-px shrink-0 bg-border"
+                  aria-hidden="true"
+                />
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -661,7 +705,7 @@ export function GalleryPreviewDialog({
             </div>
           </DialogHeader>
 
-          <div className="min-w-0 border-b px-4 py-2 lg:hidden">
+          <div className="min-w-0 shrink-0 border-b px-4 py-2 lg:hidden">
             <div className="mb-1 flex items-center justify-between text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
               <span>{t("gallery.files")}</span>
               <span className="tabular-nums">{files.length}</span>
@@ -676,7 +720,7 @@ export function GalleryPreviewDialog({
             />
           </div>
 
-          <div className="min-h-0 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
             <div className="flex min-h-full flex-col lg:h-full lg:min-h-0 lg:flex-row">
               <div className="relative flex h-[42dvh] min-h-56 shrink-0 items-center justify-center overflow-hidden bg-black lg:h-full lg:min-h-0 lg:flex-1">
                 {mediaError || !playable ? (
@@ -698,7 +742,7 @@ export function GalleryPreviewDialog({
                 )}
               </div>
 
-              <aside className="min-w-0 shrink-0 border-t bg-muted/20 p-4 lg:flex lg:w-72 lg:flex-col lg:overflow-hidden lg:border-t-0 lg:border-l">
+              <aside className="min-w-0 max-lg:grow shrink-0 border-t bg-muted/20 p-4 lg:flex lg:w-72 lg:flex-col lg:overflow-hidden lg:border-t-0 lg:border-l">
                 <section
                   aria-label={t("gallery.files")}
                   className="hidden min-h-0 shrink-0 border-b pb-4 lg:block"
@@ -707,7 +751,7 @@ export function GalleryPreviewDialog({
                     <span>{t("gallery.files")}</span>
                     <span className="tabular-nums">{files.length}</span>
                   </h3>
-                  <div className="max-h-44 overflow-y-auto pr-1">
+                  <div className="max-h-56 overflow-y-auto pr-1">
                     <PreviewFileList
                       files={files}
                       activeName={file.name}
@@ -730,41 +774,6 @@ export function GalleryPreviewDialog({
                   />
                 </div>
               </aside>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 border-t bg-muted/50 px-4 py-3">
-            <Button variant="outline" size="sm" asChild>
-              <a href={file.url} download>
-                <DownloadIcon />
-                {t("gallery.download")}
-              </a>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onReveal(file.name)}
-            >
-              <FolderOpenIcon />
-              {t("gallery.reveal")}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={deleting}
-              onClick={() => setDeleteTarget(file.name)}
-            >
-              <Trash2Icon />
-              {t("gallery.delete")}
-            </Button>
-
-            <div className="ml-auto flex items-center gap-3">
-              <span className="hidden text-[10px] text-muted-foreground md:inline">
-                {t("gallery.navigateHint")}
-              </span>
-              <DialogClose asChild>
-                <Button size="sm">{t("common.close")}</Button>
-              </DialogClose>
             </div>
           </div>
 

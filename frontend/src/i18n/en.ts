@@ -152,7 +152,10 @@ export const en = {
   "export.modeExact": "exact",
 
   "jobsDock.title": "Export jobs",
-  "jobsDock.count": "Jobs: {count}",
+  "jobsDock.running": "{count} running",
+  "jobsDock.ready": "{count} ready",
+  "jobsDock.finished": "{count} finished",
+  "jobsDock.clearFinished": "Clear finished jobs",
   "jobsDock.collapse": "Minimize panel",
   "jobsDock.expand": "Expand panel",
 
@@ -210,7 +213,6 @@ export const en = {
   "gallery.loading": "Loading…",
   "gallery.analyzing": "Reading details…",
   "gallery.metaUnavailable": "Some details could not be read.",
-  "gallery.navigateHint": "← / → to browse",
 
   "job.preparing": "Preparing job…",
   "job.starting": "Starting…",
@@ -222,6 +224,7 @@ export const en = {
   "job.actions": "Actions",
   "job.ready": "Clip ready",
   "job.failed": "Export failed",
+  "job.errorDetails": "Error details",
   "job.cancelled": "Job cancelled.",
   "job.elapsed": "{seconds}s",
   "job.doneLog": "Clip created: {name} ({size}, duration: {seconds}s)",

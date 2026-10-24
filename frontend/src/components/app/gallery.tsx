@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import { DeleteFileDialog } from "@/components/app/delete-file-dialog"
-import { FileIcon } from "@/components/app/file-icon"
+import { ExportThumbnail } from "@/components/app/export-thumbnail"
 import { GalleryPreviewDialog } from "@/components/app/gallery-preview-dialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -201,7 +201,11 @@ function GalleryItem({ file, onPreview, onDelete, onReveal, deleting }: GalleryI
       className="group flex cursor-pointer items-center gap-2 rounded-lg bg-muted/40 px-2 py-1.5 ring-1 ring-transparent transition-all duration-150 outline-none hover:bg-muted/70 hover:shadow-sm hover:ring-border/60 focus-visible:ring-2 focus-visible:ring-ring active:bg-muted/80"
       onDoubleClick={handleDoubleClick}
     >
-      <FileIcon name={file.name} className="size-4 shrink-0 text-muted-foreground" />
+      <ExportThumbnail
+        name={file.name}
+        version={file.modified}
+        className="h-9 w-16 shrink-0 rounded-md ring-1 ring-border/40"
+      />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-mono text-[11px]">{file.name}</p>
