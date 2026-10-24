@@ -6,6 +6,8 @@ import {
   RotateCwIcon,
   StepBackIcon,
   StepForwardIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -27,6 +29,12 @@ import {
 } from "@/stores/player-store"
 import { useEditStore } from "@/stores/edit-store"
 import { useSourceStore } from "@/stores/source-store"
+import {
+  MAX_TIMELINE_ZOOM,
+  MIN_TIMELINE_ZOOM,
+  TIMELINE_ZOOM_LEVELS,
+  useTimelineStore,
+} from "@/stores/timeline-store"
 
 const STEP_LABEL_KEYS: Record<StepMode, TranslationKey> = {
   frame: "step.frame",
@@ -68,6 +76,11 @@ export function TimelineToolbar() {
   const loop = useEditStore((s) => s.loop)
   const setLoop = useEditStore((s) => s.setLoop)
   const duration = useSourceStore((s) => s.meta?.duration ?? 0)
+  const zoom = useTimelineStore((s) => s.zoom)
+  const setZoom = useTimelineStore((s) => s.setZoom)
+  const zoomIn = useTimelineStore((s) => s.zoomIn)
+  const zoomOut = useTimelineStore((s) => s.zoomOut)
+  const resetZoom = useTimelineStore((s) => s.resetZoom)
 
   const currentTimeOf = () =>
     getVideoElement()?.currentTime ?? usePlayerStore.getState().currentTime
@@ -79,6 +92,11 @@ export function TimelineToolbar() {
     usePlayerStore.getState().play()
   }
   const resetRange = () => setTrim({ start: 0, end: duration })
+  const zoomPercent = Math.round(zoom * 100)
+  const zoomIndex = Math.max(
+    0,
+    TIMELINE_ZOOM_LEVELS.findIndex((level) => level === zoom),
+  )
 
   return (
     <div
@@ -183,29 +201,91 @@ export function TimelineToolbar() {
         </Button>
       </div>
 
-      <div className="ml-auto flex items-center gap-0.5">
-        <Button
-          variant={loop ? "secondary" : "ghost"}
-          size="icon-sm"
-          onClick={() => setLoop(!loop)}
-          data-slot="loop-toggle"
-          aria-label={t("trim.loop")}
-          aria-pressed={loop}
-          title={t("trim.loop")}
+      <div className="ml-auto flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant={loop ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => setLoop(!loop)}
+            data-slot="loop-toggle"
+            aria-label={t("trim.loop")}
+            aria-pressed={loop}
+            title={t("trim.loop")}
+          >
+            <RepeatIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={resetRange}
+            disabled={duration <= 0}
+            data-slot="reset-range"
+            aria-label={t("trim.fullRange")}
+            title={t("trim.fullRange")}
+          >
+            <RotateCcwIcon />
+          </Button>
+        </div>
+
+        {/* Zaman çizelgesi yakınlaştırması: yüzde etiketi sıfırlar, altındaki kaydırıcı seviye seçer. */}
+        <div
+          role="group"
+          aria-label={t("timeline.zoom")}
+          className="flex items-center gap-0.5 border-l border-border/70 pl-2"
         >
-          <RepeatIcon />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={resetRange}
-          disabled={duration <= 0}
-          data-slot="reset-range"
-          aria-label={t("trim.fullRange")}
-          title={t("trim.fullRange")}
-        >
-          <RotateCcwIcon />
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={zoomOut}
+            disabled={zoom <= MIN_TIMELINE_ZOOM}
+            data-slot="timeline-zoom-out"
+            aria-label={t("timeline.zoomOut")}
+            title={t("timeline.zoomOut")}
+          >
+            <ZoomOutIcon />
+          </Button>
+          <div className="flex h-7 w-14 shrink-0 flex-col items-center">
+            <button
+              type="button"
+              onClick={resetZoom}
+              data-slot="timeline-zoom-reset"
+              aria-label={t("timeline.zoomResetLevel", { percent: zoomPercent })}
+              title={t("timeline.zoomReset")}
+              className="flex h-4 w-full items-center justify-center rounded-sm font-mono text-[10px] leading-none tabular-nums text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            >
+              {zoomPercent}%
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={TIMELINE_ZOOM_LEVELS.length - 1}
+              step={1}
+              value={zoomIndex}
+              onChange={(event) =>
+                setZoom(
+                  TIMELINE_ZOOM_LEVELS[Number(event.currentTarget.value)] ??
+                    MIN_TIMELINE_ZOOM,
+                )
+              }
+              data-slot="timeline-zoom-range"
+              aria-label={t("timeline.zoom")}
+              aria-valuetext={`${zoomPercent}%`}
+              title={t("timeline.zoomSlider")}
+              className="h-3 w-14 cursor-ew-resize appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+            />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={zoomIn}
+            disabled={zoom >= MAX_TIMELINE_ZOOM}
+            data-slot="timeline-zoom-in"
+            aria-label={t("timeline.zoomIn")}
+            title={t("timeline.zoomIn")}
+          >
+            <ZoomInIcon />
+          </Button>
+        </div>
       </div>
     </div>
   )

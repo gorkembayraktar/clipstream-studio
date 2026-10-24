@@ -254,6 +254,12 @@ export const en = {
   "timeline.storyboardFailed": "Preview unavailable",
   "timeline.loadSource": "Load a source to use the timeline",
   "timeline.live": "LIVE source · editing is unavailable until a finite clip is loaded",
+  "timeline.zoom": "Timeline zoom",
+  "timeline.zoomIn": "Zoom in",
+  "timeline.zoomOut": "Zoom out",
+  "timeline.zoomReset": "Reset zoom (100%)",
+  "timeline.zoomResetLevel": "Zoom {percent}%. Click to reset.",
+  "timeline.zoomSlider": "Zoom slider — drag to adjust",
 
   "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",

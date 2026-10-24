@@ -16,6 +16,8 @@ const BAR_GAP = 1
 const MIN_BAR_HEIGHT = 1
 /** Sabit gri (muted-foreground okunamazsa yedek). */
 const FALLBACK_GRAY = "#a1a1aa"
+/** Yüksek yakınlaştırmada canvas boyutunu tarayıcı sınırlarında tutar. */
+const MAX_CANVAS_WIDTH = 16384
 
 interface Size {
   width: number
@@ -68,7 +70,7 @@ function drawBars(
   context.globalAlpha = 1
 }
 
-export function WaveformLayer({ duration }: { duration: number }) {
+export function WaveformLayer({ duration, zoom }: { duration: number; zoom: number }) {
   const streamUrl = useSourceStore((s) => s.streamUrl)
   const origin = useSourceStore((s) => s.sourceOrigin)
   const audioUrl = useSourceStore((s) => s.audioUrl)
@@ -89,7 +91,8 @@ export function WaveformLayer({ duration }: { duration: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
 
-  // Katmanın ölçüsü değişince (pencere/tam ekran) çubuklar yeniden ölçeklenir
+  // Katmanın ölçüsü değişince (pencere/tam ekran/yakınlaştırma) çubuklar yeniden ölçeklenir.
+  // zoom bağımlılığı, ResizeObserver gecikse bile yakınlaştırmada anında yeniden ölçüm sağlar.
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
@@ -101,7 +104,7 @@ export function WaveformLayer({ duration }: { duration: number }) {
     const observer = new ResizeObserver(measure)
     observer.observe(host)
     return () => observer.disconnect()
-  }, [data])
+  }, [data, zoom])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -109,7 +112,8 @@ export function WaveformLayer({ duration }: { duration: number }) {
     if (!data || !canvas || width <= 0 || height <= 0) return
 
     const ratio = window.devicePixelRatio || 1
-    canvas.width = Math.round(width * ratio)
+    const renderWidth = Math.min(width, MAX_CANVAS_WIDTH / ratio)
+    canvas.width = Math.round(renderWidth * ratio)
     canvas.height = Math.round(height * ratio)
 
     const computed = hostRef.current ? getComputedStyle(hostRef.current).color : ""

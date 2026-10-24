@@ -1,5 +1,5 @@
 /** İnteraktif zaman çizelgesi: oynatma imleci + Giriş/Çıkış tutamaçları + kare önizleme. */
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties } from "react"
 
 import { Loader2Icon } from "lucide-react"
@@ -14,6 +14,7 @@ import type { StoryboardMeta } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
 import { useEditStore } from "@/stores/edit-store"
 import { useSourceStore } from "@/stores/source-store"
+import { useTimelineStore } from "@/stores/timeline-store"
 
 type DragTarget = "playhead" | "start" | "end" | "range"
 
@@ -23,8 +24,6 @@ const RANGE_DRAG_THRESHOLD = 4
 /** Kare önizleme balonunun ölçüleri (px) — sunucu da bu ölçüde üretir. */
 const PREVIEW_WIDTH = 160
 const PREVIEW_HEIGHT = 90
-/** Zaman çizelgesinin yuvarlatılmış kenarları tutamaçları kırpmasın diye iç boşluk. */
-const TRACK_PADDING = 8
 
 /** Pointer yakalama kenar durumlarda (ör. sentetik olaylar) hata verebilir; sürükleme yine de çalışır. */
 function capturePointer(element: Element | null, pointerId: number) {
@@ -44,9 +43,21 @@ function releasePointer(element: Element | null, pointerId: number) {
 }
 
 function tickStep(duration: number): number {
-  const steps = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600]
+  const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600]
   const target = duration / 10
   return steps.find((step) => step >= target) ?? 3600
+}
+
+/** Yakınlaştırmada saniye altı çentiklerin etiketini de okunur tutar. */
+function formatTick(seconds: number, step: number): string {
+  if (step >= 1) return formatClock(seconds)
+  const total = Math.max(0, seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = (total % 60).toFixed(1).padStart(4, "0")
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}`
+    : `${minutes}:${secs}`
 }
 
 /** Yüklenen gruplar arasından zamana en yakın kareyi CSS ile kırpar. */
@@ -94,11 +105,16 @@ export function Timeline() {
   const currentTime = usePlayerStore((s) => s.currentTime)
   const bufferedEnd = usePlayerStore((s) => s.bufferedEnd)
   const seek = usePlayerStore((s) => s.seek)
+  const zoom = useTimelineStore((s) => s.zoom)
+  const resetZoom = useTimelineStore((s) => s.resetZoom)
 
   // Canlı yayında sonlu bir süre yoktur; timeline/trim/storyboard devre dışı.
   const duration = isLive ? 0 : playerDuration || metaDuration
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  const previousZoomRef = useRef(zoom)
   const dragRef = useRef<DragTarget | null>(null)
   /** Aralık taşıma sürüklemesinin başlangıç durumu (imleç X + kesim sınırları). */
   const rangeRef = useRef<{ pointerX: number; start: number; end: number; moved: boolean } | null>(
@@ -121,12 +137,13 @@ export function Timeline() {
   )
 
   const ticks = useMemo(() => {
-    if (duration <= 0) return []
-    const step = tickStep(duration)
-    const result: number[] = []
-    for (let time = 0; time <= duration; time += step) result.push(time)
-    return result
-  }, [duration])
+    if (duration <= 0) return { step: 1, values: [] as number[] }
+    // Yakınlaştıkça görünür aralık kısaldığı için çentik sıklığı da artar.
+    const step = tickStep(duration / zoom)
+    const values: number[] = []
+    for (let time = 0; time <= duration; time += step) values.push(time)
+    return { step, values }
+  }, [duration, zoom])
 
   const handleTrackPointerDown = (event: React.PointerEvent) => {
     if (duration <= 0) return
@@ -137,12 +154,18 @@ export function Timeline() {
 
   const handlePointerMove = (event: React.PointerEvent) => {
     const track = trackRef.current
-    if (track && duration > 0) {
+    const wrapper = wrapperRef.current
+    if (track && wrapper && duration > 0) {
       const bounds = track.getBoundingClientRect()
-      const x = clamp(event.clientX - bounds.left, 0, bounds.width)
-      // Balon çizelgenin kenarlarından taşmasın diye yatay konum sınırlanır
+      const wrapperBounds = wrapper.getBoundingClientRect()
+      // Balon görünür çerçeveye göre konumlanır; çizelge yatay kaydırılabilir.
+      const x = clamp(event.clientX - wrapperBounds.left, 0, wrapperBounds.width)
       const half = PREVIEW_WIDTH / 2 + 4
-      setHover({ left: clamp(x, half, Math.max(half, bounds.width - half)), time: timeAt(event.clientX) })
+      const time = clamp((event.clientX - bounds.left) / bounds.width, 0, 1) * duration
+      setHover({
+        left: clamp(x, half, Math.max(half, wrapperBounds.width - half)),
+        time,
+      })
     }
 
     const target = dragRef.current
@@ -229,6 +252,11 @@ export function Timeline() {
   const storyboardTile =
     hover && storyboard ? storyboardFrame(storyboard, hover.time) : null
 
+  // Kaynak değişince yeni çizelge tam görünümle açılır.
+  useEffect(() => {
+    resetZoom()
+  }, [streamUrl, resetZoom])
+
   const handlePointerLeave = () => {
     if (dragRef.current) return
     setHover(null)
@@ -237,9 +265,58 @@ export function Timeline() {
   const startPct = pct(trim.start)
   const endPct = pct(trim.end)
 
+  // Yakınlaştırılan görünümde imleci görünür tut; seviye değişiminde ortala.
+  useEffect(() => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+
+    if (zoom <= 1) {
+      previousZoomRef.current = zoom
+      if (scroller.scrollLeft !== 0) scroller.scrollLeft = 0
+      return
+    }
+
+    const track = trackRef.current
+    if (!track || duration <= 0) {
+      previousZoomRef.current = zoom
+      return
+    }
+
+    const trackBounds = track.getBoundingClientRect()
+    const scrollerBounds = scroller.getBoundingClientRect()
+    const playheadX =
+      trackBounds.left -
+      scrollerBounds.left +
+      scroller.scrollLeft +
+      clamp(currentTime / duration, 0, 1) * trackBounds.width
+    const viewport = scroller.clientWidth
+    const maxScroll = scroller.scrollWidth - viewport
+    if (viewport <= 0 || maxScroll <= 0) {
+      previousZoomRef.current = zoom
+      return
+    }
+
+    const zoomChanged = previousZoomRef.current !== zoom
+    previousZoomRef.current = zoom
+    const margin = Math.min(96, viewport * 0.18)
+    let target: number | null = null
+
+    if (zoomChanged) target = playheadX - viewport / 2
+    else if (playheadX < scroller.scrollLeft + margin) target = playheadX - margin
+    else if (playheadX > scroller.scrollLeft + viewport - margin) {
+      target = playheadX - viewport + margin
+    }
+
+    if (target !== null) scroller.scrollLeft = clamp(target, 0, maxScroll)
+  }, [currentTime, duration, zoom])
+
   return (
-    <div className="relative select-none">
-      <div className="overflow-hidden rounded-lg bg-muted/50 ring-1 ring-foreground/10">
+    <div ref={wrapperRef} className="relative select-none">
+      <div
+        ref={scrollRef}
+        onScroll={() => setHover(null)}
+        className="overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg bg-muted/50 px-2 ring-1 ring-foreground/10 [scrollbar-width:thin]"
+      >
         <div
           ref={trackRef}
           onPointerDown={handleTrackPointerDown}
@@ -247,13 +324,14 @@ export function Timeline() {
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           onPointerLeave={handlePointerLeave}
+          style={{ width: `${zoom * 100}%` }}
           className={cn(
-            "relative mx-2 h-14 touch-none",
+            "relative h-14 touch-none",
             duration > 0 ? "cursor-crosshair" : "opacity-60",
           )}
         >
           {/* Ses dalga formu (kaynak analiz edildikçe görünür) */}
-          <WaveformLayer duration={duration} />
+          <WaveformLayer duration={duration} zoom={zoom} />
 
           {/* Tampon belleği */}
           <div
@@ -273,7 +351,7 @@ export function Timeline() {
           )}
 
           {/* Çentikler ve etiketler */}
-          {ticks.map((tick) => (
+          {ticks.values.map((tick) => (
             <div
               key={tick}
               className="absolute top-0 bottom-0"
@@ -282,7 +360,7 @@ export function Timeline() {
               <div className="absolute top-1/2 bottom-0 w-px bg-foreground/15" />
               {tick > 0 && tick < duration && (
                 <span className="absolute bottom-0.5 -translate-x-1/2 text-[10px] whitespace-nowrap text-muted-foreground">
-                  {formatClock(tick)}
+                  {formatTick(tick, ticks.step)}
                 </span>
               )}
             </div>
@@ -344,7 +422,7 @@ export function Timeline() {
         <div
           data-slot="timeline-preview"
           className="pointer-events-none absolute bottom-[calc(100%+6px)] z-40 -translate-x-1/2"
-          style={{ left: `${hover.left + TRACK_PADDING}px` }}
+          style={{ left: `${hover.left}px` }}
         >
           <div className="overflow-hidden rounded-md border border-border/70 bg-black shadow-xl">
             <div className="relative" style={{ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}>
