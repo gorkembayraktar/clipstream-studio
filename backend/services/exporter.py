@@ -187,7 +187,7 @@ def build_ffmpeg_command(
             command += ["-map", "1:a:0"] if merge_audio else ["-map", "0:a:0?"]
 
     if output_format == "gif":
-        filters = []
+        filters = ["setpts=PTS-STARTPTS"]
         if crop:
             filters.append(f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}")
         filters.append("fps=15,scale=480:-1:flags=lanczos")
@@ -195,12 +195,17 @@ def build_ffmpeg_command(
         command += ["-vf", graph]
 
     elif output_format == "mp3":
-        command += ["-vn", "-c:a", "libmp3lame", "-q:a", "2"]
+        command += ["-af", "asetpts=PTS-STARTPTS", "-vn", "-c:a", "libmp3lame", "-q:a", "2"]
 
     elif crop or mode != "fast":
-        # Hassas kesim (gerekirse crop ile birlikte) — kare hassasiyetinde yeniden kodlama
+        # Hassas kesim (gerekirse crop ile birlikte) — kare hassasiyetinde yeniden kodlama.
+        # PTS sıfırlama, HLS/uzun akışlarda seek sonrası ilk saniyelerin donmuş
+        # görünmesini önler.
+        filters = ["setpts=PTS-STARTPTS"]
         if crop:
-            command += ["-vf", f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}"]
+            filters.append(f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}")
+        command += ["-vf", ",".join(filters)]
+        command += ["-af", "asetpts=PTS-STARTPTS"]
         if use_gpu:
             command += gpu_encoder_arguments(gpu_encoder or "")
         else:

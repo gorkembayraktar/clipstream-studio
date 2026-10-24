@@ -24,7 +24,7 @@ from typing import Any, AsyncIterator, Optional
 from urllib.parse import urljoin, urlparse
 
 from config import WAVEFORM_TEMP_DIR
-from services.hls import ATTRIBUTE, is_master_playlist
+from services.hls import ATTRIBUTE, is_master_playlist, select_best_variant
 
 logger = logging.getLogger(__name__)
 
@@ -610,6 +610,14 @@ async def download_hls_range(
         return None
 
     playlist = await load_hls_playlist(client, playlist_url, headers)
+    if playlist is None:
+        # Master playlist ise en iyi varyantın medya playlist'ine in.
+        # Aksi halde uzun HLS akışlarında FFmpeg uzak playlist üzerinde
+        # seek ediyor ve klip başında donmuş kareler oluşabiliyor.
+        variant = await select_best_variant(client, playlist_url, headers)
+        variant_url = str((variant or {}).get("url") or "").strip()
+        if variant_url and variant_url != playlist_url:
+            playlist = await load_hls_playlist(client, variant_url, headers)
     if playlist is None:
         return None
 

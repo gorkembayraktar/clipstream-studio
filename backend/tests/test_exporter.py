@@ -108,7 +108,17 @@ class FfmpegCommandTests(unittest.TestCase):
         )
         self.assertIn("h264_nvenc", command)
         self.assertNotIn("libx264", command)
-        self.assertIn("crop=640:360:0:0", command)
+        self.assertIn("crop=640:360:0:0", " ".join(command))
+
+    def test_exact_mode_resets_input_timestamps(self):
+        command = build_ffmpeg_command(make_payload(), Path("out.mp4"))
+        joined = " ".join(command)
+        self.assertIn("setpts=PTS-STARTPTS", joined)
+        self.assertIn("asetpts=PTS-STARTPTS", joined)
+
+    def test_fast_copy_does_not_add_filters(self):
+        command = build_ffmpeg_command(make_payload(mode="fast"), Path("out.mp4"))
+        self.assertNotIn("PTS-STARTPTS", " ".join(command))
 
     def test_gpu_is_ignored_for_gif(self):
         command = build_ffmpeg_command(
