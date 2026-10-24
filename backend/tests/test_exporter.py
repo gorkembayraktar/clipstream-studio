@@ -11,7 +11,9 @@ if str(BACKEND_DIR) not in sys.path:
 
 from services.exporter import (  # noqa: E402
     ExportError,
+    _can_resume,
     _parse_speed,
+    _resume_payload,
     _update_eta,
     build_ffmpeg_command,
     is_gpu_render_eligible,
@@ -177,7 +179,6 @@ class EtaTests(unittest.TestCase):
         self.assertIsNone(_parse_speed("N/A"))
         self.assertIsNone(_parse_speed("0x"))
         self.assertIsNone(_parse_speed(None))
-
     def test_eta_uses_remaining_duration_and_speed(self):
         job = {"current_sec": 10.0, "speed": "2.0x"}
         _update_eta(job, 30.0)
@@ -197,6 +198,43 @@ class EtaTests(unittest.TestCase):
         job = {"current_sec": 31.0, "speed": "1.5x"}
         _update_eta(job, 30.0)
         self.assertEqual(job["eta_sec"], 0.0)
+
+
+class ResumeCommandTests(unittest.TestCase):
+    def test_intermediate_output_uses_mpegts_without_faststart(self):
+        command = build_ffmpeg_command(
+            make_payload(), Path("part.ts"), intermediate=True
+        )
+        self.assertIn("-f", command)
+        self.assertEqual(command[command.index("-f") + 1], "mpegts")
+        self.assertNotIn("+faststart", command)
+
+    def test_resume_payload_adjusts_staged_seeks(self):
+        payload = make_payload(
+            start_time=100.0,
+            end_time=200.0,
+            _video_seek=5.0,
+            _audio_seek=2.0,
+        )
+        part = _resume_payload(payload, 130.0, 30.0)
+        self.assertEqual(part["start_time"], 130.0)
+        self.assertEqual(part["end_time"], 200.0)
+        self.assertAlmostEqual(part["_video_seek"], 35.0)
+        self.assertAlmostEqual(part["_audio_seek"], 32.0)
+
+    def test_can_resume_only_for_reencoded_mp4(self):
+        self.assertTrue(_can_resume(make_payload()))
+        self.assertFalse(_can_resume(make_payload(mode="fast")))
+        self.assertTrue(
+            _can_resume(
+                make_payload(
+                    mode="fast",
+                    crop={"enabled": True, "x": 0, "y": 0, "width": 640, "height": 360},
+                )
+            )
+        )
+        self.assertFalse(_can_resume(make_payload(output_format="gif")))
+        self.assertFalse(_can_resume(make_payload(output_format="mp3")))
 
 
 class StagingTests(unittest.IsolatedAsyncioTestCase):

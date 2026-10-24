@@ -381,6 +381,22 @@ class RangeDownloadTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(download)
             self.assertEqual(client.requests, [])
 
+    async def test_extensionless_direct_media_is_not_staged(self):
+        url = "https://cdn.example.com/path/MTc5Mjg5Njg5NDpZWFdFajdfRFVwWWtZ"
+        client = FakeClient(playlist=CHUNKED_PLAYLIST, bodies=self._bodies())
+        with tempfile.TemporaryDirectory() as root:
+            download = await download_hls_range(
+                client,
+                url,
+                0.0,
+                10.0,
+                temp_root=Path(root),
+            )
+
+        self.assertIsNone(download)
+        # Yalnızca kısa HLS tespiti yapılmalı; playlist/segment indirilmemeli.
+        self.assertEqual(client.requests, [url])
+
 
 class ChunkedDownloadTests(unittest.IsolatedAsyncioTestCase):
     def _bodies(self) -> dict[str, bytes]:

@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import re
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -24,6 +25,17 @@ from services.thumbnails import generate_thumbnail
 logger = logging.getLogger(__name__)
 
 MIN_CLIP_DURATION = 0.1
+
+#: FFmpeg bu süre boyunca anlamlı ilerleme kaydetmezse akış takılmış sayılır.
+STALL_STARTUP_GRACE_SECONDS = 30.0
+STALL_WINDOW_SECONDS = 20.0
+STALL_MIN_PROGRESS_SECONDS = 0.5
+#: Takılan işi kaldığı yerden sürdürme denemeleri.
+MAX_RESUME_ATTEMPTS = 8
+MAX_NO_PROGRESS_ATTEMPTS = 3
+#: Parçalar arasında kare atlamamak için küçük bir örtüşme bırakılır.
+RESUME_OVERLAP_SECONDS = 0.25
+MIN_RESUME_STEP_SECONDS = 0.5
 
 
 class ExportError(Exception):
@@ -109,11 +121,16 @@ def build_ffmpeg_command(
     output_path: Path,
     *,
     gpu_encoder: Optional[str] = None,
+    intermediate: bool = False,
 ) -> list[str]:
     """Payload'dan ffmpeg komutunu üretir (saf fonksiyon, test edilebilir).
 
     `gpu_encoder` yalnızca çağıran taraf yeteneği doğruladıktan sonra verilir;
     hızlı kopyalama, GIF ve MP3 çıktılarında yok sayılır.
+
+    `intermediate=True` ise çıktı, kesilebilir/birleştirilebilir MPEG-TS olarak
+    yazılır. Yeniden denemeli dışa aktarmada parçalar bu biçimde üretilir;
+    son MP4 birleştirme adımında oluşturulur.
     """
     url = str(payload.get("url", "")).strip()
     if not url:
@@ -219,8 +236,9 @@ def build_ffmpeg_command(
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-b:a", "192k",
-            "-movflags", "+faststart",
         ]
+        if not intermediate:
+            command += ["-movflags", "+faststart"]
 
     else:
         # Hızlı kesim — yeniden kodlama yok, anahtar kareye hizalı
@@ -228,6 +246,8 @@ def build_ffmpeg_command(
         if ".m3u8" in url.lower() and not merge_audio:
             command += ["-bsf:a", "aac_adtstoasc"]
 
+    if intermediate:
+        command += ["-f", "mpegts"]
     command.append(str(output_path))
     return command
 
@@ -371,23 +391,299 @@ async def _read_stderr(process, limit: int = 64 * 1024) -> str:
     return tail.decode("utf-8", errors="ignore").strip()
 
 
+async def _watch_stall(
+    process,
+    job: dict[str, Any],
+    total_duration: float,
+    progress_base: float,
+    result: dict[str, Any],
+) -> None:
+    """FFmpeg ilerlemesini izler; akış sürünüyorsa süreci sonlandırır.
+
+    Tek başına ``speed`` alanına güvenmek yanıltıcı olabilir: FFmpeg seek
+    sırasında hızı ``0.003x`` gösterse bile birkaç saniye sonra toparlayabilir.
+    Bu yüzden ``out_time`` ilerlemesi belirli bir pencerede ölçülür. Pencere
+    içinde yeterli ilerleme yoksa bağlantı takılmış kabul edilir.
+    """
+    started = time.monotonic()
+    window_started = started
+    window_start_sec = float(job.get("current_sec") or progress_base)
+    # Çok kısa kliplerde 0.5 sn eşiği imkânsız olabilir; süreye göre küçült.
+    progress_needed = min(
+        STALL_MIN_PROGRESS_SECONDS, max(0.05, total_duration * 0.02)
+    )
+
+    while process.returncode is None:
+        await asyncio.sleep(2.0)
+        if process.returncode is not None:
+            return
+
+        now = time.monotonic()
+        current = float(job.get("current_sec") or progress_base)
+
+        # FFmpeg'in ilk bağlantı/seek süresine tolerans tanı.
+        if now - started < STALL_STARTUP_GRACE_SECONDS:
+            window_started = now
+            window_start_sec = current
+            continue
+
+        if current - window_start_sec >= progress_needed:
+            window_started = now
+            window_start_sec = current
+            continue
+
+        if now - window_started >= STALL_WINDOW_SECONDS:
+            result["stalled"] = True
+            result["stalled_at"] = round(current - progress_base, 2)
+            logger.warning(
+                "export: ffmpeg akışı takıldı (%.1f sn'de %.2f sn ilerleme); "
+                "kaldığı yerden yeniden denenecek",
+                current,
+                current - window_start_sec,
+            )
+            try:
+                process.kill()
+            except Exception:
+                pass
+            return
+
+
 async def _run_ffmpeg(
-    command: list[str], job: dict[str, Any], clip_duration: float
-) -> tuple[int, str]:
-    """FFmpeg'i çalıştırır; ilerlemeyi günceller ve stderr kuyruğunu döndürür."""
+    command: list[str],
+    job: dict[str, Any],
+    total_duration: float,
+    progress_base: float = 0.0,
+) -> tuple[int, str, bool]:
+    """FFmpeg'i çalıştırır; ilerlemeyi günceller ve takılmayı bildirir.
+
+    Dönüş: ``(returncode, stderr_kuyruğu, takıldı_mı)``.
+    """
     process = await asyncio.create_subprocess_exec(
         *command,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     job["process"] = process
+    stall_result: dict[str, Any] = {"stalled": False}
 
-    _, _, stderr_tail = await asyncio.gather(
-        _read_progress(process, job, clip_duration),
-        process.wait(),
-        _read_stderr(process),
+    try:
+        _, _, stderr_tail, _ = await asyncio.gather(
+            _read_progress(process, job, total_duration, progress_base),
+            process.wait(),
+            _read_stderr(process),
+            _watch_stall(process, job, total_duration, progress_base, stall_result),
+        )
+    finally:
+        if job.get("process") is process:
+            job.pop("process", None)
+
+    returncode = process.returncode if process.returncode is not None else -1
+    return returncode, stderr_tail, bool(stall_result["stalled"])
+
+
+def _can_resume(payload: dict[str, Any]) -> bool:
+    """Bu iş parçalı/kaldığı yerden devam eden dışa aktarmaya uygun mu?
+
+    Yalnızca MP4 ve yeniden kodlama yapan işler desteklenir. MPEG-TS ara
+    parçaları H.264/AAC taşıyabildiğinden, doğrudan kopyalama (fast) ve
+    GIF/MP3 çıktıları bu yoldan geçirilmez.
+    """
+    output_format = str(payload.get("output_format", "mp4")).lower()
+    if output_format != "mp4":
+        return False
+    mode = str(payload.get("mode", "exact")).lower()
+    return _normalized_crop(payload.get("crop")) is not None or mode != "fast"
+
+
+def _resume_payload(
+    payload: dict[str, Any], part_start: float, offset: float
+) -> dict[str, Any]:
+    """Kalan parça için payload kopyası üretir.
+
+    Yerelleştirilmiş HLS girişlerinde ``_video_seek``/``_audio_seek`` zaten
+    dosya başlangıcına göreydi; parça başlangıcı kadar eklenir. Doğrudan uzak
+    girişlerde ise ``build_ffmpeg_command`` yeni mutlak başlangıcı kullanır.
+    """
+    part = dict(payload)
+    part["start_time"] = part_start
+    for key in ("_video_seek", "_audio_seek"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        try:
+            part[key] = max(0.0, float(value) + offset)
+        except (TypeError, ValueError):
+            pass
+    return part
+
+
+async def _run_ffmpeg_remux(command: list[str], job: dict[str, Any]) -> tuple[int, str]:
+    """İlerleme üretmeyen birleştirme FFmpeg'ini çalıştırır."""
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.PIPE,
     )
-    return process.returncode, stderr_tail
+    job["process"] = process
+    stderr_task = asyncio.create_task(_read_stderr(process))
+    try:
+        await process.wait()
+        stderr_tail = await stderr_task
+    finally:
+        if job.get("process") is process:
+            job.pop("process", None)
+    returncode = process.returncode if process.returncode is not None else -1
+    return returncode, stderr_tail
+
+
+async def _run_resumable_export(
+    payload: dict[str, Any],
+    output_path: Path,
+    job: dict[str, Any],
+    gpu_encoder: Optional[str] = None,
+) -> tuple[int, str]:
+    """MP4 çıktısını parçalar halinde üretir; takılınca kaldığı yerden sürer.
+
+    Her parça ayrı bir MPEG-TS dosyasına yazılır. FFmpeg akışı takılırsa son
+    doğrulanan ``out_time`` noktasından yeni bir parça başlatılır. Tamamlanan
+    parçalar sonunda tek bir MP4'e dönüştürülür. Böylece kaynak CDN kısa süreli
+    durakladığında tüm klip baştan indirilmez.
+    """
+    start = parse_time_to_seconds(payload.get("start_time", 0))
+    end = parse_time_to_seconds(payload.get("end_time", 0))
+    total_duration = max(MIN_CLIP_DURATION, end - start)
+    offset = 0.0
+    attempts = 0
+    no_progress_attempts = 0
+    parts: list[Path] = []
+    last_returncode = -1
+    last_stderr = ""
+
+    with tempfile.TemporaryDirectory(prefix="clip-export-") as temp_root:
+        temp_dir = Path(temp_root)
+
+        while offset < total_duration - 0.05:
+            if job["status"] == CANCELLED:
+                return -1, ""
+
+            attempts += 1
+            part_start = start + offset
+            part_path = temp_dir / f"part_{attempts:03d}.ts"
+            part_duration = max(0.01, end - part_start)
+            part_payload = _resume_payload(payload, part_start, offset)
+            command = build_ffmpeg_command(
+                part_payload,
+                part_path,
+                gpu_encoder=gpu_encoder,
+                intermediate=True,
+            )
+            job["command"] = " ".join(command)
+            job["retry_count"] = max(0, attempts - 1)
+            job["resume_from"] = round(offset, 2)
+            job["current_sec"] = round(offset, 2)
+            if attempts > 1:
+                job["stage"] = "resuming"
+            else:
+                job.pop("stage", None)
+
+            returncode, stderr_tail, stalled = await _run_ffmpeg(
+                command, job, total_duration, progress_base=offset
+            )
+            last_returncode = returncode
+            if stderr_tail:
+                last_stderr = stderr_tail
+            if job["status"] == CANCELLED:
+                return returncode, stderr_tail
+
+            current = float(job.get("current_sec") or offset)
+            reached = max(0.0, min(part_duration, current - offset))
+            try:
+                part_ok = part_path.exists() and part_path.stat().st_size > 0
+            except OSError:
+                part_ok = False
+
+            # Parça tamamlandıysa iş bitti. FFmpeg 0 ile çıktıysa ve geçerli
+            # bir TS ürettiyse bu parça tamamdır.
+            if returncode == 0 and part_ok:
+                parts.append(part_path)
+                offset = total_duration
+                break
+
+            # Takılma veya ağ hatası: o ana kadar üretilen parçayı koru ve
+            # kalan kısmı yeni bir bağlantıyla sürdür.
+            if stalled or returncode != 0:
+                if part_ok and reached >= MIN_RESUME_STEP_SECONDS:
+                    parts.append(part_path)
+                    offset = min(
+                        total_duration,
+                        offset + max(0.0, reached - RESUME_OVERLAP_SECONDS),
+                    )
+                    no_progress_attempts = 0
+                    logger.warning(
+                        "export: akış %.1f sn'de yeniden başlatılacak (%d. deneme)",
+                        offset,
+                        attempts,
+                    )
+                else:
+                    no_progress_attempts += 1
+                    logger.warning(
+                        "export: akış ilerlemedi; yeni bağlantı denenecek (%d/%d)",
+                        no_progress_attempts,
+                        MAX_NO_PROGRESS_ATTEMPTS,
+                    )
+                    if no_progress_attempts >= MAX_NO_PROGRESS_ATTEMPTS:
+                        break
+                    await asyncio.sleep(1.0)
+
+                if attempts >= MAX_RESUME_ATTEMPTS:
+                    break
+                continue
+
+            # FFmpeg başarılı görünüp parça üretmediyse de yeniden dene.
+            no_progress_attempts += 1
+            if no_progress_attempts >= MAX_NO_PROGRESS_ATTEMPTS:
+                break
+            await asyncio.sleep(1.0)
+
+        if job["status"] == CANCELLED:
+            return -1, ""
+        if offset < total_duration - 0.05 or not parts:
+            return last_returncode, last_stderr
+
+        concat_path = temp_dir / "concat.txt"
+        concat_lines = []
+        for part in parts:
+            part_text = part.as_posix().replace("'", "'\\''")
+            concat_lines.append(f"file '{part_text}'")
+        concat_path.write_text("\n".join(concat_lines) + "\n", encoding="utf-8")
+
+        job["stage"] = "merging"
+        remux_command = [
+            "ffmpeg",
+            "-y",
+            "-nostdin",
+            "-nostats",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_path),
+            "-c",
+            "copy",
+            "-t",
+            seconds_to_hms(total_duration),
+            "-movflags",
+            "+faststart",
+            str(output_path),
+        ]
+        job["command"] = " ".join(remux_command)
+        returncode, stderr_tail = await _run_ffmpeg_remux(remux_command, job)
+        if job["status"] == CANCELLED:
+            return returncode, stderr_tail
+        if returncode == 0:
+            job.pop("stage", None)
+        return returncode, stderr_tail or last_stderr
 
 
 async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> None:
@@ -456,7 +752,15 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         command = build_ffmpeg_command(payload, output_path, gpu_encoder=gpu_encoder)
         job["command"] = " ".join(command)
 
-        returncode, stderr_tail = await _run_ffmpeg(command, job, end - start)
+        resumable = _can_resume(payload)
+        if resumable:
+            returncode, stderr_tail = await _run_resumable_export(
+                payload, output_path, job, gpu_encoder=gpu_encoder
+            )
+        else:
+            returncode, stderr_tail, _stalled = await _run_ffmpeg(
+                command, job, end - start
+            )
         if job["status"] == CANCELLED:
             return
 
@@ -486,7 +790,14 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
 
             cpu_command = build_ffmpeg_command(payload, output_path)
             job["command"] = " ".join(cpu_command)
-            returncode, stderr_tail = await _run_ffmpeg(cpu_command, job, end - start)
+            if resumable:
+                returncode, stderr_tail = await _run_resumable_export(
+                    payload, output_path, job, gpu_encoder=None
+                )
+            else:
+                returncode, stderr_tail, _stalled = await _run_ffmpeg(
+                    cpu_command, job, end - start
+                )
             if job["status"] == CANCELLED:
                 return
             if returncode == 0 and output_path.exists():
@@ -538,8 +849,19 @@ def _update_eta(job: dict[str, Any], clip_duration: float) -> None:
     job["eta_sec"] = round(remaining / speed, 1) if remaining > 0 else 0.0
 
 
-async def _read_progress(process, job: dict[str, Any], clip_duration: float) -> None:
-    """ffmpeg'in -progress pipe:1 çıktısını ayrıştırıp iş durumunu günceller."""
+async def _read_progress(
+    process,
+    job: dict[str, Any],
+    total_duration: float,
+    progress_base: float = 0.0,
+    progress_floor: float = 0.0,
+) -> None:
+    """ffmpeg'in -progress pipe:1 çıktısını ayrıştırıp iş durumunu günceller.
+
+    Parçalı dışa aktarmada her FFmpeg süreci kendi dosyası için 0'dan başlar.
+    ``progress_base`` parçanın toplam klipteki başlangıcını ekler; böylece iş
+    kartındaki ilerleme başa dönmez.
+    """
     assert process.stdout is not None
     while True:
         raw = await process.stdout.readline()
@@ -552,12 +874,19 @@ async def _read_progress(process, job: dict[str, Any], clip_duration: float) -> 
                 seconds = int(line.split("=", 1)[1]) / 1_000_000
             except ValueError:
                 continue
-            job["current_sec"] = round(seconds, 2)
-            job["progress"] = round(min(99.0, max(0.0, seconds / clip_duration * 100)), 1)
-            _update_eta(job, clip_duration)
+            global_seconds = min(
+                total_duration, max(progress_floor, progress_base + seconds)
+            )
+            job["current_sec"] = round(global_seconds, 2)
+            job["progress"] = round(
+                min(99.0, max(0.0, global_seconds / total_duration * 100)), 1
+            )
+            _update_eta(job, total_duration)
         elif line.startswith("speed="):
             job["speed"] = line.split("=", 1)[1].strip()
-            _update_eta(job, clip_duration)
+            _update_eta(job, total_duration)
         elif line == "progress=end":
-            job["progress"] = 100.0
-            job["eta_sec"] = 0.0
+            # Ara parçalarda da "progress=end" gelir; burada 100 yazmak
+            # ilerlemeyi erken doldurur. Nihai %100'ü _mark_done belirler.
+            if float(job.get("current_sec") or 0.0) >= total_duration - 0.05:
+                job["eta_sec"] = 0.0

@@ -27,6 +27,7 @@ from config import WAVEFORM_TEMP_DIR
 from services.hls import (
     ATTRIBUTE,
     MAX_PLAYLIST_BYTES,
+    detect_hls,
     is_master_playlist,
     select_best_variant,
 )
@@ -39,6 +40,9 @@ SEGMENT_CONCURRENCY = 15
 SEGMENT_RETRIES = 3
 SEGMENT_TIMEOUT = 30.0
 DOWNLOAD_TIMEOUT_SECONDS = 180.0
+#: Uzantısız doğrudan medya URL'lerini HLS sanıp 1 MB okumadan önce yapılan
+#: hızlı tespit için üst sınır. Ağ yavaşsa FFmpeg'in doğrudan yoluna dönülür.
+HLS_DETECT_TIMEOUT_SECONDS = 12.0
 
 EXTINF = re.compile(r"#EXTINF:(?P<duration>[0-9.]+)")
 MAP_TAG = re.compile(r"#EXT-X-MAP:(?P<attrs>.+)")
@@ -611,6 +615,21 @@ async def download_hls_range(
     if client is None:
         return None
     if _probably_media_file(playlist_url):
+        return None
+
+    # İmzalı/uzantısız doğrudan medya URL'lerinde (ör. 4 saatlik MP4) playlist
+    # aramak için 1 MB okumak, yavaş CDN'lerde işi dakikalarca %0'da tutabilir.
+    # Önce ucuz bir HLS tespiti yap; HLS değilse doğrudan FFmpeg'e bırak.
+    try:
+        is_hls = await asyncio.wait_for(
+            detect_hls(client, playlist_url, headers),
+            timeout=HLS_DETECT_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.info("hls: tespit zaman aşımı, doğrudan FFmpeg kullanılacak")
+        return None
+    if not is_hls:
+        logger.info("hls: kaynak HLS değil, doğrudan FFmpeg kullanılacak")
         return None
 
     playlist = await load_hls_playlist(client, playlist_url, headers)
