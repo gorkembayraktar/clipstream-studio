@@ -1,12 +1,20 @@
 /** Dışa aktarma seçenekleri ve sürdürülen işler. */
 import { create } from "zustand"
 
-import type { CutMode, ExportQuality, OutputFormat } from "@/lib/types"
+import type {
+  CutMode,
+  ExportCodec,
+  ExportQuality,
+  OutputFormat,
+} from "@/lib/types"
 
 interface ExportState {
   cutMode: CutMode
   outputFormat: OutputFormat
   quality: ExportQuality
+  codec: ExportCodec
+  /** 30 gibi bir sınır; null kaynağın kare hızını korur. */
+  outputFps: number | null
   filename: string
   /** GPU render tercihi; uygun olmayan çıktılarda arayüz tarafından yok sayılır. */
   gpuEnabled: boolean
@@ -17,6 +25,8 @@ interface ExportState {
   setCutMode: (mode: CutMode) => void
   setOutputFormat: (format: OutputFormat) => void
   setQuality: (quality: ExportQuality) => void
+  setCodec: (codec: ExportCodec) => void
+  setOutputFps: (fps: number | null) => void
   setFilename: (value: string) => void
   setGpuEnabled: (value: boolean) => void
   addActiveJobId: (id: string) => void
@@ -27,6 +37,8 @@ export const useExportStore = create<ExportState>()((set) => ({
   cutMode: "exact",
   outputFormat: "mp4",
   quality: "balanced",
+  codec: "h264",
+  outputFps: null,
   filename: "",
   gpuEnabled: false,
   activeJobIds: [],
@@ -34,6 +46,8 @@ export const useExportStore = create<ExportState>()((set) => ({
   setCutMode: (mode) => set({ cutMode: mode }),
   setOutputFormat: (format) => set({ outputFormat: format }),
   setQuality: (quality) => set({ quality }),
+  setCodec: (codec) => set({ codec }),
+  setOutputFps: (fps) => set({ outputFps: fps }),
   setFilename: (value) => set({ filename: value }),
   setGpuEnabled: (value) => set({ gpuEnabled: value }),
   addActiveJobId: (id) =>

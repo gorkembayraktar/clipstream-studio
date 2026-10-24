@@ -120,6 +120,10 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "GPU encoding failed; the clip was rendered on the CPU instead.",
         "GPU ile kodlama başarısız oldu; klip bunun yerine CPU ile oluşturuldu.",
     ),
+    "gpu.fallback.hevcCpu": (
+        "H.265 output is encoded on the CPU; GPU rendering is disabled.",
+        "H.265 çıktısı CPU ile kodlanır; GPU ile render kullanılmaz.",
+    ),
     # ------------------------------------------------------- yerel dosyalar
     "error.fileNameRequired": ("File name was not provided.", "Dosya adı belirtilmedi."),
     "error.unsupportedFileType": (

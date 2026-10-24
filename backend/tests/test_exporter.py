@@ -62,6 +62,14 @@ class GpuEligibilityTests(unittest.TestCase):
         self.assertFalse(is_gpu_render_eligible("gif", "exact", None))
         self.assertFalse(is_gpu_render_eligible("mp3", "exact", None))
 
+    def test_hevc_is_not_gpu_eligible(self):
+        self.assertFalse(is_gpu_render_eligible("mp4", "exact", None, "hevc"))
+
+    def test_output_fps_makes_fast_mode_gpu_eligible(self):
+        self.assertTrue(
+            is_gpu_render_eligible("mp4", "fast", None, "h264", 30)
+        )
+
 
 class FfmpegCommandTests(unittest.TestCase):
     def test_cpu_exact_uses_libx264(self):
@@ -90,6 +98,50 @@ class FfmpegCommandTests(unittest.TestCase):
     def test_unknown_quality_falls_back_to_balanced(self):
         name, _profile = _quality_profile(make_payload(quality="unknown"))
         self.assertEqual(name, "balanced")
+
+    def test_hevc_uses_libx265_and_hvc1_tag(self):
+        command = build_ffmpeg_command(
+            make_payload(codec="hevc"), Path("out.mp4")
+        )
+        self.assertIn("libx265", command)
+        self.assertEqual(command[command.index("-tag:v") + 1], "hvc1")
+        self.assertNotIn("libx264", command)
+
+    def test_hevc_ignores_gpu_encoder(self):
+        command = build_ffmpeg_command(
+            make_payload(codec="hevc"),
+            Path("out.mp4"),
+            gpu_encoder="h264_nvenc",
+        )
+        self.assertIn("libx265", command)
+        self.assertNotIn("h264_nvenc", command)
+
+    def test_hevc_compact_uses_hevc_crf_profile(self):
+        command = build_ffmpeg_command(
+            make_payload(codec="hevc", quality="compact"), Path("out.mp4")
+        )
+        self.assertEqual(command[command.index("-preset") + 1], "medium")
+        self.assertEqual(command[command.index("-crf") + 1], "27")
+
+    def test_fast_mode_with_hevc_still_reencodes(self):
+        command = build_ffmpeg_command(
+            make_payload(mode="fast", codec="hevc"), Path("out.mp4")
+        )
+        self.assertIn("libx265", command)
+        self.assertNotIn("copy", command)
+
+    def test_output_fps_adds_filter(self):
+        command = build_ffmpeg_command(
+            make_payload(output_fps=30), Path("out.mp4")
+        )
+        self.assertIn("fps=30", " ".join(command))
+
+    def test_hevc_intermediate_skips_hvc1_tag(self):
+        command = build_ffmpeg_command(
+            make_payload(codec="hevc"), Path("part.ts"), intermediate=True
+        )
+        self.assertIn("libx265", command)
+        self.assertNotIn("-tag:v", command)
 
     def test_gpu_balanced_quality_uses_slower_nvenc_preset(self):
         command = build_ffmpeg_command(
@@ -267,6 +319,10 @@ class ResumeCommandTests(unittest.TestCase):
         self.assertFalse(_can_resume(make_payload(output_format="gif")))
         self.assertFalse(_can_resume(make_payload(output_format="mp3")))
 
+    def test_can_resume_for_hevc_and_output_fps(self):
+        self.assertTrue(_can_resume(make_payload(mode="fast", codec="hevc")))
+        self.assertTrue(_can_resume(make_payload(mode="fast", output_fps=30)))
+
 
 class StagingTests(unittest.IsolatedAsyncioTestCase):
     async def test_video_and_audio_are_localized_with_relative_seeks(self):
@@ -387,6 +443,15 @@ class GpuSelectionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone(encoder)
         self.assertIn("only for MP4", reason or "")
+        self.assertIsNone(detail)
+        self.assertIsNone(label)
+
+    async def test_gpu_request_is_rejected_for_hevc(self):
+        encoder, reason, detail, label = await select_gpu_encoder(
+            make_payload(encoder="gpu", codec="hevc")
+        )
+        self.assertIsNone(encoder)
+        self.assertIn("CPU", reason or "")
         self.assertIsNone(detail)
         self.assertIsNone(label)
 

@@ -164,11 +164,25 @@ export const en = {
   "export.qualityCompactDescription":
     "About 40–50% smaller than High. Slight quality loss in fast motion.",
   "export.qualitySavingsNote":
-    "Estimated saving vs High: Balanced ~25%, Compact ~45%. Varies by content.",
+    "Estimated saving vs High: Balanced ~25%, Compact ~45%. H.265 and 30 fps add further savings; varies by content.",
   "export.qualityFastNote":
     "Fast cutting does not compress. Choosing a quality switches to Exact mode.",
   "export.qualityNotApplicable":
     "Compression is available for MP4 output only.",
+  "export.codec": "Encoder",
+  "export.codecH264": "H.264 · compatible",
+  "export.codecHevc": "H.265 · ~35–50% extra saving",
+  "export.codecH264Description": "Widest player and browser compatibility.",
+  "export.codecHevcDescription":
+    "About 35–50% smaller than H.264 at a similar quality range. Some players and browsers cannot open H.265; encoded on the CPU.",
+  "export.frameRate": "Frame rate",
+  "export.frameRateSource": "Source",
+  "export.frameRate30": "30 fps · ~35–50% extra saving",
+  "export.frameRateSourceDescription": "Keeps the source frame rate.",
+  "export.frameRate30Description":
+    "Stays 1080p; drops to 30 fps, so motion is less smooth. About 35–50% extra saving.",
+  "export.frameRateUnavailable":
+    "The source is already 30 fps or lower; 30 fps will not save space.",
 
   "jobsDock.title": "Export jobs",
   "jobsDock.running": "{count} running",
@@ -185,6 +199,7 @@ export const en = {
   "gpu.mp4Only": "GPU rendering is available only for MP4 output.",
   "gpu.fastDisabled":
     "Fast copy does not re-encode. Use Exact or crop to enable GPU rendering.",
+  "gpu.hevcCpu": "H.265 output is encoded on the CPU; GPU rendering is disabled.",
   "gpu.ready":
     "{encoder} ready. GPU rendering is faster, but quality and file size may differ from CPU.",
 

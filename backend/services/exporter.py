@@ -41,24 +41,35 @@ MIN_RESUME_STEP_SECONDS = 0.5
 #: Dengeli profil, HD çözünürlüğü korurken x264'ün daha verimli preset'i ve
 #: biraz daha yüksek CRF değeriyle tipik olarak %20-30 daha küçük dosya üretir.
 DEFAULT_EXPORT_QUALITY = "balanced"
+DEFAULT_EXPORT_CODEC = "h264"
+EXPORT_CODECS = {"h264", "hevc"}
 EXPORT_QUALITY_PROFILES: dict[str, dict[str, Any]] = {
     "high": {
         "preset": "veryfast",
         "crf": 20,
         "crop_crf": 21,
         "audio_bitrate": "192k",
+        "hevc_preset": "fast",
+        "hevc_crf": 22,
+        "hevc_crop_crf": 23,
     },
     "balanced": {
         "preset": "medium",
         "crf": 22,
         "crop_crf": 23,
         "audio_bitrate": "160k",
+        "hevc_preset": "medium",
+        "hevc_crf": 24,
+        "hevc_crop_crf": 25,
     },
     "compact": {
         "preset": "medium",
         "crf": 25,
         "crop_crf": 26,
         "audio_bitrate": "128k",
+        "hevc_preset": "medium",
+        "hevc_crf": 27,
+        "hevc_crop_crf": 28,
     },
 }
 
@@ -113,7 +124,7 @@ def _normalized_crop(crop: Any) -> Optional[dict[str, int]]:
         y = min(y, max(0, source_height - 2))
         height = min(height, source_height - y)
 
-    # libx264 çift boyut ister
+    # x264/x265 çift boyut ister
     width -= width % 2
     height -= height % 2
 
@@ -142,11 +153,37 @@ def _quality_profile(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     return requested, EXPORT_QUALITY_PROFILES[requested]
 
 
+def _export_codec(payload: dict[str, Any]) -> str:
+    """İstenen video kodlayıcısını döndürür; bilinmeyen değer H.264'e düşer."""
+    requested = str(payload.get("codec", DEFAULT_EXPORT_CODEC)).strip().lower()
+    if requested in {"h265", "h.265"}:
+        requested = "hevc"
+    return requested if requested in EXPORT_CODECS else DEFAULT_EXPORT_CODEC
+
+
+def _output_fps(payload: dict[str, Any]) -> Optional[int]:
+    """İsteğe bağlı çıktı kare hızını doğrular; geçersiz değer yok sayılır."""
+    raw = payload.get("output_fps")
+    if raw in (None, "", 0, "0"):
+        return None
+    try:
+        fps = int(float(raw))
+    except (TypeError, ValueError):
+        return None
+    return fps if 1 <= fps <= 120 else None
+
+
 def is_gpu_render_eligible(
-    output_format: str, mode: str, crop: Optional[dict[str, int]]
+    output_format: str,
+    mode: str,
+    crop: Optional[dict[str, int]],
+    codec: str = DEFAULT_EXPORT_CODEC,
+    output_fps: Optional[int] = None,
 ) -> bool:
-    """GPU yalnızca yeniden kodlama gereken MP4 çıktılarında kullanılabilir."""
-    return output_format == "mp4" and (crop is not None or mode != "fast")
+    """GPU yalnızca yeniden kodlanan H.264 MP4 çıktılarında kullanılabilir."""
+    if output_format != "mp4" or codec == "hevc":
+        return False
+    return crop is not None or mode != "fast" or output_fps is not None
 
 
 def build_ffmpeg_command(
@@ -195,8 +232,16 @@ def build_ffmpeg_command(
     output_format = str(payload.get("output_format", "mp4")).lower()
     mode = str(payload.get("mode", "exact")).lower()
     quality_name, quality = _quality_profile(payload)
+    codec = _export_codec(payload)
+    output_fps = _output_fps(payload)
     crop = _normalized_crop(payload.get("crop"))
-    use_gpu = is_gpu_render_eligible(output_format, mode, crop) and bool(gpu_encoder)
+    requires_reencode = (
+        crop is not None or mode != "fast" or codec == "hevc" or output_fps is not None
+    )
+    use_gpu = (
+        is_gpu_render_eligible(output_format, mode, crop, codec, output_fps)
+        and bool(gpu_encoder)
+    )
     if use_gpu and get_gpu_encoder(gpu_encoder or "") is None:
         raise ExportError(t("error.gpuEncoderInvalid", encoder=gpu_encoder))
 
@@ -249,17 +294,28 @@ def build_ffmpeg_command(
     elif output_format == "mp3":
         command += ["-af", "asetpts=PTS-STARTPTS", "-vn", "-c:a", "libmp3lame", "-q:a", "2"]
 
-    elif crop or mode != "fast":
+    elif requires_reencode:
         # Hassas kesim (gerekirse crop ile birlikte) — kare hassasiyetinde yeniden kodlama.
         # PTS sıfırlama, HLS/uzun akışlarda seek sonrası ilk saniyelerin donmuş
         # görünmesini önler.
         filters = ["setpts=PTS-STARTPTS"]
         if crop:
             filters.append(f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}")
+        if output_fps:
+            filters.append(f"fps={output_fps}")
         command += ["-vf", ",".join(filters)]
         command += ["-af", "asetpts=PTS-STARTPTS"]
         if use_gpu:
             command += gpu_encoder_arguments(gpu_encoder or "", quality_name)
+        elif codec == "hevc":
+            command += [
+                "-c:v", "libx265",
+                "-preset", str(quality["hevc_preset"]),
+                "-crf", str(quality["hevc_crop_crf"] if crop else quality["hevc_crf"]),
+                "-x265-params", "log-level=error",
+            ]
+            if not intermediate:
+                command += ["-tag:v", "hvc1"]
         else:
             command += [
                 "-c:v", "libx264",
@@ -300,8 +356,12 @@ async def select_gpu_encoder(
 
     output_format = str(payload.get("output_format", "mp4")).lower()
     mode = str(payload.get("mode", "exact")).lower()
+    codec = _export_codec(payload)
+    output_fps = _output_fps(payload)
     crop = _normalized_crop(payload.get("crop"))
-    if not is_gpu_render_eligible(output_format, mode, crop):
+    if codec == "hevc":
+        return None, t("gpu.fallback.hevcCpu"), None, None
+    if not is_gpu_render_eligible(output_format, mode, crop, codec, output_fps):
         return None, t("gpu.fallback.ineligible"), None, None
 
     capability = await detect_gpu_capability()
@@ -519,14 +579,19 @@ def _can_resume(payload: dict[str, Any]) -> bool:
     """Bu iş parçalı/kaldığı yerden devam eden dışa aktarmaya uygun mu?
 
     Yalnızca MP4 ve yeniden kodlama yapan işler desteklenir. MPEG-TS ara
-    parçaları H.264/AAC taşıyabildiğinden, doğrudan kopyalama (fast) ve
-    GIF/MP3 çıktıları bu yoldan geçirilmez.
+    parçaları H.264/H.265 ve AAC taşıyabildiğinden, doğrudan kopyalama (fast)
+    ve GIF/MP3 çıktıları bu yoldan geçirilmez.
     """
     output_format = str(payload.get("output_format", "mp4")).lower()
     if output_format != "mp4":
         return False
     mode = str(payload.get("mode", "exact")).lower()
-    return _normalized_crop(payload.get("crop")) is not None or mode != "fast"
+    return (
+        _normalized_crop(payload.get("crop")) is not None
+        or mode != "fast"
+        or _export_codec(payload) == "hevc"
+        or _output_fps(payload) is not None
+    )
 
 
 def _resume_payload(
@@ -705,6 +770,10 @@ async def _run_resumable_export(
             str(concat_path),
             "-c",
             "copy",
+        ]
+        if _export_codec(payload) == "hevc":
+            remux_command += ["-tag:v", "hvc1"]
+        remux_command += [
             "-t",
             seconds_to_hms(total_duration),
             "-movflags",
@@ -749,6 +818,8 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         job["output_format"] = str(payload.get("output_format", "mp4")).lower()
         job["mode"] = str(payload.get("mode", "exact")).lower()
         job["quality"] = _quality_profile(payload)[0]
+        job["codec"] = _export_codec(payload)
+        job["output_fps"] = _output_fps(payload)
         job["encoder_requested"] = (
             "gpu" if str(payload.get("encoder", "cpu")).strip().lower() == "gpu" else "cpu"
         )

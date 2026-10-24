@@ -162,11 +162,25 @@ export const tr: Record<TranslationKey, string> = {
   "export.qualityCompactDescription":
     "Yüksek'e göre yaklaşık %40–50 daha küçük. Hareketli sahnelerde hafif kalite kaybı olabilir.",
   "export.qualitySavingsNote":
-    "Yüksek'e göre tahmini tasarruf: Dengeli ~%25, Küçük ~%45. İçeriğe göre değişir.",
+    "Yüksek'e göre tahmini tasarruf: Dengeli ~%25, Küçük ~%45. H.265 ve 30 fps ek tasarruf sağlar; içeriğe göre değişir.",
   "export.qualityFastNote":
     "Hızlı kesimde sıkıştırma yapılmaz. Bir kalite seçtiğinde Hassas moda geçilir.",
   "export.qualityNotApplicable":
     "Sıkıştırma yalnızca MP4 çıktısında kullanılabilir.",
+  "export.codec": "Kodlayıcı",
+  "export.codecH264": "H.264 · uyumlu",
+  "export.codecHevc": "H.265 · ~%35–50 ek tasarruf",
+  "export.codecH264Description": "En geniş oynatıcı ve tarayıcı uyumluluğu.",
+  "export.codecHevcDescription":
+    "H.264'e göre aynı kalite aralığında yaklaşık %35–50 daha küçük. Bazı oynatıcı ve tarayıcılar H.265'i açamaz; CPU ile kodlanır.",
+  "export.frameRate": "Kare hızı",
+  "export.frameRateSource": "Kaynak",
+  "export.frameRate30": "30 fps · ~%35–50 ek tasarruf",
+  "export.frameRateSourceDescription": "Kaynağın kare hızı korunur.",
+  "export.frameRate30Description":
+    "1080p kalır; 30 fps'e düşer, hareket daha az akıcı olur. Yaklaşık %35–50 ek tasarruf.",
+  "export.frameRateUnavailable":
+    "Kaynak zaten 30 fps veya altında; 30 fps seçimi tasarruf sağlamaz.",
 
   "jobsDock.title": "Dışa aktarma işleri",
   "jobsDock.running": "{count} çalışıyor",
@@ -183,6 +197,7 @@ export const tr: Record<TranslationKey, string> = {
   "gpu.mp4Only": "GPU ile render yalnızca MP4 çıktısında kullanılabilir.",
   "gpu.fastDisabled":
     "Hızlı kopyalama yeniden kodlama yapmaz. GPU ile render için Hassas kesim veya kırpma kullan.",
+  "gpu.hevcCpu": "H.265 çıktısı CPU ile kodlanır; GPU ile render kullanılmaz.",
   "gpu.ready":
     "{encoder} hazır. GPU ile render daha hızlıdır; kalite ve dosya boyutu CPU'dan farklı olabilir.",
 

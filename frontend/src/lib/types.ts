@@ -171,6 +171,7 @@ export type AspectPreset = "free" | "16:9" | "9:16" | "1:1" | "4:5"
 export type CutMode = "fast" | "exact"
 export type OutputFormat = "mp4" | "gif" | "mp3"
 export type ExportQuality = "high" | "balanced" | "compact"
+export type ExportCodec = "h264" | "hevc"
 export type EncoderChoice = "cpu" | "gpu"
 export type JobStatus = "pending" | "running" | "done" | "error" | "cancelled"
 
@@ -186,9 +187,18 @@ export interface GpuCapability {
   detail: string | null
 }
 
+export interface ExportFeatures {
+  /** FFmpeg derlemesinde libx265 varsa H.265 seçilebilir. */
+  hevc: boolean
+  /** Backend 30 fps çıktı filtresini destekliyorsa true. */
+  frame_rate: boolean
+}
+
 export interface ExportCapabilities {
   success: boolean
   gpu: GpuCapability
+  /** Eski backend'lerde yok; seçenekler bu durumda gizlenir. */
+  features?: ExportFeatures
 }
 
 export interface ExportRequest {
@@ -199,6 +209,10 @@ export interface ExportRequest {
   output_format: OutputFormat
   /** Yeniden kodlanan MP4 çıktıları için boyut/kalite dengesi. */
   quality?: ExportQuality
+  /** MP4 video kodlayıcısı; H.265 CPU üzerinde kodlanır. */
+  codec?: ExportCodec
+  /** İsteğe bağlı çıktı kare hızı (ör. 30); kaynak fps korunacaksa null. */
+  output_fps?: number | null
   crop: CropPayload | null
   filename: string
   /** Render tercihi; GPU yalnızca uygun MP4 + hassas/kırpmalı işlerde kullanılır. */
@@ -225,6 +239,8 @@ export interface ExportJob {
   output_format?: string
   mode?: string
   quality?: string
+  codec?: string
+  output_fps?: number | null
   /** İstenen ve gerçekleşen render yolu. */
   encoder_requested?: EncoderChoice
   encoder_used?: EncoderChoice
