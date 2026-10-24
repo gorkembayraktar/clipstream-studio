@@ -16,7 +16,12 @@ import { useStartExport } from "@/hooks/use-export-job"
 import { useGpuCapability } from "@/hooks/use-gpu-capability"
 import { useI18n, type TranslationKey } from "@/i18n"
 import { compactDuration, formatTime } from "@/lib/format"
-import type { CropPayload, CutMode, OutputFormat } from "@/lib/types"
+import type {
+  CropPayload,
+  CutMode,
+  ExportQuality,
+  OutputFormat,
+} from "@/lib/types"
 import { log } from "@/stores/log-store"
 import { useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
@@ -32,6 +37,18 @@ const FORMAT_LABELS: Record<OutputFormat, string> = {
   mp4: "MP4",
   gif: "GIF",
   mp3: "MP3",
+}
+
+const QUALITY_LABEL_KEYS: Record<ExportQuality, TranslationKey> = {
+  high: "export.qualityHigh",
+  balanced: "export.qualityBalanced",
+  compact: "export.qualityCompact",
+}
+
+const QUALITY_DESCRIPTION_KEYS: Record<ExportQuality, TranslationKey> = {
+  high: "export.qualityHighDescription",
+  balanced: "export.qualityBalancedDescription",
+  compact: "export.qualityCompactDescription",
 }
 
 interface ToggleRowProps {
@@ -95,11 +112,13 @@ export function ExportPanel() {
   const setCropEnabled = useEditStore((s) => s.setCropEnabled)
   const cutMode = useExportStore((s) => s.cutMode)
   const outputFormat = useExportStore((s) => s.outputFormat)
+  const quality = useExportStore((s) => s.quality)
   const filename = useExportStore((s) => s.filename)
   const gpuEnabled = useExportStore((s) => s.gpuEnabled)
   const activeJobIds = useExportStore((s) => s.activeJobIds)
   const setCutMode = useExportStore((s) => s.setCutMode)
   const setOutputFormat = useExportStore((s) => s.setOutputFormat)
+  const setQuality = useExportStore((s) => s.setQuality)
   const setFilename = useExportStore((s) => s.setFilename)
   const setGpuEnabled = useExportStore((s) => s.setGpuEnabled)
 
@@ -110,6 +129,26 @@ export function ExportPanel() {
   const gpuEligible = outputFormat === "mp4" && (cropActive || cutMode !== "fast")
   const gpuReady = gpuEligible && Boolean(gpu?.available)
   const useGpu = gpuEnabled && gpuReady
+  // Kalite seçimi MP4'te her zaman görünür; hızlı kesimde seçim yapılınca
+  // aşağıdaki handler otomatik olarak hassas (yeniden kodlanan) moda geçer.
+  const qualitySelectable = outputFormat === "mp4"
+  const qualityApplicable = qualitySelectable && gpuEligible
+  // Hızlı kopyada kalite profili uygulanmaz; seçicide bunu "Orijinal" olarak
+  // göster. Böylece aynı profil tekrar seçilse bile mod değişikliği tetiklenir.
+  const qualityChoice: ExportQuality | "original" =
+    qualitySelectable && !cropActive && cutMode === "fast" ? "original" : quality
+  const qualityDescription = !qualitySelectable
+    ? t("export.qualityNotApplicable")
+    : qualityChoice === "original"
+      ? t("export.qualityOriginalDescription")
+      : t(QUALITY_DESCRIPTION_KEYS[quality])
+  const qualityHint = qualitySelectable
+    ? t(
+        qualityChoice === "original"
+          ? "export.qualityFastNote"
+          : "export.qualitySavingsNote",
+      )
+    : null
 
   const gpuHint = (() => {
     if (gpuCapability.isPending) return t("gpu.checking")
@@ -125,6 +164,7 @@ export function ExportPanel() {
   const modeLabel = cutMode === "fast" ? t("export.fast") : t("export.exact")
   const summaryMeta = [
     modeLabel,
+    qualityApplicable ? t(QUALITY_LABEL_KEYS[quality]) : null,
     meta && meta.width > 0 ? `${meta.width}×${meta.height}` : null,
     cropActive && crop.rect
       ? `${t("export.crop")} ${crop.rect.width}×${crop.rect.height}`
@@ -133,6 +173,17 @@ export function ExportPanel() {
   ]
     .filter(Boolean)
     .join(" · ")
+
+  const handleQualityChange = (value: string) => {
+    if (value === "original") {
+      setCutMode("fast")
+      return
+    }
+
+    setQuality(value as ExportQuality)
+    // Sıkıştırma yalnızca yeniden kodlamada uygulanır.
+    setCutMode("exact")
+  }
 
   const handleExport = () => {
     if (!streamUrl || invalidRange || isLive) return
@@ -158,6 +209,7 @@ export function ExportPanel() {
       end_time: trim.end,
       mode: cutMode,
       output_format: outputFormat,
+      quality: qualityApplicable ? quality : undefined,
       crop: cropPayload,
       filename,
       encoder: useGpu ? "gpu" : "cpu",
@@ -272,6 +324,41 @@ export function ExportPanel() {
         <p className="text-[10px] leading-snug text-muted-foreground">
           {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
         </p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="export-quality" className="text-[11px] font-medium text-muted-foreground">
+            {t("export.quality")}
+          </Label>
+          <Select
+            value={qualityChoice}
+            onValueChange={handleQualityChange}
+            disabled={!qualitySelectable}
+          >
+            <SelectTrigger id="export-quality" className="w-full text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {qualitySelectable && !cropActive && (
+                <SelectItem value="original" className="text-xs">
+                  {t("export.qualityOriginal")}
+                </SelectItem>
+              )}
+              {(Object.keys(QUALITY_LABEL_KEYS) as ExportQuality[]).map((value) => (
+                <SelectItem key={value} value={value} className="text-xs">
+                  {t(QUALITY_LABEL_KEYS[value])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] leading-snug text-muted-foreground">
+            {qualityDescription}
+          </p>
+          {qualityHint && (
+            <p className="text-[10px] leading-snug text-muted-foreground/80">
+              {qualityHint}
+            </p>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="filename" className="text-[11px] font-medium text-muted-foreground">

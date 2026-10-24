@@ -124,9 +124,9 @@ export const en = {
   "export.fast": "Fast",
   "export.exact": "Exact",
   "export.fastDescription":
-    "Stream copy — takes seconds; cuts align to the nearest keyframe.",
+    "Stream copy — takes seconds, no compression; cuts align to the nearest keyframe.",
   "export.exactDescription":
-    "Re-encode — frame-accurate, slightly slower.",
+    "Re-encode — frame-accurate; applies the selected compression.",
   "export.outputFormat": "Output format",
   "export.format.mp4": "MP4 — video",
   "export.format.gif": "GIF — animation",
@@ -150,6 +150,25 @@ export const en = {
   "export.options": "Options",
   "export.modeFast": "fast",
   "export.modeExact": "exact",
+  "export.quality": "Quality / size",
+  "export.qualityOriginal": "Original · fast",
+  "export.qualityHigh": "High · reference",
+  "export.qualityBalanced": "Balanced · ~25% saving",
+  "export.qualityCompact": "Compact · ~45% saving",
+  "export.qualityOriginalDescription":
+    "No compression; keeps the source bitrate and may be the largest file.",
+  "export.qualityHighDescription":
+    "Reference quality; the largest file of the profiles.",
+  "export.qualityBalancedDescription":
+    "About 20–30% smaller than High. 1080p resolution is kept.",
+  "export.qualityCompactDescription":
+    "About 40–50% smaller than High. Slight quality loss in fast motion.",
+  "export.qualitySavingsNote":
+    "Estimated saving vs High: Balanced ~25%, Compact ~45%. Varies by content.",
+  "export.qualityFastNote":
+    "Fast cutting does not compress. Choosing a quality switches to Exact mode.",
+  "export.qualityNotApplicable":
+    "Compression is available for MP4 output only.",
 
   "jobsDock.title": "Export jobs",
   "jobsDock.running": "{count} running",

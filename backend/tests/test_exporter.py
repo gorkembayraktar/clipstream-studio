@@ -13,6 +13,7 @@ from services.exporter import (  # noqa: E402
     ExportError,
     _can_resume,
     _parse_speed,
+    _quality_profile,
     _resume_payload,
     _update_eta,
     build_ffmpeg_command,
@@ -68,6 +69,36 @@ class FfmpegCommandTests(unittest.TestCase):
         self.assertIn("libx264", command)
         self.assertIn("-crf", command)
         self.assertNotIn("h264_nvenc", command)
+
+    def test_default_quality_is_balanced(self):
+        name, profile = _quality_profile(make_payload())
+        self.assertEqual(name, "balanced")
+        self.assertEqual(profile["crf"], 22)
+        command = build_ffmpeg_command(make_payload(), Path("out.mp4"))
+        self.assertEqual(command[command.index("-preset") + 1], "medium")
+        self.assertEqual(command[command.index("-crf") + 1], "22")
+        self.assertEqual(command[command.index("-b:a") + 1], "160k")
+
+    def test_high_quality_preserves_previous_encoder_settings(self):
+        command = build_ffmpeg_command(
+            make_payload(quality="high"), Path("out.mp4")
+        )
+        self.assertEqual(command[command.index("-preset") + 1], "veryfast")
+        self.assertEqual(command[command.index("-crf") + 1], "20")
+        self.assertEqual(command[command.index("-b:a") + 1], "192k")
+
+    def test_unknown_quality_falls_back_to_balanced(self):
+        name, _profile = _quality_profile(make_payload(quality="unknown"))
+        self.assertEqual(name, "balanced")
+
+    def test_gpu_balanced_quality_uses_slower_nvenc_preset(self):
+        command = build_ffmpeg_command(
+            make_payload(quality="balanced"),
+            Path("out.mp4"),
+            gpu_encoder="h264_nvenc",
+        )
+        self.assertEqual(command[command.index("-preset") + 1], "p6")
+        self.assertEqual(command[command.index("-cq") + 1], "22")
 
     def test_gpu_exact_uses_nvenc(self):
         command = build_ffmpeg_command(

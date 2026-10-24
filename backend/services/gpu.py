@@ -22,52 +22,30 @@ CAPABILITY_CACHE_SECONDS = 300.0
 
 @dataclass(frozen=True)
 class GpuEncoder:
-    """FFmpeg GPU kodlayıcısı ve kalite eşlemesi."""
+    """FFmpeg GPU kodlayıcısı."""
 
     name: str
     label: str
-    quality_args: tuple[str, ...]
 
+
+#: Kalite profilleri. NVENC/QSV/AMF kalite sayıları x264 CRF'ye yakın seçilir.
+GPU_QUALITY_LEVELS: dict[str, int] = {
+    "high": 20,
+    "balanced": 22,
+    "compact": 25,
+}
+#: NVENC'te yavaş preset daha iyi sıkıştırma verir; high mevcut davranışı korur.
+NVENC_PRESETS: dict[str, str] = {
+    "high": "p4",
+    "balanced": "p6",
+    "compact": "p6",
+}
 
 #: Tercih sırası: NVENC genellikle en hızlı ve en öngörülebilir seçenektir.
 GPU_ENCODERS: tuple[GpuEncoder, ...] = (
-    GpuEncoder(
-        name="h264_nvenc",
-        label="NVIDIA NVENC",
-        quality_args=(
-            "-preset",
-            "p4",
-            "-tune",
-            "hq",
-            "-rc",
-            "vbr",
-            "-cq",
-            "20",
-            "-b:v",
-            "0",
-        ),
-    ),
-    GpuEncoder(
-        name="h264_qsv",
-        label="Intel Quick Sync",
-        quality_args=("-preset", "veryfast", "-global_quality", "20"),
-    ),
-    GpuEncoder(
-        name="h264_amf",
-        label="AMD AMF",
-        quality_args=(
-            "-quality",
-            "balanced",
-            "-rc",
-            "cqp",
-            "-qp_i",
-            "20",
-            "-qp_p",
-            "20",
-            "-qp_b",
-            "20",
-        ),
-    ),
+    GpuEncoder(name="h264_nvenc", label="NVIDIA NVENC"),
+    GpuEncoder(name="h264_qsv", label="Intel Quick Sync"),
+    GpuEncoder(name="h264_amf", label="AMD AMF"),
 )
 
 _ENCODERS_BY_NAME = {encoder.name: encoder for encoder in GPU_ENCODERS}
@@ -100,12 +78,58 @@ def is_gpu_encoder(name: str) -> bool:
     return get_gpu_encoder(name) is not None
 
 
-def gpu_encoder_arguments(name: str) -> list[str]:
-    """FFmpeg komutuna eklenecek video kodlayıcı argümanları."""
+def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
+    """FFmpeg komutuna eklenecek video kodlayıcı argümanları.
+
+    ``quality`` profili x264 tarafındaki CRF karşılığına eşlenir. Bilinmeyen
+    profil, geriye dönük uyumluluk için ``high`` kabul edilir.
+    """
     encoder = get_gpu_encoder(name)
     if encoder is None:
         raise ValueError(f"Unsupported GPU encoder: {name}")
-    return ["-c:v", encoder.name, *encoder.quality_args]
+
+    profile = quality if quality in GPU_QUALITY_LEVELS else "high"
+    value = str(GPU_QUALITY_LEVELS[profile])
+    if encoder.name == "h264_nvenc":
+        return [
+            "-c:v",
+            encoder.name,
+            "-preset",
+            NVENC_PRESETS[profile],
+            "-tune",
+            "hq",
+            "-rc",
+            "vbr",
+            "-cq",
+            value,
+            "-b:v",
+            "0",
+        ]
+    if encoder.name == "h264_qsv":
+        return [
+            "-c:v",
+            encoder.name,
+            "-preset",
+            "veryfast",
+            "-global_quality",
+            value,
+        ]
+    if encoder.name == "h264_amf":
+        return [
+            "-c:v",
+            encoder.name,
+            "-quality",
+            "balanced",
+            "-rc",
+            "cqp",
+            "-qp_i",
+            value,
+            "-qp_p",
+            value,
+            "-qp_b",
+            value,
+        ]
+    raise ValueError(f"Unsupported GPU encoder: {name}")
 
 
 async def detect_gpu_capability(force: bool = False) -> GpuCapability:

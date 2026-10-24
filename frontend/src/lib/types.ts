@@ -170,6 +170,7 @@ export interface CropPayload extends CropRect {
 export type AspectPreset = "free" | "16:9" | "9:16" | "1:1" | "4:5"
 export type CutMode = "fast" | "exact"
 export type OutputFormat = "mp4" | "gif" | "mp3"
+export type ExportQuality = "high" | "balanced" | "compact"
 export type EncoderChoice = "cpu" | "gpu"
 export type JobStatus = "pending" | "running" | "done" | "error" | "cancelled"
 
@@ -196,6 +197,8 @@ export interface ExportRequest {
   end_time: number
   mode: CutMode
   output_format: OutputFormat
+  /** Yeniden kodlanan MP4 çıktıları için boyut/kalite dengesi. */
+  quality?: ExportQuality
   crop: CropPayload | null
   filename: string
   /** Render tercihi; GPU yalnızca uygun MP4 + hassas/kırpmalı işlerde kullanılır. */
@@ -221,6 +224,7 @@ export interface ExportJob {
   /** Çıktı biçimi ve kesim modu (kart başlığında gösterilir). */
   output_format?: string
   mode?: string
+  quality?: string
   /** İstenen ve gerçekleşen render yolu. */
   encoder_requested?: EncoderChoice
   encoder_used?: EncoderChoice

@@ -1,11 +1,12 @@
 /** Dışa aktarma seçenekleri ve sürdürülen işler. */
 import { create } from "zustand"
 
-import type { CutMode, OutputFormat } from "@/lib/types"
+import type { CutMode, ExportQuality, OutputFormat } from "@/lib/types"
 
 interface ExportState {
   cutMode: CutMode
   outputFormat: OutputFormat
+  quality: ExportQuality
   filename: string
   /** GPU render tercihi; uygun olmayan çıktılarda arayüz tarafından yok sayılır. */
   gpuEnabled: boolean
@@ -15,6 +16,7 @@ interface ExportState {
   // Eylemler
   setCutMode: (mode: CutMode) => void
   setOutputFormat: (format: OutputFormat) => void
+  setQuality: (quality: ExportQuality) => void
   setFilename: (value: string) => void
   setGpuEnabled: (value: boolean) => void
   addActiveJobId: (id: string) => void
@@ -24,12 +26,14 @@ interface ExportState {
 export const useExportStore = create<ExportState>()((set) => ({
   cutMode: "exact",
   outputFormat: "mp4",
+  quality: "balanced",
   filename: "",
   gpuEnabled: false,
   activeJobIds: [],
 
   setCutMode: (mode) => set({ cutMode: mode }),
   setOutputFormat: (format) => set({ outputFormat: format }),
+  setQuality: (quality) => set({ quality }),
   setFilename: (value) => set({ filename: value }),
   setGpuEnabled: (value) => set({ gpuEnabled: value }),
   addActiveJobId: (id) =>

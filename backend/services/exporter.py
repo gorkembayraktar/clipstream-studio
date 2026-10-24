@@ -37,6 +37,31 @@ MAX_NO_PROGRESS_ATTEMPTS = 3
 RESUME_OVERLAP_SECONDS = 0.25
 MIN_RESUME_STEP_SECONDS = 0.5
 
+#: Yeniden kodlanan MP4 çıktıları için kalite profilleri.
+#: Dengeli profil, HD çözünürlüğü korurken x264'ün daha verimli preset'i ve
+#: biraz daha yüksek CRF değeriyle tipik olarak %20-30 daha küçük dosya üretir.
+DEFAULT_EXPORT_QUALITY = "balanced"
+EXPORT_QUALITY_PROFILES: dict[str, dict[str, Any]] = {
+    "high": {
+        "preset": "veryfast",
+        "crf": 20,
+        "crop_crf": 21,
+        "audio_bitrate": "192k",
+    },
+    "balanced": {
+        "preset": "medium",
+        "crf": 22,
+        "crop_crf": 23,
+        "audio_bitrate": "160k",
+    },
+    "compact": {
+        "preset": "medium",
+        "crf": 25,
+        "crop_crf": 26,
+        "audio_bitrate": "128k",
+    },
+}
+
 
 class ExportError(Exception):
     """Geçersiz dışa aktarma isteği."""
@@ -109,6 +134,14 @@ def _seek_offset(payload: dict[str, Any], key: str, default: float) -> float:
         return default
 
 
+def _quality_profile(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """İstenen kalite profilini döndürür; bilinmeyen değer varsayılana düşer."""
+    requested = str(payload.get("quality", DEFAULT_EXPORT_QUALITY)).strip().lower()
+    if requested not in EXPORT_QUALITY_PROFILES:
+        requested = DEFAULT_EXPORT_QUALITY
+    return requested, EXPORT_QUALITY_PROFILES[requested]
+
+
 def is_gpu_render_eligible(
     output_format: str, mode: str, crop: Optional[dict[str, int]]
 ) -> bool:
@@ -161,6 +194,7 @@ def build_ffmpeg_command(
     clip_duration = end - start
     output_format = str(payload.get("output_format", "mp4")).lower()
     mode = str(payload.get("mode", "exact")).lower()
+    quality_name, quality = _quality_profile(payload)
     crop = _normalized_crop(payload.get("crop"))
     use_gpu = is_gpu_render_eligible(output_format, mode, crop) and bool(gpu_encoder)
     if use_gpu and get_gpu_encoder(gpu_encoder or "") is None:
@@ -225,17 +259,17 @@ def build_ffmpeg_command(
         command += ["-vf", ",".join(filters)]
         command += ["-af", "asetpts=PTS-STARTPTS"]
         if use_gpu:
-            command += gpu_encoder_arguments(gpu_encoder or "")
+            command += gpu_encoder_arguments(gpu_encoder or "", quality_name)
         else:
             command += [
                 "-c:v", "libx264",
-                "-preset", "veryfast",
-                "-crf", "21" if crop else "20",
+                "-preset", quality["preset"],
+                "-crf", str(quality["crop_crf"] if crop else quality["crf"]),
             ]
         command += [
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
-            "-b:a", "192k",
+            "-b:a", quality["audio_bitrate"],
         ]
         if not intermediate:
             command += ["-movflags", "+faststart"]
@@ -714,6 +748,7 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         job["clip_end"] = round(end, 3)
         job["output_format"] = str(payload.get("output_format", "mp4")).lower()
         job["mode"] = str(payload.get("mode", "exact")).lower()
+        job["quality"] = _quality_profile(payload)[0]
         job["encoder_requested"] = (
             "gpu" if str(payload.get("encoder", "cpu")).strip().lower() == "gpu" else "cpu"
         )

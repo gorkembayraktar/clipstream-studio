@@ -122,9 +122,9 @@ export const tr: Record<TranslationKey, string> = {
   "export.fast": "Hızlı",
   "export.exact": "Hassas",
   "export.fastDescription":
-    "Stream copy — saniyeler sürer, kesim en yakın anahtar kareye hizalanır.",
+    "Stream copy — saniyeler sürer, sıkıştırma yapılmaz; kesim en yakın anahtar kareye hizalanır.",
   "export.exactDescription":
-    "Yeniden kodlama — kare hassasiyetinde, biraz daha yavaş.",
+    "Yeniden kodlama — kare hassasiyetinde; seçilen sıkıştırma uygulanır.",
   "export.outputFormat": "Çıktı formatı",
   "export.format.mp4": "MP4 — video",
   "export.format.gif": "GIF — animasyon",
@@ -148,6 +148,25 @@ export const tr: Record<TranslationKey, string> = {
   "export.options": "Seçenekler",
   "export.modeFast": "hızlı",
   "export.modeExact": "hassas",
+  "export.quality": "Kalite / boyut",
+  "export.qualityOriginal": "Orijinal · hızlı",
+  "export.qualityHigh": "Yüksek · referans",
+  "export.qualityBalanced": "Dengeli · ~%25 tasarruf",
+  "export.qualityCompact": "Küçük · ~%45 tasarruf",
+  "export.qualityOriginalDescription":
+    "Sıkıştırma yok; kaynak bitrate'i korunur ve dosya en büyük olabilir.",
+  "export.qualityHighDescription":
+    "Referans kalite; profiller içinde en büyük dosya.",
+  "export.qualityBalancedDescription":
+    "Yüksek'e göre yaklaşık %20–30 daha küçük. 1080p çözünürlük korunur.",
+  "export.qualityCompactDescription":
+    "Yüksek'e göre yaklaşık %40–50 daha küçük. Hareketli sahnelerde hafif kalite kaybı olabilir.",
+  "export.qualitySavingsNote":
+    "Yüksek'e göre tahmini tasarruf: Dengeli ~%25, Küçük ~%45. İçeriğe göre değişir.",
+  "export.qualityFastNote":
+    "Hızlı kesimde sıkıştırma yapılmaz. Bir kalite seçtiğinde Hassas moda geçilir.",
+  "export.qualityNotApplicable":
+    "Sıkıştırma yalnızca MP4 çıktısında kullanılabilir.",
 
   "jobsDock.title": "Dışa aktarma işleri",
   "jobsDock.running": "{count} çalışıyor",
