@@ -119,6 +119,27 @@ class LibraryMetaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 504)
         self.assertEqual(json.loads(response.body)["error"], "timed out")
 
+    async def test_delete_endpoint_distinguishes_missing_and_locked_files(self):
+        with patch.object(
+            library_api,
+            "delete_file",
+            side_effect=library.LibraryError("missing"),
+        ):
+            response = await library_api.delete_file_endpoint(_request("missing.mp4"))
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(json.loads(response.body)["success"])
+
+        def locked_file(_filename):
+            try:
+                raise PermissionError("file is locked")
+            except OSError as exc:
+                raise library.LibraryError("locked") from exc
+
+        with patch.object(library_api, "delete_file", side_effect=locked_file):
+            response = await library_api.delete_file_endpoint(_request("locked.mp4"))
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(json.loads(response.body)["error"], "locked")
+
 
 class _request:
     def __init__(self, filename: str):

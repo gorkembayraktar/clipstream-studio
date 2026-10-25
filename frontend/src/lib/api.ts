@@ -31,7 +31,11 @@ function acceptLanguage(): string {
   return getLocale() === "tr" ? "tr-TR" : "en-US"
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { silent?: boolean },
+): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json")
   headers.set("Accept-Language", acceptLanguage())
@@ -43,7 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // Kullanıcı iptal ettiyse hata gibi gösterme; çağıran taraf ayırt eder.
     if (error instanceof DOMException && error.name === "AbortError") throw error
     const message = translate("api.unreachable")
-    log("error", message, path)
+    if (!options?.silent) log("error", message, path)
     throw new ApiError(message, 0)
   }
 
@@ -59,11 +63,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const message =
       (data as { error?: string } | null)?.error ??
       translate("api.httpFailed", { status: response.status })
-    log(
-      "error",
-      translate("log.requestFailed", { path }),
-      `HTTP ${response.status} — ${message}`,
-    )
+    if (!options?.silent) {
+      log(
+        "error",
+        translate("log.requestFailed", { path }),
+        `HTTP ${response.status} — ${message}`,
+      )
+    }
     throw new ApiError(message, response.status)
   }
 
@@ -383,10 +389,11 @@ export const api = {
   listLibrary: () => request<{ files: ExportFile[] }>("/api/library"),
   getLibraryFileMeta: (name: string) =>
     request<LibraryFileMeta>(`/api/library/${encodeURIComponent(name)}/meta`),
-  deleteLibraryFile: (name: string) =>
+  deleteLibraryFile: (name: string, options?: { silent?: boolean }) =>
     request<{ success: boolean; message?: string }>(
       `/api/library/${encodeURIComponent(name)}`,
       { method: "DELETE" },
+      options,
     ),
   revealInExplorer: (filename?: string) =>
     post<{ success: boolean; message?: string }>(

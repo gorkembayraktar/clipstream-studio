@@ -56,7 +56,18 @@ async def delete_file_endpoint(request):
         delete_file(request.path_params["filename"])
         return JSONResponse({"success": True, "message": t("message.fileDeleted")})
     except LibraryError as exc:
-        return JSONResponse({"success": False, "error": str(exc)}, status_code=404)
+        # Dosya yoksa 404 (toplu silmede "zaten silinmiş" sayılır). Kilit,
+        # izin vb. hatalar 409 olarak döner; istemci mesajı gösterebilsin.
+        cause = exc.__cause__
+        status_code = (
+            404
+            if cause is None or isinstance(cause, FileNotFoundError)
+            else 409
+        )
+        return JSONResponse(
+            {"success": False, "error": str(exc)},
+            status_code=status_code,
+        )
 
 
 async def reveal_endpoint(request):
