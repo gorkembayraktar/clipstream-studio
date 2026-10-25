@@ -116,6 +116,33 @@ export const tr: Record<TranslationKey, string> = {
   "source.platformTiktok": "TikTok",
   "source.live": "LIVE",
 
+  "project.loadingSettings": "Proje ayarları yükleniyor…",
+  "project.loadingSettingsDetail":
+    "Dışa aktarma, zaman çizelgesi ve kırpma ayarların geri yükleniyor.",
+  "project.loadingSource": "Kaynak yükleniyor…",
+  "project.loadingSourceDetail":
+    "Kaynak ve düzenlemelerin geri yüklenecek.",
+  "project.notFoundTitle": "Proje bulunamadı",
+  "project.notFoundDescription":
+    "Bu proje bu tarayıcıda bulunamadı. Temiz bir oturum başlatıldı; yeni proje oluşturmak için bir kaynak yükle.",
+  "project.storageTitle": "Proje kaydedilemedi",
+  "project.storageDescription":
+    "Yerel depolama kullanılamıyor veya dolu. Çalışmaya devam edebilirsin, ancak bu proje yenilemeden sonra geri yüklenmez.",
+  "project.sourceErrorTitle": "Proje kaynağı geri yüklenemedi",
+  "project.sourceErrorDescription":
+    "Proje ayarların güvende. Kaynağı yeniden yüklemeyi dene veya yeni bir proje başlat.",
+  "project.retry": "Tekrar dene",
+  "project.startFresh": "Yeni proje başlat",
+  "project.newProject": "Yeni proje",
+  "project.newProjectTitle": "Yeni proje başlat ve mevcut kaynağı temizle",
+  "project.dismiss": "Kapat",
+  "project.sourceMissing": "Projede kaynak URL'si yok.",
+  "project.createdLog": "Proje oluşturuldu: {title}",
+  "project.restoredLog": "Proje geri yüklendi: {title}",
+  "project.notFoundLog": "Proje yerel depolamada bulunamadı.",
+  "project.storageFailedLog": "Proje yerel depolamaya kaydedilemedi.",
+  "project.sourceRestoreFailedLog": "Proje kaynağı yüklenemedi",
+
   "export.selectRange": "Seçili aralığı klip olarak kaydet",
   "export.selection": "Seçili aralık",
   "export.cutMode": "Kesim modu",

@@ -253,8 +253,12 @@ export function Timeline() {
   const storyboardTile =
     hover && storyboard ? storyboardFrame(storyboard, hover.time) : null
 
-  // Kaynak değişince yeni çizelge tam görünümle açılır.
+  // Kaynak değişince yeni çizelge tam görünümle açılır. İlk açılışta
+  // projeden geri yüklenen yakınlaştırma korunur (StrictMode dahil).
+  const initialStreamUrlRef = useRef(streamUrl)
   useEffect(() => {
+    if (initialStreamUrlRef.current === streamUrl) return
+    initialStreamUrlRef.current = streamUrl
     resetZoom()
   }, [streamUrl, resetZoom])
 

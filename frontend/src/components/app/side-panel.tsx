@@ -1,5 +1,5 @@
 /** Sağ panel: Kaynak / Dışa Aktar / Galeri sekmeleri. */
-import { useEffect, useState } from "react"
+import { useEffect, useRef } from "react"
 
 import { FilmIcon, Link2Icon, ScissorsIcon, SettingsIcon } from "lucide-react"
 
@@ -10,23 +10,25 @@ import { UrlSourceBar } from "@/components/app/url-source-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLibrary } from "@/hooks/use-library"
 import { useI18n } from "@/i18n"
+import { useProjectUiStore, type PanelTab } from "@/stores/project-ui-store"
 import { useSourceStore } from "@/stores/source-store"
-
-type PanelTab = "source" | "export" | "gallery" | "settings"
 
 export function SidePanel() {
   const { t } = useI18n()
   const streamUrl = useSourceStore((s) => s.streamUrl)
-  const [tab, setTab] = useState<PanelTab>("source")
+  const tab = useProjectUiStore((s) => s.panelTab)
+  const setTab = useProjectUiStore((s) => s.setPanelTab)
+  const hadSourceRef = useRef(Boolean(streamUrl))
 
   const { data } = useLibrary()
   const clipCount = data?.files.length ?? 0
 
-  // Kaynak temizlenince kaynak sekmesine dönülür. Kaynak yüklendiğinde sekme
-  // kendiliğinden değişmez: kullanıcı hangi sekmedeyse orada kalır.
+  // Kaynak temizlenince kaynak sekmesine dönülür. İlk açılışta projeden gelen
+  // sekme korunur; kaynak yüklendiğinde sekme kendiliğinden değişmez.
   useEffect(() => {
-    if (!streamUrl) setTab("source")
-  }, [streamUrl])
+    if (hadSourceRef.current && !streamUrl) setTab("source")
+    hadSourceRef.current = Boolean(streamUrl)
+  }, [streamUrl, setTab])
 
   return (
     <Tabs

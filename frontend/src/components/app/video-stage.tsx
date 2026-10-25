@@ -607,6 +607,19 @@ export function VideoStage() {
         if (target > 0.05) el.currentTime = target
         if (pending.playing) void el.play().catch(() => undefined)
       }
+
+      // Proje geri yüklemesinde kaydedilen oynatma konumu, meta veri hazır
+      // olduğunda bir kez uygulanır. Kalite değişimi daha yeni bir hedef
+      // belirlediyse onu ezme.
+      const pendingSeek = usePlayerStore.getState().pendingSeek
+      if (pendingSeek !== null) {
+        if (!pending) {
+          const limit = duration > 0 ? Math.max(0, duration - 0.05) : pendingSeek
+          const target = Math.min(Math.max(pendingSeek, 0), limit)
+          if (target > 0.05) el.currentTime = target
+        }
+        usePlayerStore.getState().clearPendingSeek()
+      }
     }
     const onTimeUpdate = () => mark({ currentTime: el.currentTime })
     const onPlay = () => {

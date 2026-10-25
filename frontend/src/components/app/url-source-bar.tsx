@@ -5,6 +5,7 @@ import {
   ClipboardPaste,
   Download,
   ExternalLink,
+  FilePlus2,
   FolderOpen,
   Loader2,
   Terminal,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -80,6 +82,7 @@ function CircleProgress({ percent }: { percent: number }) {
 
 export function UrlSourceBar() {
   const { t } = useI18n()
+  const project = useProjectWorkspaceController()
   const inputUrl = useSourceStore((s) => s.inputUrl)
   const streamUrl = useSourceStore((s) => s.streamUrl)
   const title = useSourceStore((s) => s.title)
@@ -816,19 +819,35 @@ export function UrlSourceBar() {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] text-muted-foreground/70">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-[11px] text-muted-foreground/70">
             {!streamUrl ? t("source.dragDropHint") : ""}
           </span>
-          <Button
-            variant="ghost"
-            size="xs"
-            className="-mr-1.5 h-6 px-1.5 text-[11px] font-normal text-muted-foreground"
-            onClick={() => void handleLoad(DEMO_URL)}
-            disabled={resolving}
-          >
-            {t("source.demo")}
-          </Button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {(project.projectId || streamUrl) && (
+              <Button
+                variant="ghost"
+                size="xs"
+                className="-ml-1.5 h-6 px-1.5 text-[11px] font-normal text-muted-foreground"
+                onClick={project.startFresh}
+                disabled={resolving}
+                title={t("project.newProjectTitle")}
+                aria-label={t("project.newProject")}
+              >
+                <FilePlus2 />
+                {t("project.newProject")}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="xs"
+              className="-mr-1.5 h-6 px-1.5 text-[11px] font-normal text-muted-foreground"
+              onClick={() => void handleLoad(DEMO_URL)}
+              disabled={resolving}
+            >
+              {t("source.demo")}
+            </Button>
+          </div>
         </div>
       </div>
 

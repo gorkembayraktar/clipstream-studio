@@ -1,0 +1,99 @@
+/** Proje ayarları ve kaynağı geri yüklenirken gösterilen tam ekran durum. */
+import { Clapperboard, Loader2 } from "lucide-react"
+
+import { useI18n } from "@/i18n"
+
+interface ProjectLoadingScreenProps {
+  phase: "hydrating" | "restoring"
+  title: string | null
+  progress: number | null
+  stage: string | null
+  detail: string
+}
+
+export function ProjectLoadingScreen({
+  phase,
+  title,
+  progress,
+  stage,
+  detail,
+}: ProjectLoadingScreenProps) {
+  const { t } = useI18n()
+  const heading =
+    phase === "hydrating"
+      ? t("project.loadingSettings")
+      : t("project.loadingSource")
+  const stageLabel =
+    phase === "restoring"
+      ? stage === "downloading"
+        ? t("source.downloadingTiktok")
+        : stage === "transcoding"
+          ? t("source.preparingBrowser")
+          : t("source.resolving")
+      : null
+  const percent =
+    progress === null ? null : Math.max(0, Math.min(100, Math.round(progress)))
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+      <div
+        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-8 text-center shadow-2xl"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        data-slot="project-loading-screen"
+      >
+        <div className="relative mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Clapperboard className="size-6" />
+          <Loader2 className="absolute -right-1 -bottom-1 size-5 animate-spin rounded-full bg-card" />
+        </div>
+
+        <div className="space-y-1.5">
+          <h1 className="text-lg font-semibold">{heading}</h1>
+          {title && (
+            <p
+              className="truncate text-sm font-medium text-foreground"
+              title={title}
+            >
+              {title}
+            </p>
+          )}
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {phase === "hydrating"
+              ? t("project.loadingSettingsDetail")
+              : stageLabel || t("project.loadingSourceDetail")}
+          </p>
+          {phase === "restoring" && detail && (
+            <p className="truncate text-[11px] text-muted-foreground/80" title={detail}>
+              {detail}
+            </p>
+          )}
+        </div>
+
+        <div
+          className="mx-auto h-1.5 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-label={heading}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent ?? undefined}
+        >
+          {percent === null ? (
+            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
+          ) : (
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-200"
+              style={{ width: `${percent}%` }}
+            />
+          )}
+        </div>
+
+        {percent !== null && (
+          <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
+            {percent}%
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}

@@ -64,6 +64,8 @@ interface PlayerState {
   videoHeight: number
   /** Hassas adım büyüklüğü (kare ya da ms). */
   stepMode: StepMode
+  /** Proje geri yüklenirken meta veri hazır olunca uygulanacak konum. */
+  pendingSeek: number | null
 
   bind: (el: HTMLVideoElement | null) => void
   mark: (
@@ -98,6 +100,9 @@ interface PlayerState {
   setPlaybackRate: (rate: number) => void
   togglePip: () => void
   setStepMode: (mode: StepMode) => void
+  /** Video meta verisi hazır olduğunda uygulanacak konumu işaretler. */
+  requestSeek: (time: number) => void
+  clearPendingSeek: () => void
   /** Hassas adım: count adet adım ileri (+) / geri (−) sarar. */
   step: (count: number) => void
 }
@@ -175,6 +180,7 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
   videoWidth: 0,
   videoHeight: 0,
   stepMode: initialPrefs.stepMode,
+  pendingSeek: null,
 
   bind: (el) => {
     videoEl = el
@@ -237,7 +243,7 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     if (!videoEl) return
     const target = clamp(time, 0, videoEl.duration || 0)
     videoEl.currentTime = target
-    set({ currentTime: target })
+    set({ currentTime: target, pendingSeek: null })
   },
 
   seekBy: (delta) => {
@@ -305,6 +311,13 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     set({ stepMode: toStepMode(mode) })
     persistPrefs(get())
   },
+
+  requestSeek: (time) =>
+    set({
+      pendingSeek: Number.isFinite(time) ? Math.max(0, time) : null,
+    }),
+
+  clearPendingSeek: () => set({ pendingSeek: null }),
 
   /** Hassas adım: kare modunda fps'e göre, ms modlarında sabit süreyle sarar. */
   step: (count) => {

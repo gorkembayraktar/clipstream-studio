@@ -118,6 +118,33 @@ export const en = {
   "source.platformTiktok": "TikTok",
   "source.live": "LIVE",
 
+  "project.loadingSettings": "Loading project settings…",
+  "project.loadingSettingsDetail":
+    "Restoring your export, timeline, and crop settings.",
+  "project.loadingSource": "Loading source…",
+  "project.loadingSourceDetail":
+    "The source and your edits will be restored.",
+  "project.notFoundTitle": "Project not found",
+  "project.notFoundDescription":
+    "This project could not be found in this browser. A clean session was started; load a source to create a new project.",
+  "project.storageTitle": "Project could not be saved",
+  "project.storageDescription":
+    "Local storage is unavailable or full. You can keep working, but this project will not be restored after a refresh.",
+  "project.sourceErrorTitle": "Could not restore the project source",
+  "project.sourceErrorDescription":
+    "Your project settings are safe. Retry loading the source or start a fresh project.",
+  "project.retry": "Retry",
+  "project.startFresh": "Start fresh",
+  "project.newProject": "New project",
+  "project.newProjectTitle": "Start a fresh project and clear the current source",
+  "project.dismiss": "Dismiss",
+  "project.sourceMissing": "The project does not contain a source URL.",
+  "project.createdLog": "Project created: {title}",
+  "project.restoredLog": "Project restored: {title}",
+  "project.notFoundLog": "Project not found in local storage.",
+  "project.storageFailedLog": "Project could not be saved to local storage.",
+  "project.sourceRestoreFailedLog": "Project source could not be loaded",
+
   "export.selectRange": "Save the selected range as a clip",
   "export.selection": "Selected range",
   "export.cutMode": "Cut mode",
