@@ -1,24 +1,10 @@
-/** Dışa aktarma sekmesi: seçili aralık, çıktı ayarları, seçenekler ve işler. */
-import { DownloadIcon, Loader2Icon } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+/** Export tab: selected range, output profile, advanced settings and action. */
 import { useStartExport } from "@/hooks/use-export-job"
 import { useGpuCapability } from "@/hooks/use-gpu-capability"
-import { useI18n, type TranslationKey } from "@/i18n"
-import { compactDuration, formatTime } from "@/lib/format"
+import { useI18n } from "@/i18n"
+import { formatTime } from "@/lib/format"
 import type {
   CropPayload,
-  CutMode,
   ExportCodec,
   ExportQuality,
   OutputFormat,
@@ -28,86 +14,11 @@ import { useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { useSourceStore } from "@/stores/source-store"
 
-const FORMAT_KEYS: Record<OutputFormat, TranslationKey> = {
-  mp4: "export.format.mp4",
-  gif: "export.format.gif",
-  mp3: "export.format.mp3",
-}
-
-const FORMAT_LABELS: Record<OutputFormat, string> = {
-  mp4: "MP4",
-  gif: "GIF",
-  mp3: "MP3",
-}
-
-const QUALITY_LABEL_KEYS: Record<ExportQuality, TranslationKey> = {
-  high: "export.qualityHigh",
-  balanced: "export.qualityBalanced",
-  compact: "export.qualityCompact",
-}
-
-const QUALITY_DESCRIPTION_KEYS: Record<ExportQuality, TranslationKey> = {
-  high: "export.qualityHighDescription",
-  balanced: "export.qualityBalancedDescription",
-  compact: "export.qualityCompactDescription",
-}
-
-const CODEC_LABEL_KEYS: Record<ExportCodec, TranslationKey> = {
-  h264: "export.codecH264",
-  hevc: "export.codecHevc",
-}
-
-const CODEC_DESCRIPTION_KEYS: Record<ExportCodec, TranslationKey> = {
-  h264: "export.codecH264Description",
-  hevc: "export.codecHevcDescription",
-}
-
-interface ToggleRowProps {
-  id: string
-  title: string
-  description: string
-  detail?: string
-  checked: boolean
-  disabled?: boolean
-  onCheckedChange: (checked: boolean) => void
-}
-
-function ToggleRow({
-  id,
-  title,
-  description,
-  detail,
-  checked,
-  disabled,
-  onCheckedChange,
-}: ToggleRowProps) {
-  const descriptionId = `${id}-description`
-
-  return (
-    <div className="flex items-start justify-between gap-3 px-3 py-2.5">
-      <div className="min-w-0">
-        <Label htmlFor={id} className="text-xs font-medium">
-          {title}
-        </Label>
-        <p
-          id={descriptionId}
-          className="mt-0.5 text-[10px] leading-snug text-muted-foreground"
-          title={detail}
-        >
-          {description}
-        </p>
-      </div>
-      <Switch
-        id={id}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        disabled={disabled}
-        aria-describedby={descriptionId}
-        className="mt-0.5 shrink-0"
-      />
-    </div>
-  )
-}
+import { ExportActionBar } from "./export-action-bar"
+import { ExportAdvancedSettings } from "./export-advanced-settings"
+import { ExportOutputSettings } from "./export-output-settings"
+import { ExportSummary } from "./export-summary"
+import type { ExportProfile } from "./export-panel-constants"
 
 export function ExportPanel() {
   const { t } = useI18n()
@@ -118,9 +29,10 @@ export function ExportPanel() {
   const meta = useSourceStore((s) => s.meta)
   const headers = useSourceStore((s) => s.headers)
   const headerToken = useSourceStore((s) => s.headerToken)
+
   const trim = useEditStore((s) => s.trim)
   const crop = useEditStore((s) => s.crop)
-  const setCropEnabled = useEditStore((s) => s.setCropEnabled)
+
   const cutMode = useExportStore((s) => s.cutMode)
   const outputFormat = useExportStore((s) => s.outputFormat)
   const quality = useExportStore((s) => s.quality)
@@ -129,6 +41,7 @@ export function ExportPanel() {
   const filename = useExportStore((s) => s.filename)
   const gpuEnabled = useExportStore((s) => s.gpuEnabled)
   const activeJobIds = useExportStore((s) => s.activeJobIds)
+
   const setCutMode = useExportStore((s) => s.setCutMode)
   const setOutputFormat = useExportStore((s) => s.setOutputFormat)
   const setQuality = useExportStore((s) => s.setQuality)
@@ -141,18 +54,23 @@ export function ExportPanel() {
   const gpuCapability = useGpuCapability()
   const gpu = gpuCapability.data?.gpu
   const features = gpuCapability.data?.features
+
   const hevcAvailable = Boolean(features?.hevc)
   const frameRateAvailable = Boolean(features?.frame_rate)
-  const cropActive = Boolean(crop.enabled && crop.rect)
   const sourceFps = meta?.fps ?? 0
-  const effectiveCodec = hevcAvailable ? codec : "h264"
-  const frameRateEnabled =
-    frameRateAvailable &&
+  const cropActive = Boolean(crop.enabled && crop.rect)
+  const cropApplies = cropActive && outputFormat !== "mp3"
+  const cropWidth = cropApplies && crop.rect ? crop.rect.width : null
+  const cropHeight = cropApplies && crop.rect ? crop.rect.height : null
+
+  const effectiveCodec: ExportCodec = hevcAvailable ? codec : "h264"
+  const frameRateOptionVisible =
     outputFormat === "mp4" &&
+    frameRateAvailable &&
     (sourceFps === 0 || sourceFps > 30)
-  const effectiveOutputFps = frameRateEnabled ? outputFps : null
+  const effectiveOutputFps = frameRateOptionVisible ? outputFps : null
   const requiresReencode =
-    cropActive ||
+    cropApplies ||
     cutMode !== "fast" ||
     effectiveCodec === "hevc" ||
     effectiveOutputFps !== null
@@ -160,66 +78,68 @@ export function ExportPanel() {
     outputFormat === "mp4" && effectiveCodec === "h264" && requiresReencode
   const gpuReady = gpuEligible && Boolean(gpu?.available)
   const useGpu = gpuEnabled && gpuReady
-  // Kalite seçimi MP4'te her zaman görünür; hızlı kesimde seçim yapılınca
-  // aşağıdaki handler otomatik olarak hassas (yeniden kodlanan) moda geçer.
-  const qualitySelectable = outputFormat === "mp4"
-  const qualityApplicable = qualitySelectable && requiresReencode
-  // Hızlı kopyada kalite profili uygulanmaz; seçicide bunu "Orijinal" olarak
-  // göster. Böylece aynı profil tekrar seçilse bile mod değişikliği tetiklenir.
-  const qualityChoice: ExportQuality | "original" =
-    qualitySelectable && !requiresReencode ? "original" : quality
-  const qualityDescription = !qualitySelectable
-    ? t("export.qualityNotApplicable")
-    : qualityChoice === "original"
-      ? t("export.qualityOriginalDescription")
-      : t(QUALITY_DESCRIPTION_KEYS[quality])
-  const qualityHint = qualitySelectable
-    ? t(
-        qualityChoice === "original"
-          ? "export.qualityFastNote"
-          : "export.qualitySavingsNote",
-      )
-    : null
+  const qualityApplicable = outputFormat === "mp4" && requiresReencode
+
+  // "Original" only makes sense for a real stream copy. Crop, H.265 and 30 fps
+  // all force a re-encode, so keep the option visible but disabled.
+  const originalBlockers = [
+    cropApplies ? t("export.reasonCrop") : null,
+    effectiveCodec === "hevc" ? "H.265" : null,
+    effectiveOutputFps !== null ? `${effectiveOutputFps} fps` : null,
+  ].filter((value): value is string => Boolean(value))
+  const originalAvailable =
+    outputFormat === "mp4" && originalBlockers.length === 0
+  const profile: ExportProfile =
+    cutMode === "fast" && originalAvailable ? "original" : quality
+
+  const clipDuration = trim.end - trim.start
+  const invalidReason = isLive
+    ? t("export.liveDisabled")
+    : !streamUrl
+      ? t("export.noSource")
+      : clipDuration <= 0.05
+        ? t("export.rangeTooShort")
+        : null
 
   const gpuHint = (() => {
     if (gpuCapability.isPending) return t("gpu.checking")
     if (gpuCapability.isError || !gpu) return t("gpu.detectFailed")
-    if (!gpu.available) return gpu.reason ?? t("gpu.unavailable")
-    if (outputFormat !== "mp4") return t("gpu.mp4Only")
-    if (effectiveCodec === "hevc") return t("gpu.hevcCpu")
-    if (!requiresReencode) return t("gpu.fastDisabled")
-    return t("gpu.ready", { encoder: gpu.label ?? "GPU" })
+    if (!gpu.available) return t("gpu.unavailable")
+    if (effectiveCodec === "hevc") return t("gpu.shortHevc")
+    if (!requiresReencode) return t("gpu.shortFastCopy")
+    return t("gpu.shortReady", { encoder: gpu.label ?? "GPU" })
   })()
 
-  const clipDuration = trim.end - trim.start
-  const invalidRange = isLive || !streamUrl || clipDuration <= 0.05
-  const modeLabel = cutMode === "fast" ? t("export.fast") : t("export.exact")
-  const summaryMeta = [
-    modeLabel,
-    effectiveCodec === "hevc" ? "H.265" : null,
-    effectiveOutputFps ? `${effectiveOutputFps} fps` : null,
-    qualityApplicable ? t(QUALITY_LABEL_KEYS[quality]) : null,
-    meta && meta.width > 0 ? `${meta.width}×${meta.height}` : null,
-    cropActive && crop.rect
-      ? `${t("export.crop")} ${crop.rect.width}×${crop.rect.height}`
-      : null,
-    useGpu ? "GPU" : null,
-  ]
-    .filter(Boolean)
-    .join(" · ")
+  const gpuTooltip = (() => {
+    if (gpuCapability.isPending) return t("gpu.checking")
+    if (gpuCapability.isError || !gpu) return t("gpu.detectFailed")
+    if (!gpu.available) return gpu.reason ?? t("gpu.unavailable")
+    if (effectiveCodec === "hevc") return t("gpu.hevcCpu")
+    if (!requiresReencode) return t("gpu.fastDisabled")
+    return gpu.detail ?? t("gpu.ready", { encoder: gpu.label ?? "GPU" })
+  })()
 
-  const handleCutModeChange = (value: string) => {
-    const nextMode = value as CutMode
-    setCutMode(nextMode)
-    // Hızlı kopya kaynak codec/kare hızını korur; ek seçenekleri sıfırla.
-    if (nextMode === "fast") {
-      setCodec("h264")
-      setOutputFps(null)
-    }
+  const deviations = [
+    cropApplies && crop.rect
+      ? t("export.summaryCrop", {
+          width: crop.rect.width,
+          height: crop.rect.height,
+        })
+      : null,
+    outputFormat === "mp4" && effectiveCodec === "hevc" ? "H.265" : null,
+    effectiveOutputFps !== null
+      ? t("export.summaryFps", { fps: effectiveOutputFps })
+      : null,
+    useGpu ? t("export.summaryGpu") : null,
+  ].filter((value): value is string => Boolean(value))
+
+  const handleOutputFormatChange = (format: OutputFormat) => {
+    setOutputFormat(format)
   }
 
-  const handleQualityChange = (value: string) => {
+  const handleProfileChange = (value: string) => {
     if (value === "original") {
+      if (!originalAvailable) return
       setCodec("h264")
       setOutputFps(null)
       setCutMode("fast")
@@ -227,7 +147,6 @@ export function ExportPanel() {
     }
 
     setQuality(value as ExportQuality)
-    // Sıkıştırma yalnızca yeniden kodlamada uygulanır.
     setCutMode("exact")
   }
 
@@ -246,11 +165,29 @@ export function ExportPanel() {
     setCutMode("exact")
   }
 
+  const focusJobsDock = () => {
+    const dock = document.querySelector<HTMLElement>('[data-slot="jobs-dock"]')
+    if (!dock) return
+    dock
+      .querySelector<HTMLButtonElement>('[data-slot="jobs-dock-toggle"]')
+      ?.focus({ preventScroll: true })
+  }
+
+  const editCrop = () => {
+    const trigger = document.querySelector<HTMLButtonElement>(
+      '[data-slot="crop-menu-trigger"]',
+    )
+    if (!trigger) return
+    trigger.scrollIntoView({ behavior: "smooth", block: "center" })
+    trigger.focus({ preventScroll: true })
+    trigger.click()
+  }
+
   const handleExport = () => {
-    if (!streamUrl || invalidRange || isLive) return
+    if (!streamUrl || invalidReason || startExport.isPending) return
 
     const cropPayload: CropPayload | null =
-      crop.enabled && crop.rect && meta
+      cropApplies && crop.rect && meta
         ? {
             enabled: true,
             ...crop.rect,
@@ -259,10 +196,20 @@ export function ExportPanel() {
           }
         : null
 
-    // Kaynağın sesi yoksa (ör. YouTube HLS) ses ayrı akıştan eklenir. Alternatif
-    // bir ses rendition'ı seçildiyse kaynaktaki gömülü ses yerine o kullanılır.
+    // A source without embedded audio (for example YouTube HLS) can use a
+    // separate audio stream. A selected audio rendition wins over embedded audio.
     const separateAudio =
-      audioTrackId && audioUrl ? audioUrl : meta && !meta.hasAudio ? audioUrl : null
+      audioTrackId && audioUrl
+        ? audioUrl
+        : meta && !meta.hasAudio
+          ? audioUrl
+          : null
+
+    // The backend always appends the extension; strip one typed by the user so
+    // "clip.mp4" does not become "clip.mp4.mp4".
+    const filenameForExport = filename
+      .trim()
+      .replace(/\.(mp4|gif|mp3)$/i, "")
 
     startExport.mutate({
       url: streamUrl,
@@ -274,7 +221,7 @@ export function ExportPanel() {
       codec: outputFormat === "mp4" ? effectiveCodec : undefined,
       output_fps: outputFormat === "mp4" ? effectiveOutputFps : null,
       crop: cropPayload,
-      filename,
+      filename: filenameForExport,
       encoder: useGpu ? "gpu" : "cpu",
       audio_url: separateAudio,
       headers: headers ?? undefined,
@@ -300,7 +247,7 @@ export function ExportPanel() {
     log(
       "info",
       t("log.exportRequested", {
-        name: filename.trim() || t("log.autoName"),
+        name: filenameForExport || t("log.autoName"),
         mode: cutMode === "fast" ? t("export.modeFast") : t("export.modeExact"),
         format: outputFormat.toUpperCase(),
         start: formatTime(trim.start, true),
@@ -311,223 +258,62 @@ export function ExportPanel() {
   }
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-xl border border-border/70 bg-muted/20 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="text-[10px] font-medium text-muted-foreground">
-              {t("export.selection")}
-            </h3>
-            <p className="mt-1 truncate font-mono text-[13px] tabular-nums">
-              {formatTime(trim.start, true)}
-              <span className="mx-1.5 text-muted-foreground">→</span>
-              {formatTime(trim.end, true)}
-            </p>
-          </div>
-          <span className="shrink-0 rounded-md bg-background px-2 py-1 font-mono text-[11px] tabular-nums text-muted-foreground ring-1 ring-border/60">
-            {compactDuration(Math.max(0, clipDuration))}
-          </span>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="rounded bg-primary/10 px-1.5 py-0.5 font-semibold tracking-wide text-primary">
-            {FORMAT_LABELS[outputFormat]}
-          </span>
-          {summaryMeta && <span className="tabular-nums">{summaryMeta}</span>}
-        </div>
-      </section>
+    <div
+      data-slot="export-panel"
+      className="rounded-xl border border-border/70 bg-card"
+    >
+      <ExportSummary
+        start={trim.start}
+        end={trim.end}
+        duration={clipDuration}
+        outputFormat={outputFormat}
+        profile={outputFormat === "mp4" ? profile : null}
+        deviations={deviations}
+      />
 
-      <section className="space-y-3 rounded-xl border border-border/70 p-3">
-        <h3 className="text-xs font-semibold">{t("export.settings")}</h3>
+      <ExportOutputSettings
+        outputFormat={outputFormat}
+        onOutputFormatChange={handleOutputFormatChange}
+        profile={profile}
+        onProfileChange={handleProfileChange}
+        originalAvailable={originalAvailable}
+        originalBlockers={originalBlockers}
+        filename={filename}
+        onFilenameChange={setFilename}
+        onResetFilename={() => setFilename("")}
+      />
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="cut-mode" className="text-[11px] font-medium text-muted-foreground">
-              {t("export.cutMode")}
-            </Label>
-            <Select value={cutMode} onValueChange={handleCutModeChange}>
-              <SelectTrigger id="cut-mode" className="w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fast" className="text-xs">
-                  {t("export.fast")}
-                </SelectItem>
-                <SelectItem value="exact" className="text-xs">
-                  {t("export.exact")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <ExportAdvancedSettings
+        outputFormat={outputFormat}
+        hevcAvailable={hevcAvailable}
+        codec={codec}
+        effectiveCodec={effectiveCodec}
+        onCodecChange={handleCodecChange}
+        frameRateAvailable={frameRateAvailable}
+        sourceFps={sourceFps}
+        effectiveOutputFps={effectiveOutputFps}
+        onOutputFpsChange={handleOutputFpsChange}
+        gpuReady={gpuReady}
+        gpuPending={gpuCapability.isPending}
+        useGpu={useGpu}
+        onGpuChange={setGpuEnabled}
+        gpuHint={gpuHint}
+        gpuTooltip={gpuTooltip}
+        cropActive={cropApplies}
+        cropWidth={cropWidth}
+        cropHeight={cropHeight}
+        onEditCrop={editCrop}
+      />
 
-          <div className="space-y-1.5">
-            <Label htmlFor="output-format" className="text-[11px] font-medium text-muted-foreground">
-              {t("export.outputFormat")}
-            </Label>
-            <Select
-              value={outputFormat}
-              onValueChange={(value) => setOutputFormat(value as OutputFormat)}
-            >
-              <SelectTrigger id="output-format" className="w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(FORMAT_KEYS) as OutputFormat[]).map((value) => (
-                  <SelectItem key={value} value={value} className="text-xs">
-                    {t(FORMAT_KEYS[value])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <p className="text-[10px] leading-snug text-muted-foreground">
-          {cutMode === "fast" ? t("export.fastDescription") : t("export.exactDescription")}
-        </p>
-
-        {outputFormat === "mp4" && hevcAvailable && (
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="export-codec"
-              className="text-[11px] font-medium text-muted-foreground"
-            >
-              {t("export.codec")}
-            </Label>
-            <Select value={codec} onValueChange={handleCodecChange}>
-              <SelectTrigger id="export-codec" className="w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(CODEC_LABEL_KEYS) as ExportCodec[]).map((value) => (
-                  <SelectItem key={value} value={value} className="text-xs">
-                    {t(CODEC_LABEL_KEYS[value])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] leading-snug text-muted-foreground">
-              {t(CODEC_DESCRIPTION_KEYS[effectiveCodec])}
-            </p>
-          </div>
-        )}
-
-        {outputFormat === "mp4" && frameRateAvailable && (
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="export-frame-rate"
-              className="text-[11px] font-medium text-muted-foreground"
-            >
-              {t("export.frameRate")}
-            </Label>
-            <Select
-              value={effectiveOutputFps ? String(effectiveOutputFps) : "source"}
-              onValueChange={handleOutputFpsChange}
-              disabled={!frameRateEnabled}
-            >
-              <SelectTrigger id="export-frame-rate" className="w-full text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="source" className="text-xs">
-                  {t("export.frameRateSource")}
-                </SelectItem>
-                <SelectItem value="30" className="text-xs">
-                  {t("export.frameRate30")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] leading-snug text-muted-foreground">
-              {!frameRateEnabled
-                ? t("export.frameRateUnavailable")
-                : effectiveOutputFps
-                  ? t("export.frameRate30Description")
-                  : t("export.frameRateSourceDescription")}
-            </p>
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <Label htmlFor="export-quality" className="text-[11px] font-medium text-muted-foreground">
-            {t("export.quality")}
-          </Label>
-          <Select
-            value={qualityChoice}
-            onValueChange={handleQualityChange}
-            disabled={!qualitySelectable}
-          >
-            <SelectTrigger id="export-quality" className="w-full text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {qualitySelectable && !cropActive && (
-                <SelectItem value="original" className="text-xs">
-                  {t("export.qualityOriginal")}
-                </SelectItem>
-              )}
-              {(Object.keys(QUALITY_LABEL_KEYS) as ExportQuality[]).map((value) => (
-                <SelectItem key={value} value={value} className="text-xs">
-                  {t(QUALITY_LABEL_KEYS[value])}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[10px] leading-snug text-muted-foreground">
-            {qualityDescription}
-          </p>
-          {qualityHint && (
-            <p className="text-[10px] leading-snug text-muted-foreground/80">
-              {qualityHint}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="filename" className="text-[11px] font-medium text-muted-foreground">
-            {t("export.filename")}
-          </Label>
-          <Input
-            id="filename"
-            className="h-8 text-xs"
-            placeholder={t("export.filenamePlaceholder")}
-            value={filename}
-            onChange={(event) => setFilename(event.target.value)}
-          />
-        </div>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-border/70">
-        <div className="border-b border-border/60 bg-muted/20 px-3 py-2">
-          <h3 className="text-xs font-semibold">{t("export.options")}</h3>
-        </div>
-        <div className="divide-y divide-border/60">
-          <ToggleRow
-            id="gpu-render"
-            title={t("gpu.title")}
-            description={gpuHint}
-            detail={gpu?.detail ?? undefined}
-            checked={useGpu}
-            onCheckedChange={setGpuEnabled}
-            disabled={!gpuReady || gpuCapability.isPending}
-          />
-          <ToggleRow
-            id="crop-enabled"
-            title={crop.enabled ? t("export.cropOn") : t("export.cropOff")}
-            description={crop.enabled ? t("export.cropHint") : t("export.cropOffHint")}
-            checked={crop.enabled}
-            onCheckedChange={setCropEnabled}
-          />
-        </div>
-      </section>
-
-      <Button
-        className="h-9 w-full"
-        onClick={handleExport}
-        disabled={invalidRange || startExport.isPending}
-        title={isLive ? t("export.liveDisabled") : t("export.startTitle")}
-      >
-        {startExport.isPending ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
-        {activeJobIds.length > 0 ? t("export.exportNew") : t("export.export")}
-      </Button>
+      <ExportActionBar
+        outputFormat={outputFormat}
+        duration={clipDuration}
+        activeJobCount={activeJobIds.length}
+        disabledReason={invalidReason}
+        pending={startExport.isPending}
+        onExport={handleExport}
+        onFocusJobs={focusJobsDock}
+      />
     </div>
   )
 }

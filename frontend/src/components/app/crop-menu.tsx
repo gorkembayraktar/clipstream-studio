@@ -42,6 +42,7 @@ export function CropMenu() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
+          data-slot="crop-menu-trigger"
           variant="ghost"
           size="icon-sm"
           aria-label={t("crop.label")}
