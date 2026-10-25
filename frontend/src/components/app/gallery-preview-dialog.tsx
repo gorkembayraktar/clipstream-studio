@@ -46,7 +46,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useDeleteLibraryFile, useLibraryFileMeta } from "@/hooks/use-library"
 import { useI18n } from "@/i18n"
-import { formatClock, formatFrameRate, formatMegabytes } from "@/lib/format"
+import {
+  formatClock,
+  formatDateTime,
+  formatFrameRate,
+  formatMegabytes,
+  formatRelativeTime,
+} from "@/lib/format"
 import type { ExportFile, LibraryFileMeta } from "@/lib/types"
 
 type PreviewKind = "video" | "audio" | "image" | "unsupported"
@@ -422,10 +428,14 @@ function MetadataPanel({
   const typeLabel =
     format.kind === "audio" ? `${format.label} · ${t("gallery.audioOnly")}` : format.label
 
-  const rows: { label: string; value: string }[] = [
+  const rows: { label: string; value: string; title?: string }[] = [
     { label: t("gallery.type"), value: typeLabel },
     { label: t("gallery.size"), value: formatMegabytes(file.size_mb) },
-    { label: t("gallery.modified"), value: file.modified_str },
+    {
+      label: t("gallery.modified"),
+      value: formatRelativeTime(file.modified),
+      title: formatDateTime(file.modified),
+    },
   ]
 
   if (width > 0 && height > 0) {
@@ -462,7 +472,7 @@ function MetadataPanel({
             className="grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] items-start gap-2 text-xs"
           >
             <dt className="text-muted-foreground">{row.label}</dt>
-            <dd className="truncate font-medium" title={row.value}>
+            <dd className="truncate font-medium" title={row.title ?? row.value}>
               {row.value}
             </dd>
           </div>
@@ -620,7 +630,12 @@ export function GalleryPreviewDialog({
                   </Badge>
                   <span>{formatMegabytes(file.size_mb)}</span>
                   <span aria-hidden="true">·</span>
-                  <span>{file.modified_str}</span>
+                  <time
+                    dateTime={new Date(file.modified * 1000).toISOString()}
+                    title={formatDateTime(file.modified)}
+                  >
+                    {formatRelativeTime(file.modified)}
+                  </time>
                 </DialogDescription>
               </div>
 

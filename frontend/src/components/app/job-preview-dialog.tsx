@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 
 import { GalleryPreviewDialog } from "@/components/app/gallery-preview-dialog"
 import { useLibrary, useRevealInExplorer } from "@/hooks/use-library"
+import { formatDateTime } from "@/lib/format"
 import type { ExportFile, ExportJob } from "@/lib/types"
 
 interface JobPreviewDialogProps {
@@ -21,7 +22,7 @@ function fallbackFile(job: ExportJob): ExportFile | null {
     name,
     size_mb: job.size_mb ?? 0,
     modified,
-    modified_str: new Date(modified * 1000).toLocaleString(),
+    modified_str: formatDateTime(modified),
     url: `/exports/${encodeURIComponent(name)}`,
   }
 }

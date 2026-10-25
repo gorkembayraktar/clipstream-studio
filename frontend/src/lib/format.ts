@@ -100,6 +100,44 @@ export function formatRemaining(seconds: number): string {
   return turkish ? `${secs} sn` : `${secs}s`
 }
 
+/** Göreli zaman: "2 dk. önce" / "2 min. ago". */
+export function formatRelativeTime(timestampSeconds: number): string {
+  const seconds = timestampSeconds - Date.now() / 1000
+  const abs = Math.abs(seconds)
+  const formatter = new Intl.RelativeTimeFormat(localeTag(), {
+    numeric: "auto",
+    style: "short",
+  })
+
+  if (abs < 45) return formatter.format(0, "second")
+
+  const units = [
+    ["year", 365 * 24 * 60 * 60],
+    ["month", 30 * 24 * 60 * 60],
+    ["week", 7 * 24 * 60 * 60],
+    ["day", 24 * 60 * 60],
+    ["hour", 60 * 60],
+    ["minute", 60],
+  ] as const
+
+  for (const [unit, secondsPerUnit] of units) {
+    if (abs >= secondsPerUnit) {
+      const value = Math.sign(seconds) * Math.round(abs / secondsPerUnit)
+      return formatter.format(value, unit)
+    }
+  }
+
+  return formatter.format(Math.sign(seconds) * Math.round(abs), "second")
+}
+
+/** Tam tarih ve saat: "25 Ekim 2026 14:32" / "October 25, 2026 at 2:32 PM". */
+export function formatDateTime(timestampSeconds: number): string {
+  return new Intl.DateTimeFormat(localeTag(), {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(new Date(timestampSeconds * 1000))
+}
+
 /** Kullanıcı girdisini ("01:23:45.678", "12.5", "1:30") saniyeye çevirir. */
 export function parseTimeInput(text: string): number | null {
   const cleaned = text.trim().replace(",", ".")

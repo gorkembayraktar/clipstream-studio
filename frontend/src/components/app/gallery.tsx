@@ -43,7 +43,12 @@ import {
   useRevealInExplorer,
 } from "@/hooks/use-library"
 import { useI18n } from "@/i18n"
-import { formatBytes, formatMegabytes } from "@/lib/format"
+import {
+  formatBytes,
+  formatDateTime,
+  formatMegabytes,
+  formatRelativeTime,
+} from "@/lib/format"
 import type { ExportFile } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -641,7 +646,13 @@ function GalleryItem({
       <div className="min-w-0 flex-1">
         <p className="truncate font-mono text-[11px]">{file.name}</p>
         <p className="text-[10px] text-muted-foreground">
-          {formatMegabytes(file.size_mb)} · {file.modified_str}
+          {formatMegabytes(file.size_mb)} ·{" "}
+          <time
+            dateTime={new Date(file.modified * 1000).toISOString()}
+            title={formatDateTime(file.modified)}
+          >
+            {formatRelativeTime(file.modified)}
+          </time>
         </p>
       </div>
 
