@@ -147,6 +147,7 @@ export const en = {
   "project.historyTitle": "Recent projects",
   "project.historyOpen": "Open project",
   "project.historyOpenNewTab": "Open in new tab",
+  "project.historyRefresh": "Refresh recent projects",
   "project.historyConfirmTitle": "Open another project?",
   "project.historyConfirmDescription":
     "This project has a loaded source. Opening another project will reload this tab. Your current project is saved automatically.",

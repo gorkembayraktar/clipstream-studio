@@ -1,7 +1,7 @@
 /** Kaynak panelinin altında bu tarayıcıda kayıtlı son projeleri gösterir. */
-import { useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
-import { ChevronDown, ExternalLink, History } from "lucide-react"
+import { ChevronDown, ExternalLink, History, RefreshCwIcon } from "lucide-react"
 
 import { cn } from "cn"
 
@@ -50,15 +50,33 @@ export function ProjectHistory() {
   const historyOpen = useProjectUiStore((state) => state.historyOpen)
   const setHistoryOpen = useProjectUiStore((state) => state.setHistoryOpen)
   const [pending, setPending] = useState<ProjectWorkspace | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshTimerRef = useRef<number | null>(null)
 
-  // Proje kimliği yeni proje oluşturma/sıfırlama ile değiştiğinde liste tazelenir.
-  const projects = useMemo(
-    () =>
-      listProjectWorkspaces()
-        .filter((item) => item.id !== project.projectId)
-        .slice(0, MAX_PROJECTS),
-    [project.projectId],
-  )
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Liste her render'da localStorage'dan okunur; yenile düğmesi `refreshing`
+  // durumunu değiştirerek güncel kayıtların görünmesini sağlar.
+  const projects = listProjectWorkspaces()
+    .filter((item) => item.id !== project.projectId)
+    .slice(0, MAX_PROJECTS)
+
+  const refreshProjects = () => {
+    setRefreshing(true)
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current)
+    }
+    refreshTimerRef.current = window.setTimeout(() => {
+      setRefreshing(false)
+      refreshTimerRef.current = null
+    }, 650)
+  }
 
   const openInCurrentTab = (id: string) => {
     // Hash değişikliği tek başına sayfayı yeniden yüklemez; proje hidrasyonu
@@ -83,25 +101,44 @@ export function ProjectHistory() {
 
   return (
     <div className="space-y-1.5 border-t border-border/60 pt-2">
-      <button
-        type="button"
-        onClick={() => setHistoryOpen(!historyOpen)}
-        aria-expanded={historyOpen}
-        aria-controls="project-history-list"
-        className="flex w-full cursor-pointer items-center gap-1 rounded-md px-1 py-1 text-left text-[10px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <History className="size-3" />
-        <span className="min-w-0 flex-1 truncate">
-          {t("project.historyTitle")}
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-3 shrink-0 transition-transform",
-            historyOpen && "rotate-180",
-          )}
-          aria-hidden
-        />
-      </button>
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(!historyOpen)}
+          aria-expanded={historyOpen}
+          aria-controls="project-history-list"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 rounded-md px-1 py-1 text-left text-[10px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <History className="size-3" />
+          <span className="min-w-0 flex-1 truncate">
+            {t("project.historyTitle")}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-3 shrink-0 transition-transform",
+              historyOpen && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-5 shrink-0 text-muted-foreground hover:bg-muted/40 hover:text-foreground active:scale-90 disabled:opacity-100"
+          onClick={refreshProjects}
+          title={t("project.historyRefresh")}
+          aria-label={t("project.historyRefresh")}
+          aria-busy={refreshing}
+          disabled={refreshing}
+        >
+          <RefreshCwIcon
+            className={cn("size-3", refreshing && "animate-spin")}
+            aria-hidden
+          />
+        </Button>
+      </div>
 
       <ul
         id="project-history-list"
