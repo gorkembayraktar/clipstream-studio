@@ -54,6 +54,10 @@ export function ExportOutputSettings({
       : `${t(QUALITY_DESCRIPTION_KEYS[profile])} ${t("export.qualitySavingsNote")}`
   const profileDescriptionId =
     outputFormat === "mp4" ? "export-profile-description" : undefined
+  const filenameHasExtension = filename
+    .trim()
+    .toLowerCase()
+    .endsWith(`.${outputFormat}`)
 
   return (
     <section className="space-y-3 border-b border-border/60 p-3">
@@ -154,14 +158,19 @@ export function ExportOutputSettings({
           <div className="relative min-w-0 flex-1">
             <Input
               id="export-filename"
-              className="h-9 pr-11 text-xs"
+              className={cn(
+                "h-9 text-xs",
+                !filenameHasExtension && "pr-11",
+              )}
               placeholder={t("export.filenamePlaceholder")}
               value={filename}
               onChange={(event) => onFilenameChange(event.target.value)}
             />
-            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-muted-foreground">
-              .{outputFormat}
-            </span>
+            {!filenameHasExtension ? (
+              <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-[10px] text-muted-foreground">
+                .{outputFormat}
+              </span>
+            ) : null}
           </div>
           <Button
             type="button"

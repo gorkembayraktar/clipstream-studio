@@ -168,9 +168,15 @@ export function ExportPanel() {
   const focusJobsDock = () => {
     const dock = document.querySelector<HTMLElement>('[data-slot="jobs-dock"]')
     if (!dock) return
-    dock
-      .querySelector<HTMLButtonElement>('[data-slot="jobs-dock-toggle"]')
-      ?.focus({ preventScroll: true })
+
+    const toggle = dock.querySelector<HTMLButtonElement>(
+      '[data-slot="jobs-dock-toggle"]',
+    )
+    if (!toggle) return
+
+    // Focus alone does not reveal a collapsed dock, so open it first.
+    if (toggle.getAttribute("aria-expanded") === "false") toggle.click()
+    toggle.focus({ preventScroll: true })
   }
 
   const editCrop = () => {
