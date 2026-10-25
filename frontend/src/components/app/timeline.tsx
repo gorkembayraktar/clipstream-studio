@@ -270,6 +270,76 @@ export function Timeline() {
   const startPct = pct(trim.start)
   const endPct = pct(trim.end)
 
+  /** Güncel süre: geri çağrılar yeniden kurulmadan en son değeri okur. */
+  const durationRef = useRef(duration)
+  useEffect(() => {
+    durationRef.current = duration
+  }, [duration])
+
+  /**
+   * Yatay kaydırmayı imlece göre günceller.
+   * - `center`: imleci görünür alanın ortasına getirir (yakınlaştırma / yeniden yerleşim).
+   * - `ensure`: imleç görünür alanın dışına çıkıyorsa içeri kaydırır (oynatma sırasında).
+   * Kenarlarda `[0, maxScroll]` aralığına kırpılır; imleç görünür kalır.
+   */
+  const scrollToPlayhead = useCallback((mode: "center" | "ensure") => {
+    const scroller = scrollRef.current
+    const track = trackRef.current
+    const total = durationRef.current
+    if (!scroller || !track || total <= 0) return
+
+    const viewport = scroller.clientWidth
+    const maxScroll = scroller.scrollWidth - viewport
+    if (viewport <= 0 || maxScroll <= 0) return
+
+    // Çizelgenin kaydırma içeriğindeki sol kenarı (px-2 dolgusu dahil).
+    const trackBounds = track.getBoundingClientRect()
+    const scrollerBounds = scroller.getBoundingClientRect()
+    const fraction = clamp(usePlayerStore.getState().currentTime / total, 0, 1)
+    const playheadX =
+      trackBounds.left - scrollerBounds.left + scroller.scrollLeft + fraction * trackBounds.width
+
+    const margin = Math.min(96, viewport * 0.18)
+    let target: number | null = null
+
+    if (mode === "center") target = playheadX - viewport / 2
+    else if (playheadX < scroller.scrollLeft + margin) target = playheadX - margin
+    else if (playheadX > scroller.scrollLeft + viewport - margin) {
+      target = playheadX - viewport + margin
+    }
+
+    if (target === null) return
+    const next = clamp(target, 0, maxScroll)
+    if (Math.abs(scroller.scrollLeft - next) >= 0.5) scroller.scrollLeft = next
+  }, [])
+
+  /** Aynı karede birden fazla istek gelirse tek ölçümle ortalamayı önceliklendirir. */
+  const recenterFrameRef = useRef(0)
+  const recenterModeRef = useRef<"center" | "ensure">("ensure")
+
+  const scheduleRecenter = useCallback(
+    (mode: "center" | "ensure") => {
+      if (mode === "center") recenterModeRef.current = "center"
+      if (recenterFrameRef.current) return
+      // Yeni iz genişliği yerleşmeden ölçüm yapılmamalı: bir sonraki kareyi bekle.
+      recenterFrameRef.current = requestAnimationFrame(() => {
+        recenterFrameRef.current = 0
+        const nextMode = recenterModeRef.current
+        recenterModeRef.current = "ensure"
+        scrollToPlayhead(nextMode)
+      })
+    },
+    [scrollToPlayhead],
+  )
+
+  useEffect(
+    () => () => {
+      if (recenterFrameRef.current) cancelAnimationFrame(recenterFrameRef.current)
+      recenterFrameRef.current = 0
+    },
+    [],
+  )
+
   // Yakınlaştırılan görünümde imleci görünür tut; seviye değişiminde ortala.
   useEffect(() => {
     const scroller = scrollRef.current
@@ -277,50 +347,51 @@ export function Timeline() {
 
     if (zoom <= 1) {
       previousZoomRef.current = zoom
+      recenterModeRef.current = "ensure"
       if (scroller.scrollLeft !== 0) scroller.scrollLeft = 0
-      return
-    }
-
-    const track = trackRef.current
-    if (!track || duration <= 0) {
-      previousZoomRef.current = zoom
-      return
-    }
-
-    const trackBounds = track.getBoundingClientRect()
-    const scrollerBounds = scroller.getBoundingClientRect()
-    const playheadX =
-      trackBounds.left -
-      scrollerBounds.left +
-      scroller.scrollLeft +
-      clamp(currentTime / duration, 0, 1) * trackBounds.width
-    const viewport = scroller.clientWidth
-    const maxScroll = scroller.scrollWidth - viewport
-    if (viewport <= 0 || maxScroll <= 0) {
-      previousZoomRef.current = zoom
       return
     }
 
     const zoomChanged = previousZoomRef.current !== zoom
     previousZoomRef.current = zoom
-    const margin = Math.min(96, viewport * 0.18)
-    let target: number | null = null
+    scheduleRecenter(zoomChanged ? "center" : "ensure")
+  }, [currentTime, duration, zoom, scheduleRecenter])
 
-    if (zoomChanged) target = playheadX - viewport / 2
-    else if (playheadX < scroller.scrollLeft + margin) target = playheadX - margin
-    else if (playheadX > scroller.scrollLeft + viewport - margin) {
-      target = playheadX - viewport + margin
+  // Tam ekran geçişi, pencere boyutu ve şerit yerleşimi değişimlerinde yeniden ortala.
+  // Tam ekranda sahne genişliği geçiş sırasında değiştiği için tek seferlik ölçüm yetersiz.
+  useEffect(() => {
+    if (zoom <= 1) return
+    const scroller = scrollRef.current
+    const track = trackRef.current
+    if (!scroller || !track) return
+
+    let lastWidths = ""
+    const handleResize = () => {
+      const widths = `${scroller.clientWidth}:${Math.round(track.getBoundingClientRect().width)}`
+      if (widths === lastWidths) return
+      lastWidths = widths
+      scheduleRecenter("center")
     }
+    // Tam ekran geçişi genişliği değiştirmese bile tarayıcı kaydırmayı sıfırlayabilir.
+    const handleFullscreenChange = () => scheduleRecenter("center")
 
-    if (target !== null) scroller.scrollLeft = clamp(target, 0, maxScroll)
-  }, [currentTime, duration, zoom])
+    const observer = new ResizeObserver(handleResize)
+    observer.observe(scroller)
+    observer.observe(track)
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    }
+  }, [zoom, scheduleRecenter])
 
   return (
-    <div ref={wrapperRef} className="relative select-none">
+    <div ref={wrapperRef} className="relative min-w-0 select-none">
       <div
         ref={scrollRef}
         onScroll={() => setHover(null)}
-        className="overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg bg-muted/50 px-2 ring-1 ring-foreground/10 [scrollbar-width:thin]"
+        className="overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg bg-muted/50 px-2 ring-1 ring-foreground/10 [overflow-anchor:none] [scrollbar-width:thin]"
       >
         <div
           ref={trackRef}

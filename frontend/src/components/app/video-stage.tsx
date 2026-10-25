@@ -777,7 +777,7 @@ export function VideoStage() {
       <div
         inert={!streamUrl}
         className={cn(
-          "stage-strip space-y-2 px-3 py-3",
+          "stage-strip min-w-0 space-y-2 px-3 py-3",
           !streamUrl && "pointer-events-none opacity-60",
         )}
       >

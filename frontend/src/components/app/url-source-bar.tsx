@@ -856,7 +856,7 @@ export function UrlSourceBar() {
 
       {/* Gelişmiş: korumalı kaynaklar için curl (cookie / header) yapıştırma */}
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="grid-cols-1 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("source.advancedTitle")}</DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
@@ -866,6 +866,7 @@ export function UrlSourceBar() {
 
           <textarea
             autoFocus
+            wrap="soft"
             value={curlText}
             onChange={(event) => setCurlText(event.target.value)}
             placeholder={
@@ -875,15 +876,15 @@ export function UrlSourceBar() {
             rows={5}
             disabled={resolving}
             aria-label={t("source.curlAria")}
-            className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-2.5 font-mono text-xs leading-relaxed outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+            className="block max-h-64 min-h-28 w-full max-w-full min-w-0 resize-y overflow-y-auto rounded-lg border border-input bg-transparent p-2.5 font-mono text-xs leading-relaxed wrap-anywhere whitespace-pre-wrap outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
           />
 
           {curlText.trim() && (
-            <div className="space-y-2">
+            <div className="min-w-0 max-w-full space-y-2">
               {parsedCurl?.url ? (
-                <div className="rounded-lg border border-border/70 bg-muted/30 px-2 py-1.5">
+                <div className="min-w-0 max-w-full rounded-lg border border-border/70 bg-muted/30 px-2 py-1.5">
                   <p
-                    className="truncate font-mono text-[10px] text-muted-foreground"
+                    className="min-w-0 truncate font-mono text-[10px] text-muted-foreground"
                     title={parsedCurl.url}
                   >
                     {parsedCurl.url}
@@ -895,12 +896,12 @@ export function UrlSourceBar() {
                 </p>
               )}
               {parsedCurl && Object.keys(parsedCurl.headers).length > 0 && (
-                <div className="flex flex-wrap gap-1">
+                <div className="flex min-w-0 max-w-full flex-wrap gap-1">
                   {Object.keys(parsedCurl.headers).map((name) => (
                     <Badge
                       key={name}
                       variant="secondary"
-                      className="h-[18px] px-1.5 text-[10px]"
+                      className="h-auto min-h-[18px] max-w-full min-w-0 px-1.5 text-[10px] whitespace-normal wrap-anywhere"
                     >
                       {name}
                     </Badge>
@@ -908,7 +909,10 @@ export function UrlSourceBar() {
                 </div>
               )}
               {parsedCurl?.warnings.map((warning) => (
-                <p key={warning} className="text-[10px] text-amber-500">
+                <p
+                  key={warning}
+                  className="min-w-0 text-[10px] text-amber-500 wrap-anywhere"
+                >
                   {warning}
                 </p>
               ))}
