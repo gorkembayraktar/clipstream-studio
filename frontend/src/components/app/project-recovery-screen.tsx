@@ -20,9 +20,9 @@ export function ProjectRecoveryScreen({
   const { t } = useI18n()
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+    <div className="flex min-h-svh items-center justify-center overflow-y-auto bg-background px-4 py-6 text-foreground">
       <div
-        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-8 text-center shadow-2xl"
+        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-6 text-center shadow-2xl sm:p-8"
         data-slot="project-recovery-screen"
       >
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">

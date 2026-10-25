@@ -35,9 +35,9 @@ export function ProjectLoadingScreen({
     progress === null ? null : Math.max(0, Math.min(100, Math.round(progress)))
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+    <div className="flex min-h-svh items-center justify-center overflow-y-auto bg-background px-4 py-6 text-foreground">
       <div
-        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-8 text-center shadow-2xl"
+        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-6 text-center shadow-2xl sm:p-8"
         role="status"
         aria-live="polite"
         aria-busy="true"
@@ -45,7 +45,7 @@ export function ProjectLoadingScreen({
       >
         <div className="relative mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Clapperboard className="size-6" />
-          <Loader2 className="absolute -right-1 -bottom-1 size-5 animate-spin rounded-full bg-card" />
+          <Loader2 className="absolute -right-1 -bottom-1 size-5 animate-spin rounded-full bg-card p-0.5" />
         </div>
 
         <div className="space-y-1.5">
