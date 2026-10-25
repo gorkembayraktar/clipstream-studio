@@ -163,3 +163,13 @@
 [data-slot="video-stage"]:fullscreen .stage-strip {
   flex: 0 0 auto;
 }
+
+/* Project loading: indeterminate bar segment moves left to right. */
+@keyframes project-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}

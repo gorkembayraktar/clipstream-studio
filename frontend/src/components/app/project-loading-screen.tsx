@@ -37,7 +37,7 @@ export function ProjectLoadingScreen({
   return (
     <div className="flex min-h-svh items-center justify-center overflow-y-auto bg-background px-4 py-6 text-foreground">
       <div
-        className="w-full max-w-md space-y-5 rounded-2xl border bg-card p-6 text-center shadow-2xl sm:p-8"
+        className="w-full min-w-0 max-w-md space-y-5 rounded-2xl border bg-card p-6 text-center shadow-2xl sm:p-8"
         role="status"
         aria-live="polite"
         aria-busy="true"
@@ -70,29 +70,32 @@ export function ProjectLoadingScreen({
           )}
         </div>
 
-        <div
-          className="mx-auto h-1.5 w-full overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          aria-label={heading}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent ?? undefined}
-        >
-          {percent === null ? (
-            <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
-          ) : (
-            <div
-              className="h-full rounded-full bg-primary transition-[width] duration-200"
-              style={{ width: `${percent}%` }}
-            />
-          )}
-        </div>
+        <div className="space-y-1.5">
+          <div
+            className="relative mx-auto h-1.5 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label={heading}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent ?? undefined}
+          >
+            {percent === null ? (
+              <div className="absolute inset-y-0 left-0 w-1/3 animate-[project-loading-bar_1.4s_ease-in-out_infinite] rounded-full bg-primary" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-200"
+                style={{ width: `${percent}%` }}
+              />
+            )}
+          </div>
 
-        {percent !== null && (
-          <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
-            {percent}%
+          <p
+            className="h-3 font-mono text-[10px] tabular-nums text-muted-foreground"
+            aria-hidden={percent === null}
+          >
+            {percent === null ? "\u00a0" : `${percent}%`}
           </p>
-        )}
+        </div>
       </div>
     </div>
   )
