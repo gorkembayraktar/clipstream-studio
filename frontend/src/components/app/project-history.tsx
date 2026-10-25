@@ -1,7 +1,9 @@
 /** Kaynak panelinin altında bu tarayıcıda kayıtlı son projeleri gösterir. */
 import { useMemo, useState } from "react"
 
-import { ExternalLink, History } from "lucide-react"
+import { ChevronDown, ExternalLink, History } from "lucide-react"
+
+import { cn } from "cn"
 
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
 import {
@@ -21,6 +23,7 @@ import {
   listProjectWorkspaces,
   type ProjectWorkspace,
 } from "@/lib/project-workspace"
+import { useProjectUiStore } from "@/stores/project-ui-store"
 import { useSourceStore } from "@/stores/source-store"
 
 const MAX_PROJECTS = 5
@@ -44,6 +47,8 @@ export function ProjectHistory() {
   const { t, locale } = useI18n()
   const project = useProjectWorkspaceController()
   const hasSource = useSourceStore((state) => Boolean(state.streamUrl))
+  const historyOpen = useProjectUiStore((state) => state.historyOpen)
+  const setHistoryOpen = useProjectUiStore((state) => state.setHistoryOpen)
   const [pending, setPending] = useState<ProjectWorkspace | null>(null)
 
   // Proje kimliği yeni proje oluşturma/sıfırlama ile değiştiğinde liste tazelenir.
@@ -78,12 +83,30 @@ export function ProjectHistory() {
 
   return (
     <div className="space-y-1.5 border-t border-border/60 pt-2">
-      <p className="flex items-center gap-1 px-1 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+      <button
+        type="button"
+        onClick={() => setHistoryOpen(!historyOpen)}
+        aria-expanded={historyOpen}
+        aria-controls="project-history-list"
+        className="flex w-full cursor-pointer items-center gap-1 rounded-md px-1 py-1 text-left text-[10px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
         <History className="size-3" />
-        {t("project.historyTitle")}
-      </p>
+        <span className="min-w-0 flex-1 truncate">
+          {t("project.historyTitle")}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-3 shrink-0 transition-transform",
+            historyOpen && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
 
-      <ul className="space-y-0.5">
+      <ul
+        id="project-history-list"
+        className={cn("space-y-0.5", !historyOpen && "hidden")}
+      >
         {projects.map((item) => (
           <li key={item.id} className="group flex items-center gap-0.5">
             <button
