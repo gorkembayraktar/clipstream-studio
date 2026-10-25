@@ -301,3 +301,22 @@ export function removeProjectWorkspace(id: string): void {
     /* localStorage kullanılamıyorsa yok sayılır */
   }
 }
+
+/** Bu tarayıcıda kayıtlı, kaynağı olan projeleri en son güncellenen önce olacak
+ * biçimde döndürür. Bozuk kayıtlar sessizce atlanır. */
+export function listProjectWorkspaces(): ProjectWorkspace[] {
+  if (typeof window === "undefined") return []
+  const projects: ProjectWorkspace[] = []
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index)
+      if (!key?.startsWith(PROJECT_STORAGE_PREFIX)) continue
+      const id = key.slice(PROJECT_STORAGE_PREFIX.length)
+      const record = readProjectWorkspace(id)
+      if (record?.source) projects.push(record)
+    }
+  } catch {
+    return []
+  }
+  return projects.sort((a, b) => b.updated_date - a.updated_date)
+}

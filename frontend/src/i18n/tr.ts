@@ -142,6 +142,12 @@ export const tr: Record<TranslationKey, string> = {
   "project.notFoundLog": "Proje yerel depolamada bulunamadı.",
   "project.storageFailedLog": "Proje yerel depolamaya kaydedilemedi.",
   "project.sourceRestoreFailedLog": "Proje kaynağı yüklenemedi",
+  "project.historyTitle": "Son projeler",
+  "project.historyOpen": "Projeyi aç",
+  "project.historyOpenNewTab": "Yeni sekmede aç",
+  "project.historyConfirmTitle": "Başka bir proje açılsın mı?",
+  "project.historyConfirmDescription":
+    "Bu projede yüklü bir kaynak var. Başka bir proje açmak bu sekmeyi yeniden yükler. Mevcut projeniz otomatik olarak kaydedilir.",
 
   "export.selectRange": "Seçili aralığı klip olarak kaydet",
   "export.selection": "Seçili aralık",

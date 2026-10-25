@@ -144,6 +144,12 @@ export const en = {
   "project.notFoundLog": "Project not found in local storage.",
   "project.storageFailedLog": "Project could not be saved to local storage.",
   "project.sourceRestoreFailedLog": "Project source could not be loaded",
+  "project.historyTitle": "Recent projects",
+  "project.historyOpen": "Open project",
+  "project.historyOpenNewTab": "Open in new tab",
+  "project.historyConfirmTitle": "Open another project?",
+  "project.historyConfirmDescription":
+    "This project has a loaded source. Opening another project will reload this tab. Your current project is saved automatically.",
 
   "export.selectRange": "Save the selected range as a clip",
   "export.selection": "Selected range",

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import { ProjectHistory } from "@/components/app/project-history"
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -849,6 +850,8 @@ export function UrlSourceBar() {
             </Button>
           </div>
         </div>
+
+        <ProjectHistory />
       </div>
 
       {/* Gelişmiş: korumalı kaynaklar için curl (cookie / header) yapıştırma */}
