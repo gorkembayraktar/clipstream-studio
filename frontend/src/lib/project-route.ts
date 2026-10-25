@@ -1,6 +1,6 @@
 /** URL hash'indeki proje rotası ve uygulama sürümü.
  *
- * Kanonik adres: `http://127.0.0.1:8765/#project/?project=<id>&v=<sürüm>`
+ * Kanonik adres: `http://127.0.0.1:8765/#project/?id=<id>&v=<sürüm>`
  * Hash sunucuya gönderilmez; proje rotası istemci tarafında korunur.
  */
 import { APP_VERSION } from "@/lib/app-version"
@@ -22,9 +22,14 @@ function hashParams(): URLSearchParams {
   return new URLSearchParams(queryIndex >= 0 ? rest.slice(queryIndex + 1) : "")
 }
 
-/** URL'deki ham `project` parametresini döndürür (geçersiz olabilir). */
+/** URL'deki ham proje kimliğini döndürür (geçersiz olabilir).
+ *
+ * Eski `project=<id>` bağlantıları da okunur; adres çubuğu açılışta `id`
+ * biçimine taşınır.
+ */
 export function projectParamFromUrl(): string | null {
-  const value = hashParams().get("project")
+  const params = hashParams()
+  const value = params.get("id") ?? params.get("project")
   return value && value.trim() ? value : null
 }
 
@@ -39,13 +44,13 @@ export function readProjectIdFromUrl(): string | null {
   return isProjectId(value) ? value : null
 }
 
-/** `#project/?project=...&v=...` biçimindeki kanonik hash'i üretir. */
+/** `#project/?id=...&v=...` biçimindeki kanonik hash'i üretir. */
 export function projectHash(
   projectId?: string | null,
   version: string = APP_VERSION,
 ): string {
   const params = new URLSearchParams()
-  if (projectId) params.set("project", projectId)
+  if (projectId) params.set("id", projectId)
   params.set("v", version)
   return `${HASH_PREFIX}?${params.toString()}`
 }
@@ -63,7 +68,8 @@ function replaceHash(hash: string): void {
 
 /** Adres çubuğunu güncel sürümle kanonik proje rotasına getirir.
  *
- * Mevcut `project` parametresi korunur; geçersizse temizlenir.
+ * Mevcut proje parametresi (`id`, eski bağlantılarda `project`) korunur;
+ * geçersizse temizlenir.
  */
 export function ensureProjectHash(): void {
   if (typeof window === "undefined") return
@@ -84,10 +90,15 @@ export function clearProjectFromUrl(): void {
   replaceHash(projectHash())
 }
 
-/** Yeni proje yüklemesi bittikten sonra dönülecek temiz adres. */
-export function cleanProjectUrl(): string {
+/** Projeyi tam sayfa yükleyecek mutlak adresi üretir. */
+export function projectUrl(projectId?: string | null): string {
   const url = new URL(window.location.href)
   url.search = ""
-  url.hash = projectHash()
+  url.hash = projectHash(projectId)
   return url.toString()
+}
+
+/** Yeni proje yüklemesi bittikten sonra dönülecek temiz adres. */
+export function cleanProjectUrl(): string {
+  return projectUrl()
 }
