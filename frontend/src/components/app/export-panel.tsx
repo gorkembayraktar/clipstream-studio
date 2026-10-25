@@ -22,6 +22,8 @@ import { ExportOutputSettings } from "./export-output-settings"
 import { ExportSummary } from "./export-summary"
 import type { ExportProfile } from "./export-panel-constants"
 
+const MIN_EXPORT_PENDING_MS = 1000
+
 export function ExportPanel() {
   const { t } = useI18n()
   const streamUrl = useSourceStore((s) => s.streamUrl)
@@ -54,7 +56,11 @@ export function ExportPanel() {
 
   const startExport = useStartExport()
   const [justStarted, setJustStarted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const startedTimerRef = useRef<number | null>(null)
+  const submitTimerRef = useRef<number | null>(null)
+  const submitStartedAtRef = useRef(0)
+  const submittingRef = useRef(false)
   const gpuCapability = useGpuCapability()
   const gpu = gpuCapability.data?.gpu
   const features = gpuCapability.data?.features
@@ -142,6 +148,9 @@ export function ExportPanel() {
       if (startedTimerRef.current !== null) {
         window.clearTimeout(startedTimerRef.current)
       }
+      if (submitTimerRef.current !== null) {
+        window.clearTimeout(submitTimerRef.current)
+      }
     }
   }, [])
 
@@ -154,6 +163,22 @@ export function ExportPanel() {
       setJustStarted(false)
       startedTimerRef.current = null
     }, 2000)
+  }
+
+  const finishSubmit = (success: boolean) => {
+    const elapsed = Date.now() - submitStartedAtRef.current
+    const remaining = Math.max(0, MIN_EXPORT_PENDING_MS - elapsed)
+
+    if (submitTimerRef.current !== null) {
+      window.clearTimeout(submitTimerRef.current)
+    }
+
+    submitTimerRef.current = window.setTimeout(() => {
+      submitTimerRef.current = null
+      submittingRef.current = false
+      setSubmitting(false)
+      if (success) flashStarted()
+    }, remaining)
   }
 
   const handleOutputFormatChange = (format: OutputFormat) => {
@@ -213,13 +238,27 @@ export function ExportPanel() {
   }
 
   const handleExport = () => {
-    if (!streamUrl || invalidReason || startExport.isPending) return
+    if (
+      !streamUrl ||
+      invalidReason ||
+      submittingRef.current ||
+      startExport.isPending
+    ) {
+      return
+    }
 
     if (startedTimerRef.current !== null) {
       window.clearTimeout(startedTimerRef.current)
       startedTimerRef.current = null
     }
+    if (submitTimerRef.current !== null) {
+      window.clearTimeout(submitTimerRef.current)
+      submitTimerRef.current = null
+    }
     setJustStarted(false)
+    setSubmitting(true)
+    submittingRef.current = true
+    submitStartedAtRef.current = Date.now()
 
     const cropPayload: CropPayload | null =
       cropApplies && crop.rect && meta
@@ -263,7 +302,11 @@ export function ExportPanel() {
         headers: headers ?? undefined,
         header_token: headerToken ?? undefined,
       },
-      { onSuccess: flashStarted },
+      {
+        onSettled: (_data, error) => {
+          finishSubmit(!error)
+        },
+      },
     )
 
     const details = [
@@ -348,7 +391,7 @@ export function ExportPanel() {
         duration={clipDuration}
         activeJobCount={activeJobIds.length}
         disabledReason={invalidReason}
-        pending={startExport.isPending}
+        pending={submitting || startExport.isPending}
         started={justStarted}
         onExport={handleExport}
         onFocusJobs={focusJobsDock}

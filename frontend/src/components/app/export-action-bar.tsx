@@ -41,7 +41,7 @@ export function ExportActionBar({
             format: FORMAT_LABELS[outputFormat],
             duration: durationLabel,
           })
-  const disabled = pending || disabledReason !== null
+  const disabled = pending || started || disabledReason !== null
   const reasonId = disabledReason ? "export-action-reason" : undefined
 
   return (
@@ -72,7 +72,7 @@ export function ExportActionBar({
           "h-10 w-full gap-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98]",
           pending && "animate-pulse ring-2 ring-primary/30 disabled:opacity-100",
           started &&
-            "bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500/30 hover:bg-emerald-600",
+            "bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500/30 hover:bg-emerald-600 disabled:opacity-100",
         )}
         onClick={onExport}
         disabled={disabled}
