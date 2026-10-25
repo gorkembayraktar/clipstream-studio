@@ -205,6 +205,7 @@ export const tr: Record<TranslationKey, string> = {
   "export.exportNew": "Yeni klip dışa aktar",
   "export.exportWithFormat": "{format} dışa aktar · {duration}",
   "export.exporting": "Dışa aktarılıyor…",
+  "export.started": "Dışa aktarma başladı",
   "export.jobsLink": "İşler paneli · {count}",
   "export.noSource": "Dışa aktarmak için bir kaynak yükle.",
   "export.rangeTooShort": "0,05 sn'den uzun bir aralık seç.",

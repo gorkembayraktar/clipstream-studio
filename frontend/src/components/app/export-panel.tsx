@@ -1,4 +1,6 @@
 /** Export tab: selected range, output profile, advanced settings and action. */
+import { useEffect, useRef, useState } from "react"
+
 import { useStartExport } from "@/hooks/use-export-job"
 import { useGpuCapability } from "@/hooks/use-gpu-capability"
 import { useI18n } from "@/i18n"
@@ -51,6 +53,8 @@ export function ExportPanel() {
   const setGpuEnabled = useExportStore((s) => s.setGpuEnabled)
 
   const startExport = useStartExport()
+  const [justStarted, setJustStarted] = useState(false)
+  const startedTimerRef = useRef<number | null>(null)
   const gpuCapability = useGpuCapability()
   const gpu = gpuCapability.data?.gpu
   const features = gpuCapability.data?.features
@@ -133,6 +137,25 @@ export function ExportPanel() {
     useGpu ? t("export.summaryGpu") : null,
   ].filter((value): value is string => Boolean(value))
 
+  useEffect(() => {
+    return () => {
+      if (startedTimerRef.current !== null) {
+        window.clearTimeout(startedTimerRef.current)
+      }
+    }
+  }, [])
+
+  const flashStarted = () => {
+    setJustStarted(true)
+    if (startedTimerRef.current !== null) {
+      window.clearTimeout(startedTimerRef.current)
+    }
+    startedTimerRef.current = window.setTimeout(() => {
+      setJustStarted(false)
+      startedTimerRef.current = null
+    }, 2000)
+  }
+
   const handleOutputFormatChange = (format: OutputFormat) => {
     setOutputFormat(format)
   }
@@ -192,6 +215,12 @@ export function ExportPanel() {
   const handleExport = () => {
     if (!streamUrl || invalidReason || startExport.isPending) return
 
+    if (startedTimerRef.current !== null) {
+      window.clearTimeout(startedTimerRef.current)
+      startedTimerRef.current = null
+    }
+    setJustStarted(false)
+
     const cropPayload: CropPayload | null =
       cropApplies && crop.rect && meta
         ? {
@@ -217,22 +246,25 @@ export function ExportPanel() {
       .trim()
       .replace(/\.(mp4|gif|mp3)$/i, "")
 
-    startExport.mutate({
-      url: streamUrl,
-      start_time: trim.start,
-      end_time: trim.end,
-      mode: cutMode,
-      output_format: outputFormat,
-      quality: qualityApplicable ? quality : undefined,
-      codec: outputFormat === "mp4" ? effectiveCodec : undefined,
-      output_fps: outputFormat === "mp4" ? effectiveOutputFps : null,
-      crop: cropPayload,
-      filename: filenameForExport,
-      encoder: useGpu ? "gpu" : "cpu",
-      audio_url: separateAudio,
-      headers: headers ?? undefined,
-      header_token: headerToken ?? undefined,
-    })
+    startExport.mutate(
+      {
+        url: streamUrl,
+        start_time: trim.start,
+        end_time: trim.end,
+        mode: cutMode,
+        output_format: outputFormat,
+        quality: qualityApplicable ? quality : undefined,
+        codec: outputFormat === "mp4" ? effectiveCodec : undefined,
+        output_fps: outputFormat === "mp4" ? effectiveOutputFps : null,
+        crop: cropPayload,
+        filename: filenameForExport,
+        encoder: useGpu ? "gpu" : "cpu",
+        audio_url: separateAudio,
+        headers: headers ?? undefined,
+        header_token: headerToken ?? undefined,
+      },
+      { onSuccess: flashStarted },
+    )
 
     const details = [
       cropPayload
@@ -317,6 +349,7 @@ export function ExportPanel() {
         activeJobCount={activeJobIds.length}
         disabledReason={invalidReason}
         pending={startExport.isPending}
+        started={justStarted}
         onExport={handleExport}
         onFocusJobs={focusJobsDock}
       />

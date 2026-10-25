@@ -207,6 +207,7 @@ export const en = {
   "export.exportNew": "Export new clip",
   "export.exportWithFormat": "Export {format} · {duration}",
   "export.exporting": "Exporting…",
+  "export.started": "Export started",
   "export.jobsLink": "Jobs panel · {count}",
   "export.noSource": "Load a source to export.",
   "export.rangeTooShort": "Select a range longer than 0.05s.",

@@ -1,6 +1,7 @@
-import { DownloadIcon, Loader2Icon } from "lucide-react"
+import { CircleCheckIcon, DownloadIcon, Loader2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration } from "@/lib/format"
 import type { OutputFormat } from "@/lib/types"
@@ -13,6 +14,7 @@ interface ExportActionBarProps {
   activeJobCount: number
   disabledReason: string | null
   pending: boolean
+  started: boolean
   onExport: () => void
   onFocusJobs: () => void
 }
@@ -23,6 +25,7 @@ export function ExportActionBar({
   activeJobCount,
   disabledReason,
   pending,
+  started,
   onExport,
   onFocusJobs,
 }: ExportActionBarProps) {
@@ -30,12 +33,14 @@ export function ExportActionBar({
   const durationLabel = compactDuration(Math.max(0, duration))
   const label = pending
     ? t("export.exporting")
-    : activeJobCount > 0
-      ? t("export.exportNew")
-      : t("export.exportWithFormat", {
-          format: FORMAT_LABELS[outputFormat],
-          duration: durationLabel,
-        })
+    : started
+      ? t("export.started")
+      : activeJobCount > 0
+        ? t("export.exportNew")
+        : t("export.exportWithFormat", {
+            format: FORMAT_LABELS[outputFormat],
+            duration: durationLabel,
+          })
   const disabled = pending || disabledReason !== null
   const reasonId = disabledReason ? "export-action-reason" : undefined
 
@@ -63,7 +68,12 @@ export function ExportActionBar({
 
       <Button
         type="button"
-        className="h-10 w-full gap-2 text-xs font-semibold"
+        className={cn(
+          "h-10 w-full gap-2 text-xs font-semibold transition-all duration-200 active:scale-[0.98]",
+          pending && "animate-pulse ring-2 ring-primary/30 disabled:opacity-100",
+          started &&
+            "bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 ring-2 ring-emerald-500/30 hover:bg-emerald-600",
+        )}
         onClick={onExport}
         disabled={disabled}
         aria-describedby={reasonId}
@@ -71,10 +81,15 @@ export function ExportActionBar({
       >
         {pending ? (
           <Loader2Icon className="animate-spin" aria-hidden />
+        ) : started ? (
+          <CircleCheckIcon
+            className="animate-in zoom-in-95 duration-200"
+            aria-hidden
+          />
         ) : (
           <DownloadIcon aria-hidden />
         )}
-        {label}
+        <span aria-live="polite">{label}</span>
       </Button>
     </footer>
   )
