@@ -63,6 +63,8 @@ class MediaPlaylist:
     encrypted: bool = False
     byterange: bool = False
     endlist: bool = False
+    #: Segmentler arasında PTS sıfırlanması/init değişimi varsa true.
+    discontinuity: bool = False
 
 
 @dataclass
@@ -133,6 +135,7 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
     encrypted = False
     byterange = False
     endlist = False
+    discontinuity = False
     pending_duration = 0.0
 
     for raw_line in text.splitlines():
@@ -151,9 +154,19 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
             attrs = _attributes(line)
             uri = attrs.get("URI")
             if uri:
-                init_url = urljoin(base_url, uri)
+                resolved = urljoin(base_url, uri)
+                # Aynı playlist içinde init bölümü değişirse segmentleri
+                # tek bir init ile ham olarak birleştirmek geçersiz olur.
+                if init_url is not None and resolved != init_url:
+                    discontinuity = True
+                init_url = resolved
             if attrs.get("BYTERANGE"):
                 byterange = True
+            continue
+        if line == "#EXT-X-DISCONTINUITY":
+            # Ham byte birleştirme PTS sıfırlamasını taşımaz; bu playlist'te
+            # FFmpeg'in HLS demuxer'ına dönmek gerekir.
+            discontinuity = True
             continue
         if line.startswith("#EXT-X-KEY:"):
             attrs = _attributes(line)
@@ -184,6 +197,7 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
         encrypted=encrypted,
         byterange=byterange,
         endlist=endlist,
+        discontinuity=discontinuity,
     )
 
 
@@ -317,6 +331,120 @@ def _merge_parts(parts: list[Path], destination: Path) -> None:
         for part in parts:
             with part.open("rb") as source:
                 shutil.copyfileobj(source, output, length=1 << 20)
+
+
+async def _remux_parts_with_ffmpeg(
+    temp_dir: Path,
+    init_path: Optional[Path],
+    parts: list[Path],
+    segments: list[MediaSegment],
+) -> Optional[Path]:
+    """İndirilen parçaları yerel HLS playlist'i üzerinden tek TS'e remux eder.
+
+    Ham byte birleştirme, segmentlerin PTS sıfırlamalarını veya farklı init
+    bölümlerini taşımaz. FFmpeg'in HLS demuxer'ı parçaları sırayla okuyup
+    zaman damgalarını normalize eder; başarısız olursa çağıran taraf ham
+    birleştirmeye döner.
+    """
+    if not parts:
+        return None
+
+    playlist_path = temp_dir / "local.m3u8"
+    merged = temp_dir / "merged.ts"
+    max_duration = max(
+        (max(0.0, item.duration) for item in segments), default=0.0
+    )
+    target_duration = max(1, int(max_duration) + 1)
+    lines = [
+        "#EXTM3U",
+        "#EXT-X-VERSION:7",
+        "#EXT-X-PLAYLIST-TYPE:VOD",
+        f"#EXT-X-TARGETDURATION:{target_duration}",
+        "#EXT-X-MEDIA-SEQUENCE:0",
+    ]
+    if init_path is not None:
+        lines.append(f'#EXT-X-MAP:URI="{init_path.name}"')
+    for part, segment in zip(parts, segments):
+        lines.append(f"#EXTINF:{max(0.0, segment.duration):.6f},")
+        lines.append(part.name)
+    lines.append("#EXT-X-ENDLIST")
+    playlist_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-nostdin",
+        "-nostats",
+        "-loglevel",
+        "error",
+        "-allowed_extensions",
+        "ALL",
+        "-protocol_whitelist",
+        "file,crypto,data",
+        "-fflags",
+        "+genpts",
+        "-i",
+        playlist_path.name,
+        "-map",
+        "0:v:0?",
+        "-map",
+        "0:a:0?",
+        "-c",
+        "copy",
+        "-avoid_negative_ts",
+        "make_zero",
+        "-f",
+        "mpegts",
+        merged.name,
+    ]
+
+    process = None
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=str(temp_dir),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=180.0
+            )
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            await process.wait()
+            logger.info("hls: ffmpeg remux zaman aşımı")
+            return None
+
+        if (
+            process.returncode == 0
+            and merged.exists()
+            and merged.stat().st_size > 0
+        ):
+            return merged
+
+        detail = stderr.decode("utf-8", errors="ignore").strip()
+        logger.info(
+            "hls: ffmpeg remux başarısız (%s), ham birleştirmeye dönülüyor",
+            detail[-300:] or f"çıkış kodu {process.returncode}",
+        )
+        return None
+    except Exception as exc:
+        logger.info("hls: ffmpeg remux hatası: %s", exc)
+        return None
+    finally:
+        try:
+            playlist_path.unlink()
+        except OSError:
+            pass
+        if process is None or process.returncode != 0:
+            try:
+                merged.unlink()
+            except OSError:
+                pass
 
 
 async def download_hls_segments(
@@ -459,6 +587,11 @@ async def download_hls_media(
 
     playlist = await load_hls_playlist(client, playlist_url, headers)
     if playlist is None:
+        return None
+    if playlist.discontinuity:
+        logger.info(
+            "hls: discontinuity içeren playlist, doğrudan FFmpeg kullanılacak"
+        )
         return None
 
     temp_root.mkdir(parents=True, exist_ok=True)
@@ -643,6 +776,11 @@ async def download_hls_range(
             playlist = await load_hls_playlist(client, variant_url, headers)
     if playlist is None:
         return None
+    if playlist.discontinuity:
+        logger.info(
+            "hls: discontinuity içeren aralık, doğrudan FFmpeg kullanılacak"
+        )
+        return None
 
     window = _segment_window(playlist, start, end)
     if window is None:
@@ -701,10 +839,23 @@ async def download_hls_range(
             )
             return None
 
-        _merge_parts(([init_path] if init_path is not None else []) + parts, merged)
+        remuxed = await _remux_parts_with_ffmpeg(
+            temp_dir, init_path, parts, segments
+        )
+        if remuxed is not None:
+            merged = remuxed
+        else:
+            _merge_parts(
+                ([init_path] if init_path is not None else []) + parts, merged
+            )
         for part in parts:
             try:
                 part.unlink()
+            except OSError:
+                pass
+        if init_path is not None:
+            try:
+                init_path.unlink()
             except OSError:
                 pass
 
@@ -838,6 +989,7 @@ async def iter_hls_chunks(
         or not playlist.endlist
         or playlist.encrypted
         or playlist.byterange
+        or playlist.discontinuity
         or not playlist.segments
     ):
         return

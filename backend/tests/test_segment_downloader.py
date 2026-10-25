@@ -158,6 +158,30 @@ class MediaPlaylistParseTests(unittest.TestCase):
 """
         self.assertIsNone(parse_media_playlist(master, PLAYLIST_URL))
 
+    def test_discontinuity_is_flagged(self):
+        text = PLAYLIST.replace(
+            "#EXTINF:10.0,", "#EXT-X-DISCONTINUITY\n#EXTINF:10.0,"
+        )
+        playlist = parse_media_playlist(text, PLAYLIST_URL)
+
+        self.assertIsNotNone(playlist)
+        assert playlist is not None
+        self.assertTrue(playlist.discontinuity)
+
+    def test_changing_init_map_is_flagged(self):
+        text = PLAYLIST.replace(
+            '#EXT-X-MAP:URI="init.mp4"',
+            '#EXT-X-MAP:URI="init.mp4"\n#EXT-X-MAP:URI="init2.mp4"',
+        )
+        playlist = parse_media_playlist(text, PLAYLIST_URL)
+
+        self.assertIsNotNone(playlist)
+        assert playlist is not None
+        self.assertTrue(playlist.discontinuity)
+        self.assertEqual(
+            playlist.init_url, "https://cdn.example.com/path/init2.mp4"
+        )
+
 
 class StoryboardSegmentTests(unittest.IsolatedAsyncioTestCase):
     def test_locate_segment_returns_index_and_offset(self):
@@ -366,6 +390,25 @@ class RangeDownloadTests(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNone(download)
             self.assertEqual(list(temp_root.iterdir()), [])
+
+    async def test_discontinuous_playlist_is_not_staged(self):
+        playlist = CHUNKED_PLAYLIST.replace(
+            "#EXTINF:20.0,", "#EXT-X-DISCONTINUITY\n#EXTINF:20.0,"
+        )
+        client = FakeClient(playlist=playlist, bodies=self._bodies())
+        with tempfile.TemporaryDirectory() as root:
+            temp_root = Path(root)
+            download = await download_hls_range(
+                client,
+                PLAYLIST_URL,
+                25.0,
+                35.0,
+                temp_root=temp_root,
+            )
+
+            self.assertIsNone(download)
+            self.assertEqual(list(temp_root.iterdir()), [])
+            self.assertNotIn("s2.jpg", "\n".join(client.requests))
 
     async def test_direct_media_url_is_not_staged(self):
         client = FakeClient(playlist=CHUNKED_PLAYLIST, bodies=self._bodies())

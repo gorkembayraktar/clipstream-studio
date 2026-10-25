@@ -11,7 +11,10 @@ if str(BACKEND_DIR) not in sys.path:
 
 from services.exporter import (  # noqa: E402
     ExportError,
+    _build_concat_manifest,
+    _build_concat_remux_command,
     _can_resume,
+    _next_resume_offset,
     _parse_speed,
     _quality_profile,
     _resume_payload,
@@ -291,6 +294,38 @@ class ResumeCommandTests(unittest.TestCase):
         self.assertIn("-f", command)
         self.assertEqual(command[command.index("-f") + 1], "mpegts")
         self.assertNotIn("+faststart", command)
+        self.assertEqual(
+            command[command.index("-avoid_negative_ts") + 1], "make_zero"
+        )
+
+    def test_resume_offset_does_not_repeat_content(self):
+        self.assertAlmostEqual(
+            _next_resume_offset(100.0, 10.25, 200.0), 110.25
+        )
+        self.assertEqual(_next_resume_offset(95.0, 10.0, 100.0), 100.0)
+
+    def test_concat_manifest_uses_video_duration_directives(self):
+        manifest = _build_concat_manifest(
+            [(Path("part1.ts"), 2.0), (Path("part2.ts"), 1.25)]
+        )
+        self.assertIn("file 'part1.ts'\nduration 2.000000", manifest)
+        self.assertIn("file 'part2.ts'\nduration 1.250000", manifest)
+
+    def test_concat_remux_normalizes_timestamps(self):
+        command = _build_concat_remux_command(
+            Path("concat.txt"), Path("out.mp4"), 12.5, "h264"
+        )
+        joined = " ".join(command)
+        self.assertIn("-fflags +genpts", joined)
+        self.assertIn("-avoid_negative_ts make_zero", joined)
+        self.assertIn("-c copy", joined)
+        self.assertEqual(command[command.index("-t") + 1], "00:00:12.500")
+
+    def test_concat_remux_tags_hevc(self):
+        command = _build_concat_remux_command(
+            Path("concat.txt"), Path("out.mp4"), 12.5, "hevc"
+        )
+        self.assertEqual(command[command.index("-tag:v") + 1], "hvc1")
 
     def test_resume_payload_adjusts_staged_seeks(self):
         payload = make_payload(

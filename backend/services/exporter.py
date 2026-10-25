@@ -33,8 +33,6 @@ STALL_MIN_PROGRESS_SECONDS = 0.5
 #: Takılan işi kaldığı yerden sürdürme denemeleri.
 MAX_RESUME_ATTEMPTS = 8
 MAX_NO_PROGRESS_ATTEMPTS = 3
-#: Parçalar arasında kare atlamamak için küçük bir örtüşme bırakılır.
-RESUME_OVERLAP_SECONDS = 0.25
 MIN_RESUME_STEP_SECONDS = 0.5
 
 #: Yeniden kodlanan MP4 çıktıları için kalite profilleri.
@@ -337,7 +335,9 @@ def build_ffmpeg_command(
             command += ["-bsf:a", "aac_adtstoasc"]
 
     if intermediate:
-        command += ["-f", "mpegts"]
+        # Ara TS parçaları concat demuxer'a girerken negatif/DTS kaynaklı
+        # sıçramaları önle; son birleştirme de ayrıca normalize edilir.
+        command += ["-avoid_negative_ts", "make_zero", "-f", "mpegts"]
     command.append(str(output_path))
     return command
 
@@ -616,6 +616,120 @@ def _resume_payload(
     return part
 
 
+def _next_resume_offset(
+    offset: float, reached: float, total_duration: float
+) -> float:
+    """Bir sonraki parçanın başlangıcını, içerik örtüşmesi olmadan döndürür.
+
+    Eski davranış son 0.25 saniyeyi tekrar encode ediyordu. Concat demuxer bu
+    tekrarı ayrı bir zaman aralığı gibi eklediği için seam noktalarında aynı
+    kareler iki kez gösteriliyor ve mikro takılma oluşuyordu. Yeniden kodlama
+    zaten istenen ana kadar seek ettiğinden örtüşmeye gerek yoktur.
+    """
+    return min(total_duration, offset + max(0.0, reached))
+
+
+async def _probe_video_duration(path: Path) -> Optional[float]:
+    """Ara TS parçasının video akış süresini okur; okunamazsa None döner.
+
+    MPEG-TS format süresi, AAC priming paketi nedeniyle video süresinden
+    yaklaşık bir ses çerçevesi kadar uzun olabilir. Concat demuxer'a bu format
+    süresi verilirse parçalar arasında boşluk oluşur; video akış süresi ise
+    gerçek kare sınırını verir.
+    """
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(
+                process.communicate(), timeout=10.0
+            )
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            await process.wait()
+            return None
+    except Exception:
+        return None
+
+    for line in stdout.decode("utf-8", errors="ignore").splitlines():
+        try:
+            duration = float(line.strip())
+        except ValueError:
+            continue
+        if duration > 0:
+            return duration
+    return None
+
+
+def _build_concat_manifest(parts: list[tuple[Path, float]]) -> str:
+    """Concat demuxer için dosya ve video süresi direktiflerini üretir."""
+    lines: list[str] = []
+    for part, part_duration in parts:
+        part_text = part.as_posix().replace("'", "'\\''")
+        lines.append(f"file '{part_text}'")
+        # Format süresi yerine video süresini kullan: AAC priming farkı
+        # concat demuxer tarafından parça aralığı sanılıp boşluk yaratıyor.
+        lines.append(f"duration {max(0.001, part_duration):.6f}")
+    return "\n".join(lines) + "\n"
+
+
+def _build_concat_remux_command(
+    concat_path: Path,
+    output_path: Path,
+    total_duration: float,
+    codec: str,
+) -> list[str]:
+    """Ara TS parçalarını tek MP4'te birleştiren komutu üretir.
+
+    ``+genpts`` ve ``make_zero``, parça sınırlarında oluşabilecek eksik/negatif
+    zaman damgalarını normalize eder; aksi halde oynatıcılar PTS sıçraması
+    bildirip kare atlayabilir.
+    """
+    command = [
+        "ffmpeg",
+        "-y",
+        "-nostdin",
+        "-nostats",
+        "-fflags",
+        "+genpts",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(concat_path),
+        "-c",
+        "copy",
+        "-avoid_negative_ts",
+        "make_zero",
+    ]
+    if codec == "hevc":
+        command += ["-tag:v", "hvc1"]
+    command += [
+        "-t",
+        seconds_to_hms(total_duration),
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+    return command
+
+
 async def _run_ffmpeg_remux(command: list[str], job: dict[str, Any]) -> tuple[int, str]:
     """İlerleme üretmeyen birleştirme FFmpeg'ini çalıştırır."""
     process = await asyncio.create_subprocess_exec(
@@ -654,7 +768,8 @@ async def _run_resumable_export(
     offset = 0.0
     attempts = 0
     no_progress_attempts = 0
-    parts: list[Path] = []
+    #: (parça yolu, concat demuxer için video süresi)
+    parts: list[tuple[Path, float]] = []
     last_returncode = -1
     last_stderr = ""
 
@@ -704,7 +819,10 @@ async def _run_resumable_export(
             # Parça tamamlandıysa iş bitti. FFmpeg 0 ile çıktıysa ve geçerli
             # bir TS ürettiyse bu parça tamamdır.
             if returncode == 0 and part_ok:
-                parts.append(part_path)
+                probed = await _probe_video_duration(part_path)
+                parts.append(
+                    (part_path, min(part_duration, probed or part_duration))
+                )
                 offset = total_duration
                 break
 
@@ -712,11 +830,17 @@ async def _run_resumable_export(
             # kalan kısmı yeni bir bağlantıyla sürdür.
             if stalled or returncode != 0:
                 if part_ok and reached >= MIN_RESUME_STEP_SECONDS:
-                    parts.append(part_path)
-                    offset = min(
-                        total_duration,
-                        offset + max(0.0, reached - RESUME_OVERLAP_SECONDS),
+                    # Video akış süresi, TS format süresindeki AAC priming
+                    # farkını dışarıda bırakır; seam boşluğunu önler.
+                    probed = await _probe_video_duration(part_path)
+                    part_end = min(
+                        part_duration,
+                        probed if probed is not None else reached,
                     )
+                    if part_end < MIN_RESUME_STEP_SECONDS:
+                        part_end = reached
+                    parts.append((part_path, part_end))
+                    offset = _next_resume_offset(offset, part_end, total_duration)
                     no_progress_attempts = 0
                     logger.warning(
                         "export: akış %.1f sn'de yeniden başlatılacak (%d. deneme)",
@@ -750,36 +874,15 @@ async def _run_resumable_export(
             return last_returncode, last_stderr
 
         concat_path = temp_dir / "concat.txt"
-        concat_lines = []
-        for part in parts:
-            part_text = part.as_posix().replace("'", "'\\''")
-            concat_lines.append(f"file '{part_text}'")
-        concat_path.write_text("\n".join(concat_lines) + "\n", encoding="utf-8")
+        concat_path.write_text(_build_concat_manifest(parts), encoding="utf-8")
 
         job["stage"] = "merging"
-        remux_command = [
-            "ffmpeg",
-            "-y",
-            "-nostdin",
-            "-nostats",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(concat_path),
-            "-c",
-            "copy",
-        ]
-        if _export_codec(payload) == "hevc":
-            remux_command += ["-tag:v", "hvc1"]
-        remux_command += [
-            "-t",
-            seconds_to_hms(total_duration),
-            "-movflags",
-            "+faststart",
-            str(output_path),
-        ]
+        remux_command = _build_concat_remux_command(
+            concat_path,
+            output_path,
+            total_duration,
+            _export_codec(payload),
+        )
         job["command"] = " ".join(remux_command)
         returncode, stderr_tail = await _run_ffmpeg_remux(remux_command, job)
         if job["status"] == CANCELLED:
