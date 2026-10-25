@@ -80,7 +80,7 @@ function JobsDockPanel({ activeJobIds }: { activeJobIds: string[] }) {
     <aside
       data-slot="jobs-dock"
       aria-label={`${title} · ${summary}`}
-      className="fixed right-4 bottom-12 z-40 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-[380px] flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-2xl backdrop-blur"
+      className="fixed right-4 bottom-8 z-40 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-[380px] flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95 shadow-2xl backdrop-blur"
     >
       <div className="flex items-center gap-1 px-2 py-1.5">
         <button
