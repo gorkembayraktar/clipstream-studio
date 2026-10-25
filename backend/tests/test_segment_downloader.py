@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Optional
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -13,6 +13,8 @@ if str(BACKEND_DIR) not in sys.path:
 
 from services.segment_downloader import (  # noqa: E402
     HlsDownloadError,
+    MediaSegment,
+    _remux_parts_with_ffmpeg,
     download_hls_media,
     download_hls_range,
     download_hls_segments,
@@ -439,6 +441,40 @@ class RangeDownloadTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(download)
         # Yalnızca kısa HLS tespiti yapılmalı; playlist/segment indirilmemeli.
         self.assertEqual(client.requests, [url])
+
+    async def test_remux_uses_mp4_container_for_vp9_safe_staging(self):
+        """VP9/AV1 HLS segmentleri MPEG-TS'e yazılmamalı; video kaybolur."""
+        with tempfile.TemporaryDirectory() as root:
+            temp_dir = Path(root)
+            init = temp_dir / "init.mp4"
+            init.write_bytes(b"INIT")
+            part = temp_dir / "part-1.bin"
+            part.write_bytes(b"SEG")
+            merged = temp_dir / "merged.mp4"
+
+            class FakeProcess:
+                returncode = 0
+
+                async def communicate(self):
+                    merged.write_bytes(b"MP4")
+                    return b"", b""
+
+            with patch(
+                "services.segment_downloader.asyncio.create_subprocess_exec",
+                new=AsyncMock(return_value=FakeProcess()),
+            ) as spawn:
+                result = await _remux_parts_with_ffmpeg(
+                    temp_dir,
+                    init,
+                    [part],
+                    [MediaSegment(url="seg", duration=4.0)],
+                )
+
+            self.assertEqual(result, merged)
+            command = spawn.await_args.args
+            self.assertEqual(command[-3:], ("-f", "mp4", "merged.mp4"))
+            self.assertNotIn("mpegts", command)
+            self.assertFalse((temp_dir / "local.m3u8").exists())
 
 
 class ChunkedDownloadTests(unittest.IsolatedAsyncioTestCase):

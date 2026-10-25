@@ -339,18 +339,23 @@ async def _remux_parts_with_ffmpeg(
     parts: list[Path],
     segments: list[MediaSegment],
 ) -> Optional[Path]:
-    """İndirilen parçaları yerel HLS playlist'i üzerinden tek TS'e remux eder.
+    """İndirilen parçaları yerel HLS playlist'i üzerinden tek MP4'e remux eder.
 
     Ham byte birleştirme, segmentlerin PTS sıfırlamalarını veya farklı init
     bölümlerini taşımaz. FFmpeg'in HLS demuxer'ı parçaları sırayla okuyup
     zaman damgalarını normalize eder; başarısız olursa çağıran taraf ham
     birleştirmeye döner.
+
+    Çıktı MPEG-TS değil MP4'tür: YouTube HLS varyantları VP9/AV1 olabilir ve
+    MPEG-TS bu kodekleri taşıyamadığı için video ``bin_data`` akışına dönüşür.
+    MP4 hem VP9/AV1 hem de H.264/HEVC'yi korur; dışa aktarma aşaması da hedef
+    biçim olarak MP4 kullanır.
     """
     if not parts:
         return None
 
     playlist_path = temp_dir / "local.m3u8"
-    merged = temp_dir / "merged.ts"
+    merged = temp_dir / "merged.mp4"
     max_duration = max(
         (max(0.0, item.duration) for item in segments), default=0.0
     )
@@ -394,7 +399,7 @@ async def _remux_parts_with_ffmpeg(
         "-avoid_negative_ts",
         "make_zero",
         "-f",
-        "mpegts",
+        "mp4",
         merged.name,
     ]
 
