@@ -418,6 +418,13 @@ async def _remux_parts_with_ffmpeg(
             await process.wait()
             logger.info("hls: ffmpeg remux zaman aşımı")
             return None
+        except asyncio.CancelledError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            await process.wait()
+            raise
 
         if (
             process.returncode == 0

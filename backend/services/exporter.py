@@ -663,6 +663,13 @@ async def _probe_video_duration(path: Path) -> Optional[float]:
                 pass
             await process.wait()
             return None
+        except asyncio.CancelledError:
+            try:
+                process.kill()
+            except Exception:
+                pass
+            await process.wait()
+            raise
     except Exception:
         return None
 
