@@ -1,4 +1,4 @@
-"""yt-dlp ile YouTube / X (Twitter) / Instagram bağlantılarını oynatılabilir akışa çözer."""
+"""yt-dlp ile video sitelerini (YouTube, X, Instagram, TikTok ve diğerleri) oynatılabilir akışa çözer."""
 import asyncio
 import json
 import os
@@ -128,6 +128,23 @@ def _hls_variants(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
     pairs = _best_by_quality(
         formats,
         lambda fmt: "manifest.googlevideo.com" in (fmt.get("url") or ""),
+    )
+    return [
+        _variant(fmt["url"], quality, hls=True, has_audio=_has_audio(fmt), audio_url=None)
+        for quality, fmt in pairs
+    ]
+
+
+def _generic_variants(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """yt-dlp'nin tanıdığı diğer siteler: HLS varyantları kalite listesine dönüşür.
+
+    Site/CDN adı bilinmediği için YouTube'a özel filtreler kullanılmaz; HLS
+    tespiti protokol ve dosya uzantısı üzerinden yapılır. HLS yoksa çağıran
+    taraf tek akışa (`_pick_stream`) düşer.
+    """
+    pairs = _best_by_quality(
+        formats,
+        lambda fmt: fmt.get("vcodec") != "none" and _is_hls_format(fmt),
     )
     return [
         _variant(fmt["url"], quality, hls=True, has_audio=_has_audio(fmt), audio_url=None)
@@ -327,7 +344,12 @@ def normalize_url(url: str) -> str:
 
 
 def platform_of(url: str) -> str:
-    """Bağlantının platformu: `youtube` | `twitter` | `instagram` | `tiktok` | `direct`."""
+    """Bilinen platform: `youtube` | `twitter` | `instagram` | `tiktok` | `direct`.
+
+    `direct` yalnızca "bilinen bir video sitesi değil" demektir; adres ister
+    doğrudan bir medya dosyası ister yt-dlp'nin tanıdığı başka bir site olsun.
+    Ayrım `resolve_url` içinde yol uzantısına göre yapılır.
+    """
     url = normalize_url(url)
     if is_youtube_url(url):
         return "youtube"
@@ -340,9 +362,24 @@ def platform_of(url: str) -> str:
     return "direct"
 
 
+#: Doğrudan oynatılabilir medya sayılan yol uzantıları. Bunlar yt-dlp'ye
+#: verilmeden HTTP üzerinden çözülür (HLS master indirgemesi, 403 mesajları).
+DIRECT_MEDIA_EXTENSIONS = {
+    ".mp4", ".m4v", ".mkv", ".webm", ".mov", ".avi", ".wmv", ".flv", ".ts",
+    ".mp3", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".flac",
+    ".m3u8", ".m3u", ".mpd",
+}
+
+
+def looks_like_media_url(url: str) -> bool:
+    """Adres uzantısına göre doğrudan medya dosyası mı? (ör. `.../video.mp4`)"""
+    path = urllib.parse.urlparse(url or "").path.lower()
+    return any(path.endswith(ext) for ext in DIRECT_MEDIA_EXTENSIONS)
+
+
 def is_ytdlp_url(url: str) -> bool:
-    """yt-dlp ile çözülen platform bağlantısı mı?"""
-    return platform_of(url) != "direct"
+    """Adres yt-dlp ile mi çözülür? (bilinen platform ya da medya dosyası olmayan URL)"""
+    return platform_of(url) != "direct" or not looks_like_media_url(normalize_url(url))
 
 
 #: None = henüz aranmadı, False = bulunamadı, liste = çalıştırma komutu
@@ -399,8 +436,9 @@ async def resolve_url(
     headers: Optional[dict[str, str]] = None,
     on_progress: Optional[Callable[[float, str, str], Any]] = None,
 ) -> dict[str, Any]:
-    """YouTube/X/Instagram/TikTok linklerini doğrudan oynatılabilir akışa çözer;
-    diğer URL'leri (m3u8 master ise tek varyanta indirgeyerek) döndürür.
+    """Bilinen video sitelerini ve yt-dlp'nin tanıdığı diğer adresleri
+    oynatılabilir akışa çözer; uzantılı doğrudan medya bağlantılarını (m3u8
+    master ise tek varyanta indirgeyerek) olduğu gibi döndürür.
 
     `headers` yalnızca doğrudan medya bağlantılarında kullanılır (curl ile
     yapıştırılan cookie/referer gibi başlıklar). yt-dlp platformlarında hesap
@@ -411,7 +449,12 @@ async def resolve_url(
     url = normalize_url(url)
     platform = platform_of(url)
     if platform == "direct":
-        return await _resolve_direct(url, client, headers)
+        # Uzantılı adresler (`.mp4`, `.m3u8`…) doğrudan medya sayılır; uzantısız
+        # olanlar bir sayfa da olabileceği için yt-dlp'nin genel çıkarıcısına
+        # verilir. Böylece yt-dlp'nin desteklediği tüm siteler çalışır.
+        if looks_like_media_url(url):
+            return await _resolve_direct(url, client, headers)
+        platform = "ytdlp"
 
     # TikTok profil sayfası bot korumasına takılıp oda kimliğini vermeyebilir.
     # Canlı oda kimliğini web API'sinden alıp yt-dlp'ye mobil paylaşım URL'si
@@ -428,6 +471,10 @@ async def resolve_url(
 
     command = find_ytdlp_command()
     if not command:
+        if platform == "ytdlp":
+            # yt-dlp kurulu değil: adresi doğrudan akış olarak denemekten başka
+            # yol yok (eski davranış korunur).
+            return await _resolve_direct(url, client, headers)
         raise ResolveError(
             t("error.ytdlpMissing"),
             status_code=422,
@@ -505,6 +552,9 @@ async def resolve_url(
                 message = t("error.tiktokOffline")
             elif "login" in lowered or "log in" in lowered:
                 message = t("error.tiktokLogin")
+        if platform == "ytdlp" and "unsupported url" in lowered:
+            # yt-dlp adresi tanımadı: uzantısız doğrudan akış olabilir.
+            return await _resolve_direct(url, client, headers)
         raise ResolveError(message or t("error.ytdlpNoInfo"))
 
     info = json.loads(stdout.decode("utf-8", errors="ignore"))
@@ -514,6 +564,8 @@ async def resolve_url(
 
     if platform == "twitter":
         variants = _twitter_variants(formats)
+    elif platform == "ytdlp":
+        variants = _generic_variants(formats)
     elif platform == "instagram":
         variants = _instagram_variants(formats)
     elif platform == "tiktok":
@@ -546,7 +598,11 @@ async def resolve_url(
 
     if not variants:
         # HLS yoksa: sesli ilerici MP4 ya da herhangi bir video akışı (tek varyant).
-        picked = _pick_stream(formats)
+        # Bilinmeyen sitelerde kodek alanları boş olabildiği için esnek seçici
+        # önce denenir; o da bulamazsa genel seçiciye düşülür.
+        picked = (
+            _pick_generic_stream(formats) if platform == "ytdlp" else None
+        ) or _pick_stream(formats)
         if not picked:
             raise ResolveError(t("error.noPlayableStream"))
         variants = [
@@ -620,7 +676,7 @@ async def resolve_url(
         "http_headers": (
             {**(selected_headers or {}), "Referer": "https://www.tiktok.com/"}
             if platform == "tiktok"
-            else None
+            else (selected_headers if platform == "ytdlp" else None)
         ),
     }
 
@@ -1258,6 +1314,48 @@ async def _prepare_tiktok_local_variants(
     return variants
 
 
+def _pick_generic_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Bilinmeyen siteler için akış seçimi (kodek alanları boş olabilir).
+
+    yt-dlp her sitede `vcodec`/`acodec` doldurmaz (ör. Internet Archive).
+    Tarayıcının oynatabileceği kapsayıcılar (mp4/webm/ogg) önceliklidir; aynı
+    grupta en yüksek çözünürlük, sonra bit hızı seçilir. Görsel/altyazı
+    dosyaları ve ses-yalnız kayıtlar elenir.
+    """
+    skipped = {
+        "mhtml", "jpg", "jpeg", "png", "webp", "gif", "bmp",
+        "vtt", "srt", "ass", "ssa", "json", "txt",
+    }
+    candidates = []
+    for fmt in formats:
+        ext = (fmt.get("ext") or "").lower()
+        if not fmt.get("url") or ext in skipped:
+            continue
+        if (fmt.get("vcodec") or "none") == "none" and (fmt.get("acodec") or "none") != "none":
+            continue
+        candidates.append((fmt, ext))
+    if not candidates:
+        return None
+
+    fmt, ext = max(
+        candidates,
+        key=lambda item: (
+            1 if item[1] in BROWSER_VIDEO_EXTENSIONS else 0,
+            _quality_height(item[0]),
+            float(item[0].get("tbr") or 0),
+        ),
+    )
+    unknown_codecs = fmt.get("vcodec") is None and fmt.get("acodec") is None
+    return {
+        "url": fmt["url"],
+        "height": _quality_height(fmt),
+        "hls": _is_hls_format(fmt),
+        # Kodek bilgisi yoksa kayıt sesli kabul edilir: ayrı ses akışı
+        # olmayan sitelerde ikinci bir <audio> elementi açılmasın.
+        "has_audio": True if unknown_codecs else _has_audio(fmt),
+    }
+
+
 def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
     """Öncelik: HLS manifest > sesli ilerici MP4 > herhangi bir video akışı."""
     best: Optional[dict[str, Any]] = None
@@ -1305,6 +1403,9 @@ def _pick_stream(formats: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
 
 #: Tarayıcı ve FFmpeg'in doğrudan çalabildiği ses kapsayıcıları (AAC).
 DIRECT_AUDIO_EXTENSIONS = {"m4a", "mp4"}
+
+#: Tarayıcının doğrudan oynatabildiği video kapsayıcıları.
+BROWSER_VIDEO_EXTENSIONS = {"mp4", "m4v", "webm", "ogv", "ogg", "mov", "mkv", "ts"}
 
 
 def _pick_audio(formats: list[dict[str, Any]]) -> Optional[str]:

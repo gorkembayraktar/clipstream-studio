@@ -161,9 +161,11 @@ export function UrlSourceBar() {
           ? t("source.platformInstagram")
           : platform === "tiktok"
             ? t("source.platformTiktok")
-            : platform === "local"
-              ? t("source.platformLocal")
-              : null
+            : platform === "ytdlp"
+              ? t("source.platformYtdlp")
+              : platform === "local"
+                ? t("source.platformLocal")
+                : null
 
   const handleLoad = async (
     overrideUrl?: string,
@@ -218,7 +220,9 @@ export function UrlSourceBar() {
               ? t("source.platformInstagram")
               : platform === "tiktok"
                 ? t("source.platformTiktok")
-                : null
+                : platform === "ytdlp"
+                  ? t("source.platformYtdlp")
+                  : null
       if (label) {
         log("info", t("log.platformDetected", { platform: label }))
         // Harici platformların CDN'leri CORS başlığı göndermez → proxy gerekir.

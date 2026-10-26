@@ -119,6 +119,7 @@ export const tr: Record<TranslationKey, string> = {
   "source.platformX": "X (Twitter)",
   "source.platformInstagram": "Instagram",
   "source.platformTiktok": "TikTok",
+  "source.platformYtdlp": "Diğer siteler (yt-dlp)",
   "source.live": "LIVE",
 
   "project.loadingSettings": "Proje ayarları yükleniyor…",

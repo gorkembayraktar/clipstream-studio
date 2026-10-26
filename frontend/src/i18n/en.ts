@@ -121,6 +121,7 @@ export const en = {
   "source.platformX": "X (Twitter)",
   "source.platformInstagram": "Instagram",
   "source.platformTiktok": "TikTok",
+  "source.platformYtdlp": "Other sites (yt-dlp)",
   "source.live": "LIVE",
 
   "project.loadingSettings": "Loading project settings…",

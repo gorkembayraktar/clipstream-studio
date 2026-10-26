@@ -13,12 +13,15 @@ from services import resolver  # noqa: E402
 from services.resolver import (  # noqa: E402
     ResolveError,
     _audio_track_label,
+    _generic_variants,
     _lookup_tiktok_live_room,
     _pick_audio,
+    _pick_generic_stream,
     _pick_tiktok_stream,
     _tiktok_live_uploader,
     _tiktok_live_variants,
     _ytdlp_audio_tracks,
+    looks_like_media_url,
     platform_of,
 )
 
@@ -296,6 +299,97 @@ class TikTokResolvePayloadTests(unittest.IsolatedAsyncioTestCase):
             "https://m.tiktok.com/share/live/7699840766693657351/",
             captured["args"],
         )
+
+
+class GenericSiteResolveTests(unittest.IsolatedAsyncioTestCase):
+    """yt-dlp'nin tanıdığı diğer siteler de çözülür (yalnızca 4 platform değil)."""
+
+    def test_media_urls_are_detected_by_extension(self):
+        self.assertTrue(looks_like_media_url("https://cdn.example.com/video.mp4"))
+        self.assertTrue(
+            looks_like_media_url("https://cdn.example.com/live.m3u8?token=1")
+        )
+        self.assertFalse(looks_like_media_url("https://vimeo.com/76979871"))
+        self.assertFalse(looks_like_media_url("https://example.com/watch?v=1"))
+        self.assertEqual(platform_of("https://vimeo.com/76979871"), "direct")
+
+    def test_codec_less_formats_pick_browser_playable_stream(self):
+        formats = [
+            {"url": "https://cdn.example.com/a.ogv", "ext": "ogv", "height": 300},
+            {"url": "https://cdn.example.com/a.avi", "ext": "avi", "height": 720},
+            {"url": "https://cdn.example.com/a.mp4", "ext": "mp4", "height": 360},
+        ]
+
+        picked = _pick_generic_stream(formats)
+
+        self.assertIsNotNone(picked)
+        self.assertEqual(picked["url"], "https://cdn.example.com/a.mp4")
+        self.assertTrue(picked["has_audio"])
+
+    def test_generic_hls_variants_are_listed(self):
+        formats = [
+            {
+                "url": "https://cdn.example.com/hls/720.m3u8",
+                "ext": "mp4",
+                "protocol": "m3u8_native",
+                "vcodec": "h264",
+                "acodec": "aac",
+                "height": 720,
+            },
+            {
+                "url": "https://cdn.example.com/hls/360.m3u8",
+                "ext": "mp4",
+                "protocol": "m3u8_native",
+                "vcodec": "h264",
+                "acodec": "aac",
+                "height": 360,
+            },
+        ]
+
+        variants = _generic_variants(formats)
+
+        self.assertEqual([variant["height"] for variant in variants], [720, 360])
+        self.assertTrue(all(variant["hls"] for variant in variants))
+
+    async def test_media_url_skips_ytdlp(self):
+        async def fake_direct(url, client, headers=None):
+            return {"platform": "direct", "stream_url": url}
+
+        with patch.object(resolver, "_resolve_direct", side_effect=fake_direct):
+            with patch.object(
+                resolver, "find_ytdlp_command", side_effect=AssertionError("yt-dlp çağrıldı")
+            ):
+                result = await resolver.resolve_url(
+                    "https://cdn.example.com/video.mp4"
+                )
+
+        self.assertEqual(result["platform"], "direct")
+
+    async def test_unknown_site_is_resolved_with_ytdlp(self):
+        payload = {
+            "title": "Generic site video",
+            "formats": [
+                {"url": "https://cdn.example.com/a.avi", "ext": "avi", "height": 720},
+                {"url": "https://cdn.example.com/a.mp4", "ext": "mp4", "height": 360},
+            ],
+        }
+        captured: dict[str, tuple] = {}
+
+        async def fake_exec(*args, **kwargs):
+            captured["args"] = args
+            return FakeProcess(payload)
+
+        with patch.object(resolver, "find_ytdlp_command", return_value=["yt-dlp"]):
+            with patch.object(
+                resolver.asyncio, "create_subprocess_exec", side_effect=fake_exec
+            ):
+                result = await resolver.resolve_url("https://vimeo.com/76979871")
+
+        self.assertEqual(result["platform"], "ytdlp")
+        self.assertFalse(result["is_youtube"])
+        self.assertEqual(result["stream_url"], "https://cdn.example.com/a.mp4")
+        self.assertTrue(result["has_audio"])
+        self.assertIn("https://vimeo.com/76979871", captured["args"])
 
 
 class YoutubeAudioTrackTests(unittest.TestCase):

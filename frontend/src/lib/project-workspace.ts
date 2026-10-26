@@ -151,6 +151,7 @@ const SOURCE_PLATFORMS: readonly SourcePlatform[] = [
   "twitter",
   "instagram",
   "tiktok",
+  "ytdlp",
   "local",
 ]
 

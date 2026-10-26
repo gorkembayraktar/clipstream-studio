@@ -46,7 +46,7 @@ async def resolve_stream_endpoint(request):
                     headers,
                     on_progress=_progress,
                 )
-                if result.get("platform") in {"direct", "tiktok"}:
+                if result.get("platform") in {"direct", "tiktok", "ytdlp"}:
                     extra_headers = result.pop("http_headers", None) or {}
                     proxy_headers = {**extra_headers, **headers}
                     result["header_token"] = (
@@ -116,7 +116,7 @@ async def resolve_endpoint(request):
         )
 
     # Başlıklar URL'ye yazılmaz: oynatma proxy'si kısa ömürlü belirteçle kullanır.
-    if result.get("platform") in {"direct", "tiktok"}:
+    if result.get("platform") in {"direct", "tiktok", "ytdlp"}:
         extra_headers = result.pop("http_headers", None) or {}
         proxy_headers = {**extra_headers, **headers}
         result["header_token"] = register_headers(proxy_headers) if proxy_headers else None

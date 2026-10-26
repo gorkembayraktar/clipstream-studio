@@ -58,7 +58,7 @@
 | `prober.py`             | ffprobe ile uzak medya analizi. |
 | `proxy.py`              | CORS proxy'si: uzak yayınları tarayıcıya aktarır ve HLS playlist'lerini yeniden yazar. |
 | `request_headers.py`    | Kullanıcı tanımlı HTTP başlıkları (curl yapıştırma). |
-| `resolver.py`           | yt-dlp ile YouTube / X (Twitter) / Instagram bağlantılarını oynatılabilir akışa çözer. |
+| `resolver.py`           | yt-dlp ile video sitelerini (YouTube, X, Instagram, TikTok ve diğerleri) oynatılabilir akışa çözer. |
 | `segment_downloader.py` | HLS medya playlist'ini paralel indirip yerel bir dosyada birleştirir. |
 | `storyboard.py`         | Zaman çizelgesi storyboard'u: kaynak başına kademeli JPEG döşemeleri + JSON. |
 | `subtitles.py`          | HLS WebVTT altyazılarını tek bir oynatılabilir WebVTT metnine dönüştürür. |

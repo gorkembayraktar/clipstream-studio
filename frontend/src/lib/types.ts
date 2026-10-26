@@ -1,7 +1,7 @@
 /** Backend API'si ile paylaşılan veri sözleşmeleri. */
 
 /** Kaynak platformu: doğrudan medya akışı, yerel dosya ya da yt-dlp ile çözülen platform. */
-export type SourcePlatform = "direct" | "youtube" | "twitter" | "instagram" | "tiktok" | "local"
+export type SourcePlatform = "direct" | "youtube" | "twitter" | "instagram" | "tiktok" | "ytdlp" | "local"
 
 /** HLS master playlist'indeki WebVTT altyazı rendition'ı. */
 export interface HlsSubtitleTrack {
