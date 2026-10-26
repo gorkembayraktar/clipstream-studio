@@ -3,7 +3,7 @@
  * Ana çizelge kesimleri birleştirip çıktı zamanında gösterir; bu şerit ise
  * kaynağın tamamını kaynak zamanında gösterir. Kaldırılan aralıklar kırmızı
  * taramayla görünür; kırmızı alanın başlangıç/bitiş çubukları sürüklenerek
- * kesim daraltılıp genişletilebilir, alana tıklanınca kesim geri alınır.
+ * kesim daraltılıp genişletilebilir, alana sağ tıklanınca kesim geri eklenir.
  *
  * Şerit her zaman tam genişliğe sığar (yakınlaştırma yok); tıklayıp
  * sürükleyerek kaynak zamanında sarma yapılır ve hover'da kare önizlemesi
@@ -11,13 +11,21 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import { RotateCcwIcon } from "lucide-react"
+
 import { useStoryboardData } from "@/components/app/storyboard-provider"
 import { PREVIEW_WIDTH, TimelinePreview } from "@/components/app/timeline-preview"
 import { WaveformLayer } from "@/components/app/waveform-layer"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { useSourceDuration } from "@/hooks/use-source-duration"
 import { useI18n } from "@/i18n"
 import { clamp, compactDuration, formatTick, formatTime, tickStep } from "@/lib/format"
-import { gapsOf, useEditStore } from "@/stores/edit-store"
+import { gapsOf, useEditStore, type TimeRange } from "@/stores/edit-store"
 import { usePlayerStore } from "@/stores/player-store"
 
 /** Çentik etiketleri arasında hedeflenen en az boşluk (px). */
@@ -47,6 +55,10 @@ export function SourceTimeline() {
   const edgeDragRef = useRef<{ segmentId: string; edge: "start" | "end" } | null>(null)
   const [width, setWidth] = useState(0)
   const [hover, setHover] = useState<{ left: number; time: number } | null>(null)
+  /** Sağ tık menüsünün hedefi (kırmızı alan) ve açık/kapalı durumu. */
+  const [contextGap, setContextGap] = useState<TimeRange | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const contextGapRef = useRef<TimeRange | null>(null)
 
   const gaps = useMemo(() => gapsOf(segments, trim), [segments, trim])
 
@@ -102,6 +114,8 @@ export function SourceTimeline() {
   }
 
   const handlePointerDown = (event: React.PointerEvent) => {
+    // Sağ tık menüyü açar; sarmayı yalnızca sol tık başlatır.
+    if (event.button !== 0) return
     event.preventDefault()
     draggingRef.current = true
     try {
@@ -158,6 +172,24 @@ export function SourceTimeline() {
       }
     }
 
+  /** Sağ tık: yalnızca kırmızı (kesilmiş) alanın üzerinde menü açılır. */
+  const handleTrackContextMenu = (event: React.MouseEvent) => {
+    const time = timeAt(event.clientX)
+    const gap = gaps.find((item) => time >= item.start && time < item.end) ?? null
+    contextGapRef.current = gap
+    setContextGap(gap)
+  }
+
+  const handleMenuOpenChange = (open: boolean) => {
+    setMenuOpen(open && Boolean(contextGapRef.current))
+  }
+
+  /** Sağ tık menüsü: seçili kesimi geri ekler. */
+  const removeContextGap = () => {
+    const gap = contextGapRef.current
+    if (gap) restoreRange(gap)
+  }
+
   // Sonlu bir kaynak yoksa (canlı yayın veya henüz yükleme) şerit gösterilmez.
   if (duration <= 0) return null
 
@@ -169,127 +201,124 @@ export function SourceTimeline() {
         </span>
 
         <div className="min-w-0 flex-1">
-          <div
-            ref={trackRef}
-            role="slider"
-            aria-label={t("sourceTimeline.hint")}
-            aria-valuemin={0}
-            aria-valuemax={duration}
-            aria-valuenow={currentTime}
-            data-slot="source-timeline-track"
-            title={t("sourceTimeline.hint")}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            onPointerLeave={() => setHover(null)}
-            className="relative h-6 cursor-pointer touch-none overflow-hidden rounded-md bg-muted/50 ring-1 ring-foreground/10"
-          >
-            {/* Tam kaynak dalga formu (ana çizelgeyle aynı veri) */}
-            <WaveformLayer duration={duration} zoom={1} />
-
-            {/* Kalan parçalar */}
-            {segments.map((segment) => (
+          <ContextMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
+            <ContextMenuTrigger asChild>
               <div
-                key={segment.id}
-                data-slot="source-piece"
-                className="absolute inset-y-0 rounded-[2px] bg-emerald-400/15 ring-1 ring-emerald-400/25 ring-inset"
-                style={{
-                  left: `${pct(segment.start)}%`,
-                  width: `${Math.max(0, pct(segment.end) - pct(segment.start))}%`,
-                }}
-              />
-            ))}
-
-            {/* Kaldırılan aralıklar: kırmızı tarama + tıklayınca geri al */}
-            {gapEdges.map(({ gap }) => (
-              <div
-                key={`gap-${gap.start}`}
-                data-slot="source-cut"
-                className="group/cut absolute inset-y-0 z-10 border-x border-red-400/60"
-                style={{
-                  left: `${pct(gap.start)}%`,
-                  width: `${Math.max(0, pct(gap.end) - pct(gap.start))}%`,
-                  backgroundImage: CUT_STRIPES,
-                }}
+                ref={trackRef}
+                role="slider"
+                aria-label={t("sourceTimeline.hint")}
+                aria-valuemin={0}
+                aria-valuemax={duration}
+                aria-valuenow={currentTime}
+                data-slot="source-timeline-track"
+                title={t("sourceTimeline.hint")}
+                onContextMenu={handleTrackContextMenu}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                onPointerLeave={() => setHover(null)}
+                className="relative h-6 cursor-pointer touch-none overflow-hidden rounded-md bg-muted/50 ring-1 ring-foreground/10"
               >
-                <button
-                  type="button"
-                  aria-label={t("trim.restoreCutAria", {
-                    start: formatTime(gap.start, true),
-                    end: formatTime(gap.end, true),
-                  })}
-                  title={t("trim.restoreCut")}
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    restoreRange(gap)
-                  }}
-                  className="absolute inset-0 grid cursor-pointer place-items-center"
-                >
-                  <span className="rounded-full bg-background/85 px-1 text-[10px] leading-4 text-foreground opacity-0 ring-1 ring-border transition-opacity group-hover/cut:opacity-100 focus-visible:opacity-100">
-                    ↺
-                  </span>
-                </button>
+                {/* Tam kaynak dalga formu (ana çizelgeyle aynı veri) */}
+                <WaveformLayer duration={duration} zoom={1} />
+
+                {/* Kalan parçalar */}
+                {segments.map((segment) => (
+                  <div
+                    key={segment.id}
+                    data-slot="source-piece"
+                    className="absolute inset-y-0 rounded-[2px] bg-emerald-400/15 ring-1 ring-emerald-400/25 ring-inset"
+                    style={{
+                      left: `${pct(segment.start)}%`,
+                      width: `${Math.max(0, pct(segment.end) - pct(segment.start))}%`,
+                    }}
+                  />
+                ))}
+
+                {/* Kaldırılan aralıklar: kırmızı tarama; sağ tık ile geri eklenir */}
+                {gapEdges.map(({ gap }) => (
+                  <div
+                    key={`gap-${gap.start}`}
+                    data-slot="source-cut"
+                    aria-label={t("trim.restoreCutAria", {
+                      start: formatTime(gap.start, true),
+                      end: formatTime(gap.end, true),
+                    })}
+                    className="absolute inset-y-0 z-10 cursor-context-menu border-x border-red-400/60"
+                    style={{
+                      left: `${pct(gap.start)}%`,
+                      width: `${Math.max(0, pct(gap.end) - pct(gap.start))}%`,
+                      backgroundImage: CUT_STRIPES,
+                    }}
+                  />
+                ))}
+
+                {/* Kesim kenarları: kırmızı alanın başlangıç/bitiş çubukları sürüklenebilir */}
+                {gapEdges.map(({ gap, before }) =>
+                  before ? (
+                    <div
+                      key={`gap-start-${gap.start}`}
+                      role="slider"
+                      aria-label={t("timeline.cutEnd")}
+                      aria-valuenow={gap.start}
+                      title={t("timeline.cutEnd")}
+                      onPointerDown={beginGapDrag(before.id, "end")}
+                      className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                      style={{ left: `${pct(gap.start)}%` }}
+                    >
+                      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
+                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
+                    </div>
+                  ) : null,
+                )}
+                {gapEdges.map(({ gap, after }) =>
+                  after ? (
+                    <div
+                      key={`gap-end-${gap.start}`}
+                      role="slider"
+                      aria-label={t("timeline.cutStart")}
+                      aria-valuenow={gap.end}
+                      title={t("timeline.cutStart")}
+                      onPointerDown={beginGapDrag(after.id, "start")}
+                      className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                      style={{ left: `${pct(gap.end)}%` }}
+                    >
+                      <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
+                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
+                    </div>
+                  ) : null,
+                )}
+
+                {/* Hover konumu */}
+                {hover && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 z-10 w-px bg-foreground/30"
+                    style={{ left: `${pct(hover.time)}%` }}
+                  />
+                )}
+
+                {/* Oynatma imleci */}
+                <div
+                  data-slot="source-playhead"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 rounded-full bg-destructive shadow-sm"
+                  style={{ left: `${pct(currentTime)}%` }}
+                />
               </div>
-            ))}
-
-            {/* Kesim kenarları: kırmızı alanın başlangıç/bitiş çubukları sürüklenebilir */}
-            {gapEdges.map(({ gap, before }) =>
-              before ? (
-                <div
-                  key={`gap-start-${gap.start}`}
-                  role="slider"
-                  aria-label={t("timeline.cutEnd")}
-                  aria-valuenow={gap.start}
-                  title={t("timeline.cutEnd")}
-                  onPointerDown={beginGapDrag(before.id, "end")}
-                  className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
-                  style={{ left: `${pct(gap.start)}%` }}
-                >
-                  <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
-                  <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
-                </div>
-              ) : null,
-            )}
-            {gapEdges.map(({ gap, after }) =>
-              after ? (
-                <div
-                  key={`gap-end-${gap.start}`}
-                  role="slider"
-                  aria-label={t("timeline.cutStart")}
-                  aria-valuenow={gap.end}
-                  title={t("timeline.cutStart")}
-                  onPointerDown={beginGapDrag(after.id, "start")}
-                  className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
-                  style={{ left: `${pct(gap.end)}%` }}
-                >
-                  <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
-                  <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
-                </div>
-              ) : null,
-            )}
-
-            {/* Hover konumu */}
-            {hover && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 z-10 w-px bg-foreground/30"
-                style={{ left: `${pct(hover.time)}%` }}
-              />
-            )}
-
-            {/* Oynatma imleci */}
-            <div
-              data-slot="source-playhead"
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 rounded-full bg-destructive shadow-sm"
-              style={{ left: `${pct(currentTime)}%` }}
-            />
-          </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem
+                variant="destructive"
+                disabled={!contextGap}
+                onSelect={removeContextGap}
+              >
+                <RotateCcwIcon />
+                {t("sourceTimeline.removeCut")}
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
 
           {/* Zaman damgaları: kaynak zamanı — dikey yazılır ki birbirine girmesin */}
           <div

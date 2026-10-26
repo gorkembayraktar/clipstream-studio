@@ -1,4 +1,4 @@
-/** Zaman çizelgesi görünümü: yatay yakınlaştırma seviyeleri. */
+/** Zaman çizelgesi görünümü: yatay yakınlaştırma seviyeleri ve seçim modu. */
 import { create } from "zustand"
 
 /** Sırayla kullanılan yakınlaştırma katları. */
@@ -9,14 +9,19 @@ export const MAX_TIMELINE_ZOOM = TIMELINE_ZOOM_LEVELS[TIMELINE_ZOOM_LEVELS.lengt
 
 interface TimelineViewState {
   zoom: number
+  /** Seçim modu: Shift basmadan sürükleyerek kesim alanı seçilir. */
+  selectMode: boolean
   setZoom: (zoom: number) => void
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
+  setSelectMode: (value: boolean) => void
+  toggleSelectMode: () => void
 }
 
 export const useTimelineStore = create<TimelineViewState>()((set) => ({
   zoom: MIN_TIMELINE_ZOOM,
+  selectMode: false,
 
   // Kaydırıcıdan gelen değeri desteklenen en yakın üst seviyeye oturt.
   setZoom: (zoom) =>
@@ -41,4 +46,7 @@ export const useTimelineStore = create<TimelineViewState>()((set) => ({
   },
 
   resetZoom: () => set({ zoom: MIN_TIMELINE_ZOOM }),
+
+  setSelectMode: (value) => set({ selectMode: value }),
+  toggleSelectMode: () => set((state) => ({ selectMode: !state.selectMode })),
 }))

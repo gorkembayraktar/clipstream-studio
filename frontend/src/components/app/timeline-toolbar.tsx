@@ -4,6 +4,7 @@ import {
   RepeatIcon,
   RotateCcwIcon,
   RotateCwIcon,
+  SquareDashedMousePointerIcon,
   StepBackIcon,
   StepForwardIcon,
   ZoomInIcon,
@@ -81,6 +82,8 @@ export function TimelineToolbar() {
   const zoomIn = useTimelineStore((s) => s.zoomIn)
   const zoomOut = useTimelineStore((s) => s.zoomOut)
   const resetZoom = useTimelineStore((s) => s.resetZoom)
+  const selectMode = useTimelineStore((s) => s.selectMode)
+  const toggleSelectMode = useTimelineStore((s) => s.toggleSelectMode)
 
   const currentTimeOf = () =>
     getVideoElement()?.currentTime ?? usePlayerStore.getState().currentTime
@@ -202,6 +205,21 @@ export function TimelineToolbar() {
           title={t("player.playSelection")}
         >
           <CirclePlayIcon />
+        </Button>
+      </div>
+
+      {/* Kesim alanı seçimi: açıkken Shift gerekmeden sürükleyerek seç */}
+      <div className="flex items-center gap-1 border-l border-border/70 pl-2">
+        <Button
+          variant={selectMode ? "secondary" : "ghost"}
+          size="sm"
+          onClick={toggleSelectMode}
+          data-slot="select-mode"
+          aria-pressed={selectMode}
+          title={t("timeline.selectModeTitle")}
+        >
+          <SquareDashedMousePointerIcon />
+          {t("timeline.selectMode")}
         </Button>
       </div>
 

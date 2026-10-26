@@ -342,7 +342,7 @@ export const tr: Record<TranslationKey, string> = {
   "trim.fullRange": "Seçimi tüm videoya yay",
   "trim.cutSelection": "Kes",
   "trim.cutSelectionTitle": "Seçili aralığı dışa aktarmadan çıkar",
-  "trim.cutHint": "Kesim için zaman çizelgesinde Shift+sürükle",
+  "trim.cutHint": "Kesim için timeline'da sürükle (veya Shift+sürükle)",
   "trim.restoreCut": "Kesimi geri ekle",
   "trim.restoreCutAria": "{start}–{end} kesimini geri ekle",
   "trim.restoreAll": "Tümünü geri al",
@@ -367,6 +367,11 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.cutStart": "Kesim başı — sürükle",
   "timeline.cutEnd": "Kesim sonu — sürükle",
   "timeline.restoreCut": "Kesimi geri ekle",
+  "timeline.contextIn": "Girişi buraya al",
+  "timeline.contextOut": "Çıkışı buraya al",
+  "timeline.selectMode": "Seçim",
+  "timeline.selectModeTitle":
+    "Seçim modu — açıkken sürükleyerek kesim alanı seç (Shift gerekmez)",
   "timeline.storyboardLoading": "Önizleme hazırlanıyor…",
   "timeline.storyboardFailed": "Önizleme kullanılamıyor",
   "timeline.loadSource": "Zaman çizelgesi için bir kaynak yükle",
@@ -381,6 +386,7 @@ export const tr: Record<TranslationKey, string> = {
 
   "sourceTimeline.label": "Kaynak",
   "sourceTimeline.hint": "Tam kaynak — kaldırılan aralıklar işaretli; sarmak için tıkla veya sürükle",
+  "sourceTimeline.removeCut": "Seçimi kaldır",
 
   "player.seekBack": "5 sn geri (←)",
   "player.playPause": "Oynat / Durdur (Boşluk)",

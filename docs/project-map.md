@@ -143,6 +143,7 @@
 | `button.tsx`        | — |
 | `card.tsx`          | — |
 | `checkbox.tsx`      | — |
+| `context-menu.tsx`  | — |
 | `dialog.tsx`        | — |
 | `dropdown-menu.tsx` | — |
 | `input.tsx`         | — |
@@ -200,7 +201,7 @@
 
 | Dosya                   | Açıklama / semboller |
 |-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt, useEditStore |
+| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt, useEditStore |
 | `export-store.ts`       | useExportStore |
 | `local-import-store.ts` | useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |

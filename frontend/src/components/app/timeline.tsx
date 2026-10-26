@@ -5,11 +5,20 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
+import { ScissorsIcon } from "lucide-react"
+
 import { cn } from "cn"
 
 import { useStoryboardData } from "@/components/app/storyboard-provider"
 import { PREVIEW_WIDTH, TimelinePreview } from "@/components/app/timeline-preview"
 import { WaveformLayer } from "@/components/app/waveform-layer"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { useSourceDuration } from "@/hooks/use-source-duration"
 import { useI18n } from "@/i18n"
 import { clamp, formatTick, tickStep } from "@/lib/format"
@@ -50,6 +59,7 @@ export function Timeline() {
   const segments = useEditStore((s) => s.segments)
   const selection = useEditStore((s) => s.selection)
   const setSelection = useEditStore((s) => s.setSelection)
+  const removeSelection = useEditStore((s) => s.removeSelection)
   const isLive = useSourceStore((s) => s.isLive)
   const sourceDuration = useSourceDuration()
 
@@ -74,6 +84,7 @@ export function Timeline() {
   const seek = usePlayerStore((s) => s.seek)
   const zoom = useTimelineStore((s) => s.zoom)
   const resetZoom = useTimelineStore((s) => s.resetZoom)
+  const selectMode = useTimelineStore((s) => s.selectMode)
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -82,6 +93,8 @@ export function Timeline() {
   const dragRef = useRef<DragTarget | null>(null)
   /** Shift+sürükle seçiminin başladığı zaman (çıktı zamanı, sn). */
   const selectAnchorRef = useRef<number | null>(null)
+  /** Sağ tık menüsü açılırken tıklanan noktanın çıktı zamanı (sn). */
+  const contextTimeRef = useRef(0)
 
   const pct = useCallback(
     (time: number) => (duration > 0 ? clamp((time / duration) * 100, 0, 100) : 0),
@@ -138,10 +151,10 @@ export function Timeline() {
   )
 
   const handleTrackPointerDown = (event: React.PointerEvent) => {
-    if (duration <= 0) return
+    if (duration <= 0 || event.button !== 0) return
     capturePointer(event.currentTarget, event.pointerId)
-    // Shift+sürükle: kesim oluşturmak için aralık seç.
-    if (event.shiftKey) {
+    // Shift+sürükle ya da seçim modu: kesim oluşturmak için aralık seç.
+    if (event.shiftKey || selectMode) {
       dragRef.current = "select"
       selectAnchorRef.current = timeAt(event.clientX)
       setSelection(null)
@@ -193,9 +206,10 @@ export function Timeline() {
   }
 
   const handlePointerUp = (event: React.PointerEvent) => {
-    // Tek tık (sürüklemesiz) seçim oluşturmaz.
+    // Tek tık (sürüklemesiz) seçim oluşturmaz; imleci o noktaya getirir.
     if (dragRef.current === "select" && !useEditStore.getState().selection) {
       setSelection(null)
+      seekToOutput(timeAt(event.clientX))
     }
     dragRef.current = null
     selectAnchorRef.current = null
@@ -209,6 +223,20 @@ export function Timeline() {
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
     dragRef.current = edge
+  }
+
+  /** Sağ tık menüsü: In/Out tıklanan noktaya taşınır (timeline kırpılmaz). */
+  const setInAtPointer = () =>
+    setTrim({ start: outputToSourceTime(segments, contextTimeRef.current) })
+  const setOutAtPointer = () =>
+    setTrim({ end: outputToSourceTime(segments, contextTimeRef.current) })
+
+  /** Seçili aralığı keser ve imleci kesim noktasında bırakır. */
+  const cutSelection = () => {
+    const range = useEditStore.getState().selection
+    if (!range) return
+    removeSelection()
+    seek(range.start)
   }
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
@@ -366,125 +394,148 @@ export function Timeline() {
         onScroll={() => setHover(null)}
         className="overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-lg bg-muted/50 px-2 ring-1 ring-foreground/10 [overflow-anchor:none] [scrollbar-width:thin]"
       >
-        <div
-          ref={trackRef}
-          onPointerDown={handleTrackPointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onPointerLeave={handlePointerLeave}
-          style={{ width: `${zoom * 100}%` }}
-          className={cn(
-            "group/track relative h-14 touch-none",
-            duration > 0 ? "cursor-crosshair" : "opacity-60",
-          )}
-        >
-          {/* Ses dalga formu — kesimler atlanarak bitişik çizilir */}
-          {duration > 0 && <WaveformLayer duration={duration} zoom={zoom} spans={spans} />}
-
-          {/* Tampon belleği (kaynak zamanı → çıktı zamanı) */}
-          <div
-            className="absolute inset-y-0 left-0 bg-foreground/10"
-            style={{ width: `${pct(sourceToOutputTime(segments, bufferedEnd))}%` }}
-          />
-
-          {/* In/Out seçimi: çizelgeyi kırpmaz, yalnızca clip alanını belirler */}
-          {duration > 0 && (
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
             <div
-              aria-hidden="true"
-              data-slot="timeline-trim"
-              className="pointer-events-none absolute inset-y-0 border-x border-emerald-400/40 bg-linear-to-r from-emerald-400/10 to-amber-400/10"
-              style={{
-                left: `${pct(trimSpan.start)}%`,
-                width: `${Math.max(0, pct(trimSpan.end) - pct(trimSpan.start))}%`,
+              ref={trackRef}
+              onContextMenu={(event) => {
+                // Menü açılırken tıklanan noktayı çıktı zamanı olarak sakla.
+                contextTimeRef.current = timeAt(event.clientX)
               }}
-            />
-          )}
-
-          {/* Segment birleşimleri: kesilen aralıklar atıldığı için parçalar bitişiktir */}
-          {duration > 0 &&
-            layout.slice(1).map((span) => (
-              <div
-                key={`join-${span.segment.id}`}
-                aria-hidden="true"
-                data-slot="timeline-join"
-                className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-foreground/25"
-                style={{ left: `${pct(span.start)}%` }}
-              />
-            ))}
-
-          {/* Kesim için seçim (Shift + sürükle) */}
-          {duration > 0 && selectionSpan && (
-            <div
-              data-slot="timeline-selection"
-              className="pointer-events-none absolute inset-y-0 z-10 border-x border-sky-400 bg-sky-400/25"
-              style={{
-                left: `${pct(selectionSpan.start)}%`,
-                width: `${Math.max(0, pct(selectionSpan.end) - pct(selectionSpan.start))}%`,
-              }}
-            />
-          )}
-
-          {/* Çentikler ve etiketler (çıktı zamanı) */}
-          {ticks.values.map((tick) => (
-            <div
-              key={tick}
-              className="absolute top-0 bottom-0"
-              style={{ left: `${pct(tick)}%` }}
+              onPointerDown={handleTrackPointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onPointerLeave={handlePointerLeave}
+              style={{ width: `${zoom * 100}%` }}
+              className={cn(
+                "group/track relative h-14 touch-none",
+                duration > 0 ? "cursor-crosshair" : "opacity-60",
+              )}
             >
-              <div className="absolute top-1/2 bottom-0 w-px bg-foreground/15" />
-              {tick > 0 && tick < duration && (
-                <span className="absolute bottom-0.5 -translate-x-1/2 text-[10px] whitespace-nowrap text-muted-foreground">
-                  {formatTick(tick, ticks.step)}
-                </span>
+              {/* Ses dalga formu — kesimler atlanarak bitişik çizilir */}
+              {duration > 0 && <WaveformLayer duration={duration} zoom={zoom} spans={spans} />}
+
+              {/* Tampon belleği (kaynak zamanı → çıktı zamanı) */}
+              <div
+                className="absolute inset-y-0 left-0 bg-foreground/10"
+                style={{ width: `${pct(sourceToOutputTime(segments, bufferedEnd))}%` }}
+              />
+
+              {/* In/Out seçimi: çizelgeyi kırpmaz, yalnızca clip alanını belirler */}
+              {duration > 0 && (
+                <div
+                  aria-hidden="true"
+                  data-slot="timeline-trim"
+                  className="pointer-events-none absolute inset-y-0 border-x border-emerald-400/40 bg-linear-to-r from-emerald-400/10 to-amber-400/10"
+                  style={{
+                    left: `${pct(trimSpan.start)}%`,
+                    width: `${Math.max(0, pct(trimSpan.end) - pct(trimSpan.start))}%`,
+                  }}
+                />
+              )}
+
+              {/* Segment birleşimleri: kesilen aralıklar atıldığı için parçalar bitişiktir */}
+              {duration > 0 &&
+                layout.slice(1).map((span) => (
+                  <div
+                    key={`join-${span.segment.id}`}
+                    aria-hidden="true"
+                    data-slot="timeline-join"
+                    className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-foreground/25"
+                    style={{ left: `${pct(span.start)}%` }}
+                  />
+                ))}
+
+              {/* Kesim için seçim (Shift + sürükle) */}
+              {duration > 0 && selectionSpan && (
+                <div
+                  data-slot="timeline-selection"
+                  className="pointer-events-none absolute inset-y-0 z-10 border-x border-sky-400 bg-sky-400/25"
+                  style={{
+                    left: `${pct(selectionSpan.start)}%`,
+                    width: `${Math.max(0, pct(selectionSpan.end) - pct(selectionSpan.start))}%`,
+                  }}
+                />
+              )}
+
+              {/* Çentikler ve etiketler (çıktı zamanı) */}
+              {ticks.values.map((tick) => (
+                <div
+                  key={tick}
+                  className="absolute top-0 bottom-0"
+                  style={{ left: `${pct(tick)}%` }}
+                >
+                  <div className="absolute top-1/2 bottom-0 w-px bg-foreground/15" />
+                  {tick > 0 && tick < duration && (
+                    <span className="absolute bottom-0.5 -translate-x-1/2 text-[10px] whitespace-nowrap text-muted-foreground">
+                      {formatTick(tick, ticks.step)}
+                    </span>
+                  )}
+                </div>
+              ))}
+
+              {/* Giriş / Çıkış işaretçileri — seçim çizelgenin içinde serbest durur */}
+              {duration > 0 && (
+                <>
+                  <div
+                    role="slider"
+                    aria-label={t("timeline.inPoint")}
+                    aria-valuenow={Math.round(trim.start * 1000) / 1000}
+                    data-slot="timeline-start"
+                    title={t("timeline.inPointDrag")}
+                    onPointerDown={beginTrimDrag("start")}
+                    className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                    style={{ left: `${pct(trimSpan.start)}%` }}
+                  >
+                    <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-emerald-400" />
+                    <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-emerald-400" />
+                  </div>
+                  <div
+                    role="slider"
+                    aria-label={t("timeline.outPoint")}
+                    aria-valuenow={Math.round(trim.end * 1000) / 1000}
+                    data-slot="timeline-end"
+                    title={t("timeline.outPointDrag")}
+                    onPointerDown={beginTrimDrag("end")}
+                    className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                    style={{ left: `${pct(trimSpan.end)}%` }}
+                  >
+                    <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-amber-400" />
+                    <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-amber-400" />
+                  </div>
+                </>
+              )}
+
+              {/* Oynatma imleci (çıktı zamanında; tıklama/sürükleme şeritten yapılır) */}
+              {duration > 0 && (
+                <div
+                  aria-hidden="true"
+                  data-slot="timeline-playhead"
+                  className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 rounded-full bg-red-500"
+                  style={{ left: `${pct(playheadTime)}%` }}
+                >
+                  <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
+                </div>
               )}
             </div>
-          ))}
-
-          {/* Giriş / Çıkış işaretçileri — seçim çizelgenin içinde serbest durur */}
-          {duration > 0 && (
-            <>
-              <div
-                role="slider"
-                aria-label={t("timeline.inPoint")}
-                aria-valuenow={Math.round(trim.start * 1000) / 1000}
-                data-slot="timeline-start"
-                title={t("timeline.inPointDrag")}
-                onPointerDown={beginTrimDrag("start")}
-                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
-                style={{ left: `${pct(trimSpan.start)}%` }}
-              >
-                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-emerald-400" />
-                <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-emerald-400" />
-              </div>
-              <div
-                role="slider"
-                aria-label={t("timeline.outPoint")}
-                aria-valuenow={Math.round(trim.end * 1000) / 1000}
-                data-slot="timeline-end"
-                title={t("timeline.outPointDrag")}
-                onPointerDown={beginTrimDrag("end")}
-                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
-                style={{ left: `${pct(trimSpan.end)}%` }}
-              >
-                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-amber-400" />
-                <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-amber-400" />
-              </div>
-            </>
-          )}
-
-          {/* Oynatma imleci (çıktı zamanında; tıklama/sürükleme şeritten yapılır) */}
-          {duration > 0 && (
-            <div
-              aria-hidden="true"
-              data-slot="timeline-playhead"
-              className="pointer-events-none absolute inset-y-0 z-20 w-0.5 -translate-x-1/2 rounded-full bg-red-500"
-              style={{ left: `${pct(playheadTime)}%` }}
-            >
-              <div className="absolute -top-0.5 left-1/2 size-2.5 -translate-x-1/2 rounded-full bg-red-500" />
-            </div>
-          )}
-        </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem disabled={duration <= 0} onSelect={setInAtPointer}>
+              <span className="size-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+              {t("timeline.contextIn")}
+            </ContextMenuItem>
+            <ContextMenuItem disabled={duration <= 0} onSelect={setOutAtPointer}>
+              <span className="size-2 rounded-full bg-amber-500 dark:bg-amber-400" />
+              {t("timeline.contextOut")}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem disabled={!selection} onSelect={cutSelection}>
+              <ScissorsIcon />
+              {t("trim.cutSelection")}
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       </div>
 
       {/* Kare önizleme balonu — çizelgenin üstünde görünür */}

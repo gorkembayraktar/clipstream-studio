@@ -344,7 +344,7 @@ export const en = {
   "trim.fullRange": "Extend selection to the whole video",
   "trim.cutSelection": "Cut",
   "trim.cutSelectionTitle": "Remove the selected range from the export",
-  "trim.cutHint": "Shift+drag on the timeline to select a range",
+  "trim.cutHint": "Drag on the timeline to select a range (or Shift+drag)",
   "trim.restoreCut": "Restore cut",
   "trim.restoreCutAria": "Restore cut {start}–{end}",
   "trim.restoreAll": "Restore all",
@@ -369,6 +369,11 @@ export const en = {
   "timeline.cutStart": "Cut start — drag",
   "timeline.cutEnd": "Cut end — drag",
   "timeline.restoreCut": "Restore cut",
+  "timeline.contextIn": "Set In here",
+  "timeline.contextOut": "Set Out here",
+  "timeline.selectMode": "Select",
+  "timeline.selectModeTitle":
+    "Select mode — drag to pick a cut area (no Shift needed)",
   "timeline.storyboardLoading": "Preparing preview…",
   "timeline.storyboardFailed": "Preview unavailable",
   "timeline.loadSource": "Load a source to use the timeline",
@@ -383,6 +388,7 @@ export const en = {
 
   "sourceTimeline.label": "Source",
   "sourceTimeline.hint": "Full source — removed ranges are marked; click or drag to seek",
+  "sourceTimeline.removeCut": "Remove cut",
 
   "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",
