@@ -24,7 +24,7 @@ import { usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
 import { useTimelineStore } from "@/stores/timeline-store"
 
-type DragTarget = "playhead" | "select"
+type DragTarget = "playhead" | "select" | "start" | "end"
 
 /** Pointer yakalama kenar durumlarda (ör. sentetik olaylar) hata verebilir; sürükleme yine de çalışır. */
 function capturePointer(element: Element | null, pointerId: number) {
@@ -45,6 +45,8 @@ function releasePointer(element: Element | null, pointerId: number) {
 
 export function Timeline() {
   const { t } = useI18n()
+  const trim = useEditStore((s) => s.trim)
+  const setTrim = useEditStore((s) => s.setTrim)
   const segments = useEditStore((s) => s.segments)
   const selection = useEditStore((s) => s.selection)
   const setSelection = useEditStore((s) => s.setSelection)
@@ -80,6 +82,13 @@ export function Timeline() {
   const dragRef = useRef<DragTarget | null>(null)
   /** Shift+sürükle seçiminin başladığı zaman (çıktı zamanı, sn). */
   const selectAnchorRef = useRef<number | null>(null)
+  /** Giriş/çıkış tutamağı sürüklemesi: başlangıç değerleri (taşma olmasın diye). */
+  const trimDragRef = useRef<{
+    pointerX: number
+    start: number
+    end: number
+    total: number
+  } | null>(null)
 
   const pct = useCallback(
     (time: number) => (duration > 0 ? clamp((time / duration) * 100, 0, 100) : 0),
@@ -158,6 +167,19 @@ export function Timeline() {
     const target = dragRef.current
     if (!target) return
 
+    // Giriş/çıkış tutamağı: ripple görünümde tutamaç kenarda kalır, içerik kayar.
+    if (target === "start" || target === "end") {
+      const origin = trimDragRef.current
+      const track = trackRef.current
+      if (!origin || !track) return
+      const width = track.getBoundingClientRect().width
+      if (width <= 0) return
+      const delta = ((event.clientX - origin.pointerX) / width) * origin.total
+      if (target === "start") setTrim({ start: origin.start + delta })
+      else setTrim({ end: origin.end + delta })
+      return
+    }
+
     // Shift+sürükle seçimi: bant canlı güncellenir.
     if (target === "select") {
       const anchor = selectAnchorRef.current
@@ -180,7 +202,23 @@ export function Timeline() {
     }
     dragRef.current = null
     selectAnchorRef.current = null
+    trimDragRef.current = null
     releasePointer(event.currentTarget, event.pointerId)
+  }
+
+  /** Giriş/çıkış tutamağı: ripple görünümde kenarda durur, içerik kayar. */
+  const beginTrimDrag = (edge: "start" | "end") => (event: React.PointerEvent) => {
+    if (duration <= 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    capturePointer(trackRef.current, event.pointerId)
+    dragRef.current = edge
+    trimDragRef.current = {
+      pointerX: event.clientX,
+      start: trim.start,
+      end: trim.end,
+      total: duration,
+    }
   }
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
@@ -404,6 +442,36 @@ export function Timeline() {
               )}
             </div>
           ))}
+
+          {/* Giriş / Çıkış aralığı — çıktı görünümünde kenarlarda sabittir */}
+          {duration > 0 && (
+            <>
+              <div
+                role="slider"
+                aria-label={t("timeline.inPoint")}
+                aria-valuenow={trim.start}
+                data-slot="timeline-start"
+                title={t("timeline.inPointDrag")}
+                onPointerDown={beginTrimDrag("start")}
+                className="absolute inset-y-0 left-0 z-30 w-3 cursor-ew-resize touch-none"
+              >
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-emerald-400" />
+                <div className="pointer-events-none absolute top-1/2 left-0 h-6 w-2 -translate-y-1/2 rounded-r-sm bg-emerald-400" />
+              </div>
+              <div
+                role="slider"
+                aria-label={t("timeline.outPoint")}
+                aria-valuenow={trim.end}
+                data-slot="timeline-end"
+                title={t("timeline.outPointDrag")}
+                onPointerDown={beginTrimDrag("end")}
+                className="absolute inset-y-0 right-0 z-30 w-3 cursor-ew-resize touch-none"
+              >
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-0.5 bg-amber-400" />
+                <div className="pointer-events-none absolute top-1/2 right-0 h-6 w-2 -translate-y-1/2 rounded-l-sm bg-amber-400" />
+              </div>
+            </>
+          )}
 
           {/* Oynatma imleci (çıktı zamanında; tıklama/sürükleme şeritten yapılır) */}
           {duration > 0 && (
