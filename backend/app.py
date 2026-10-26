@@ -7,6 +7,7 @@ Geliştirme modunda frontend ayrıca `npm run dev` ile (5173) çalışır ve
 Vite, /api ile /exports isteklerini bu sunucuya (8765) proxy'ler.
 Üretim modunda `npm run build` çıktısı (frontend/dist) bu sunucudan servis edilir.
 """
+import os
 import sys
 import threading
 import time
@@ -170,6 +171,11 @@ def _open_browser() -> None:
     webbrowser.open(f"http://{HOST}:{PORT}")
 
 
+def _browser_launch_disabled() -> bool:
+    """start.bat sekmeyi kendisi açar; tarayıcı iki kez açılmasın."""
+    return os.environ.get("CLIPSTREAM_NO_BROWSER") == "1"
+
+
 def _configure_console() -> None:
     """Türkçe Windows konsolları (cp1254 vb.) emoji/UTF-8'de çökmesin."""
     for stream in (sys.stdout, sys.stderr):
@@ -193,7 +199,8 @@ def main() -> None:
         print("    cd frontend && npm run build   (veya scripts\\dev.bat ile geliştirme modu)")
     print("=" * 62)
 
-    threading.Thread(target=_open_browser, daemon=True).start()
+    if not _browser_launch_disabled():
+        threading.Thread(target=_open_browser, daemon=True).start()
     uvicorn.run(app, host=HOST, port=PORT, log_level="info")
 
 

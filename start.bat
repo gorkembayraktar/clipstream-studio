@@ -74,6 +74,8 @@ if errorlevel 1 echo   WARNING: yt-dlp is missing; YouTube/X/Instagram links can
 
 REM --- 5) Start the server in a separate window ---
 echo   Starting the server...
+REM The browser tab is opened by this script; keep the server from opening a second one.
+set "CLIPSTREAM_NO_BROWSER=1"
 set "PYTHON_EXE="
 for /f "delims=" %%P in ('where python 2^>nul') do if not defined PYTHON_EXE set "PYTHON_EXE=%%P"
 if not defined PYTHON_EXE set "PYTHON_EXE=python"
