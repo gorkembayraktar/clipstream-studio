@@ -82,13 +82,6 @@ export function Timeline() {
   const dragRef = useRef<DragTarget | null>(null)
   /** Shift+sürükle seçiminin başladığı zaman (çıktı zamanı, sn). */
   const selectAnchorRef = useRef<number | null>(null)
-  /** Giriş/çıkış tutamağı sürüklemesi: başlangıç değerleri (taşma olmasın diye). */
-  const trimDragRef = useRef<{
-    pointerX: number
-    start: number
-    end: number
-    total: number
-  } | null>(null)
 
   const pct = useCallback(
     (time: number) => (duration > 0 ? clamp((time / duration) * 100, 0, 100) : 0),
@@ -135,6 +128,15 @@ export function Timeline() {
     [selection, segments],
   )
 
+  /** In/Out seçiminin çıktı zamanındaki yeri (işaretçiler ve bant). */
+  const trimSpan = useMemo(
+    () => ({
+      start: sourceToOutputTime(segments, trim.start),
+      end: sourceToOutputTime(segments, trim.end),
+    }),
+    [segments, trim.start, trim.end],
+  )
+
   const handleTrackPointerDown = (event: React.PointerEvent) => {
     if (duration <= 0) return
     capturePointer(event.currentTarget, event.pointerId)
@@ -167,16 +169,11 @@ export function Timeline() {
     const target = dragRef.current
     if (!target) return
 
-    // Giriş/çıkış tutamağı: ripple görünümde tutamaç kenarda kalır, içerik kayar.
+    // Giriş/çıkış seçimi: işaretçi çizelgede nereye giderse In/Out oraya taşınır.
     if (target === "start" || target === "end") {
-      const origin = trimDragRef.current
-      const track = trackRef.current
-      if (!origin || !track) return
-      const width = track.getBoundingClientRect().width
-      if (width <= 0) return
-      const delta = ((event.clientX - origin.pointerX) / width) * origin.total
-      if (target === "start") setTrim({ start: origin.start + delta })
-      else setTrim({ end: origin.end + delta })
+      const source = outputToSourceTime(segments, timeAt(event.clientX))
+      if (target === "start") setTrim({ start: source })
+      else setTrim({ end: source })
       return
     }
 
@@ -202,23 +199,16 @@ export function Timeline() {
     }
     dragRef.current = null
     selectAnchorRef.current = null
-    trimDragRef.current = null
     releasePointer(event.currentTarget, event.pointerId)
   }
 
-  /** Giriş/çıkış tutamağı: ripple görünümde kenarda durur, içerik kayar. */
+  /** Giriş/çıkış seçimi: işaretçi çizelgede serbestçe sürüklenir (kırpma yok). */
   const beginTrimDrag = (edge: "start" | "end") => (event: React.PointerEvent) => {
     if (duration <= 0) return
     event.preventDefault()
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
     dragRef.current = edge
-    trimDragRef.current = {
-      pointerX: event.clientX,
-      start: trim.start,
-      end: trim.end,
-      total: duration,
-    }
   }
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
@@ -398,9 +388,17 @@ export function Timeline() {
             style={{ width: `${pct(sourceToOutputTime(segments, bufferedEnd))}%` }}
           />
 
-          {/* Dışa aktarma aralığı vurgusu */}
+          {/* In/Out seçimi: çizelgeyi kırpmaz, yalnızca clip alanını belirler */}
           {duration > 0 && (
-            <div className="pointer-events-none absolute inset-0 bg-linear-to-r from-emerald-400/10 to-amber-400/10" />
+            <div
+              aria-hidden="true"
+              data-slot="timeline-trim"
+              className="pointer-events-none absolute inset-y-0 border-x border-emerald-400/40 bg-linear-to-r from-emerald-400/10 to-amber-400/10"
+              style={{
+                left: `${pct(trimSpan.start)}%`,
+                width: `${Math.max(0, pct(trimSpan.end) - pct(trimSpan.start))}%`,
+              }}
+            />
           )}
 
           {/* Segment birleşimleri: kesilen aralıklar atıldığı için parçalar bitişiktir */}
@@ -443,32 +441,34 @@ export function Timeline() {
             </div>
           ))}
 
-          {/* Giriş / Çıkış aralığı — çıktı görünümünde kenarlarda sabittir */}
+          {/* Giriş / Çıkış işaretçileri — seçim çizelgenin içinde serbest durur */}
           {duration > 0 && (
             <>
               <div
                 role="slider"
                 aria-label={t("timeline.inPoint")}
-                aria-valuenow={trim.start}
+                aria-valuenow={Math.round(trim.start * 1000) / 1000}
                 data-slot="timeline-start"
                 title={t("timeline.inPointDrag")}
                 onPointerDown={beginTrimDrag("start")}
-                className="absolute inset-y-0 left-0 z-30 w-3 cursor-ew-resize touch-none"
+                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                style={{ left: `${pct(trimSpan.start)}%` }}
               >
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-emerald-400" />
-                <div className="pointer-events-none absolute top-1/2 left-0 h-6 w-2 -translate-y-1/2 rounded-r-sm bg-emerald-400" />
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-emerald-400" />
+                <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-emerald-400" />
               </div>
               <div
                 role="slider"
                 aria-label={t("timeline.outPoint")}
-                aria-valuenow={trim.end}
+                aria-valuenow={Math.round(trim.end * 1000) / 1000}
                 data-slot="timeline-end"
                 title={t("timeline.outPointDrag")}
                 onPointerDown={beginTrimDrag("end")}
-                className="absolute inset-y-0 right-0 z-30 w-3 cursor-ew-resize touch-none"
+                className="absolute inset-y-0 z-30 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                style={{ left: `${pct(trimSpan.end)}%` }}
               >
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-0.5 bg-amber-400" />
-                <div className="pointer-events-none absolute top-1/2 right-0 h-6 w-2 -translate-y-1/2 rounded-l-sm bg-amber-400" />
+                <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-amber-400" />
+                <div className="pointer-events-none absolute top-1/2 left-1/2 h-6 w-2 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-amber-400" />
               </div>
             </>
           )}

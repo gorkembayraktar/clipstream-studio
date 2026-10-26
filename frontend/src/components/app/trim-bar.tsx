@@ -8,12 +8,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
-import {
-  gapsOf,
-  keptDuration,
-  outputDuration,
-  useEditStore,
-} from "@/stores/edit-store"
+import { gapsOf, useEditStore } from "@/stores/edit-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
 
@@ -75,9 +70,23 @@ export function TrimBar() {
 
   // Segmentler arasındaki boşluklar = çıkarılmış aralıklar.
   const gaps = gapsOf(segments, trim)
-  const kept = keptDuration(segments)
-  const output = outputDuration(segments)
-  const empty = segments.length === 0
+  // In/Out seçimi dışa aktarımı sınırlar: süre = seçim ∩ parçalar.
+  const pieces = segments
+    .map((segment) => ({
+      start: Math.max(segment.start, trim.start),
+      end: Math.min(segment.end, trim.end),
+      speed: segment.speed > 0 ? segment.speed : 1,
+    }))
+    .filter((piece) => piece.end - piece.start > 0.001)
+  const kept = pieces.reduce(
+    (total, piece) => total + Math.max(0, piece.end - piece.start),
+    0,
+  )
+  const output = pieces.reduce(
+    (total, piece) => total + Math.max(0, piece.end - piece.start) / piece.speed,
+    0,
+  )
+  const empty = pieces.length === 0
   const invalid = isLive || empty
 
   return (
@@ -184,9 +193,9 @@ export function TrimBar() {
       >
         <ScissorsIcon className="size-3.5" />
         {isLive ? t("source.live") : compactDuration(Math.max(0, output))}
-        {!isLive && segments.length > 1 && (
+        {!isLive && pieces.length > 1 && (
           <span className="font-sans text-muted-foreground/80">
-            · {t("trim.pieceCount", { count: segments.length })}
+            · {t("trim.pieceCount", { count: pieces.length })}
           </span>
         )}
         {invalid && <span className="font-sans">· {t("trim.invalidWindow")}</span>}

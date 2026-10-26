@@ -102,6 +102,15 @@ export function trimOf(segments: Segment[]): TimeRange {
   }
 }
 
+/**
+ * In/Out seçimi bağımsızdır: segmentleri kırpmaz. Geçerli bir seçim yoksa
+ * (kaynak yeni yüklendi) segmentlerin penceresine oturtulur.
+ */
+export function ensureTrim(trim: TimeRange, segments: Segment[]): TimeRange {
+  if (trim.end - trim.start >= MIN_TRIM_SECONDS) return trim
+  return trimOf(segments)
+}
+
 /** Segmentler arasındaki boşluklar (dışa aktarmadan çıkarılan aralıklar). */
 export function gapsOf(segments: Segment[], window: TimeRange): TimeRange[] {
   if (window.end <= window.start) return []
@@ -195,7 +204,7 @@ export function segmentAt(segments: Segment[], time: number): Segment | null {
 interface EditState {
   /** Dışa aktarılacak parçalar (kaynak zamanında, sıralı). */
   segments: Segment[]
-  /** Giriş/çıkış: ilk segmentin başı ve son segmentin sonu (türetilmiş). */
+  /** Giriş/çıkış seçimi (kaynak zamanında, kalıcı). Segmentleri kırpmaz. */
   trim: TimeRange
   /** Zaman çizelgesinde seçilen aralık (kesmek için; kalıcı değil). */
   selection: TimeRange | null
@@ -247,32 +256,18 @@ export const useEditStore = create<EditState>()((set) => ({
 
   setTrim: (partial) =>
     set((state) => {
-      const duration = state.sourceDuration
-      const max = duration > 0 ? duration : Number.MAX_SAFE_INTEGER
-      const segments =
-        state.segments.length > 0
-          ? state.segments.map((segment) => ({ ...segment, effects: [...segment.effects] }))
-          : [createSegment(0, duration)]
-
-      if (partial.start !== undefined && segments.length > 0) {
-        const first = segments[0]
-        first.start = clamp(
-          roundMs(partial.start),
-          0,
-          Math.max(0, first.end - MIN_TRIM_SECONDS),
-        )
+      // In/Out yalnızca seçimdir: segmentlere dokunmaz, çizelgeyi kaydırmaz.
+      const max = state.sourceDuration > 0 ? state.sourceDuration : Number.MAX_SAFE_INTEGER
+      let start = state.trim.start
+      let end = state.trim.end
+      if (partial.start !== undefined) {
+        start = clamp(roundMs(partial.start), 0, Math.max(0, end - MIN_TRIM_SECONDS))
       }
-      if (partial.end !== undefined && segments.length > 0) {
-        const last = segments[segments.length - 1]
-        last.end = clamp(
-          roundMs(partial.end),
-          Math.min(max, last.start + MIN_TRIM_SECONDS),
-          max,
-        )
+      if (partial.end !== undefined) {
+        end = clamp(roundMs(partial.end), start + MIN_TRIM_SECONDS, max)
       }
-
-      const next = normalizeSegments(segments, duration)
-      return { segments: next, trim: trimOf(next) }
+      if (end - start < MIN_TRIM_SECONDS) return {}
+      return { trim: { start, end } }
     }),
 
   setSegments: (ranges) =>
@@ -281,7 +276,7 @@ export const useEditStore = create<EditState>()((set) => ({
         ranges.map((range) => createSegment(range.start, range.end)),
         state.sourceDuration,
       )
-      return { segments, trim: trimOf(segments), selection: null }
+      return { segments, trim: ensureTrim(state.trim, segments), selection: null }
     }),
 
   setSelection: (range) =>
@@ -301,7 +296,7 @@ export const useEditStore = create<EditState>()((set) => ({
       if (!state.selection) return {}
       const { start, end } = state.selection
       const next = cutRange(state.segments, start, end, state.sourceDuration)
-      return { segments: next, trim: trimOf(next), selection: null }
+      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
     }),
 
   removeRange: (range) =>
@@ -310,7 +305,7 @@ export const useEditStore = create<EditState>()((set) => ({
       const end = Math.max(range.start, range.end)
       if (end - start < MIN_TRIM_SECONDS) return {}
       const next = cutRange(state.segments, start, end, state.sourceDuration)
-      return { segments: next, trim: trimOf(next), selection: null }
+      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
     }),
 
   restoreRange: (range) =>
@@ -322,7 +317,7 @@ export const useEditStore = create<EditState>()((set) => ({
         [...state.segments, createSegment(start, end)],
         state.sourceDuration,
       )
-      return { segments: next, trim: trimOf(next), selection: null }
+      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
     }),
 
   updateSegmentEdge: (id, edge, time) =>
@@ -361,7 +356,7 @@ export const useEditStore = create<EditState>()((set) => ({
       // Sürükleme sırasında birleştirme yapılmaz: kenar komşuya dayandığında
       // segment kaybolmasın, sürükleme aynı kimlikle devam etsin.
       const normalized = normalizeSegments(segments, state.sourceDuration, false)
-      return { segments: normalized, trim: trimOf(normalized) }
+      return { segments: normalized, trim: ensureTrim(state.trim, normalized) }
     }),
 
   shiftSegments: (delta) =>
@@ -379,14 +374,23 @@ export const useEditStore = create<EditState>()((set) => ({
         start: segment.start + clamped,
         end: segment.end + clamped,
       }))
-      return { segments, trim: trimOf(segments) }
+      // Seçim de pencereyle birlikte kayar; geçersizse segmentlere oturtulur.
+      const trim = {
+        start: clamp(state.trim.start + clamped, 0, max),
+        end: clamp(state.trim.end + clamped, 0, max),
+      }
+      return { segments, trim: ensureTrim(trim, segments) }
     }),
 
   resetSegments: () =>
     set((state) => {
       const duration = state.sourceDuration
       const next = duration > 0 ? [createSegment(0, duration)] : []
-      return { segments: next, trim: trimOf(next), selection: null }
+      return {
+        segments: next,
+        trim: ensureTrim(state.trim, next),
+        selection: null,
+      }
     }),
   setLoop: (value) => set({ loop: value }),
 
@@ -417,7 +421,16 @@ export const useEditStore = create<EditState>()((set) => ({
       if (segments.length === 0 && sourceDuration > 0) {
         segments = [createSegment(0, sourceDuration)]
       }
-      return { sourceDuration, segments, trim: trimOf(segments) }
+      // In/Out seçimi korunur, yalnızca kaynak süresine sığdırılır.
+      const max = sourceDuration > 0 ? sourceDuration : Number.MAX_SAFE_INTEGER
+      const trim = ensureTrim(
+        {
+          start: clamp(state.trim.start, 0, max),
+          end: clamp(state.trim.end, 0, max),
+        },
+        segments,
+      )
+      return { sourceDuration, segments, trim }
     }),
 }))
 

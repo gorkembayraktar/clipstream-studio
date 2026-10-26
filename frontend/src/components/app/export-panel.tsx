@@ -1,5 +1,5 @@
 /** Export tab: selected range, output profile, advanced settings and action. */
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { useStartExport } from "@/hooks/use-export-job"
 import { useGpuCapability } from "@/hooks/use-gpu-capability"
@@ -12,7 +12,7 @@ import type {
   OutputFormat,
 } from "@/lib/types"
 import { log } from "@/stores/log-store"
-import { outputDuration, useEditStore } from "@/stores/edit-store"
+import { useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { useSourceStore } from "@/stores/source-store"
 
@@ -37,6 +37,17 @@ export function ExportPanel() {
   const trim = useEditStore((s) => s.trim)
   const segments = useEditStore((s) => s.segments)
   const crop = useEditStore((s) => s.crop)
+
+  // In/Out seçimi dışa aktarımı sınırlar; timeline'ı değiştirmez.
+  const exportSegments = useMemo(() => {
+    if (trim.end - trim.start < 0.001) return []
+    return segments
+      .map((segment) => ({
+        start: Math.max(segment.start, trim.start),
+        end: Math.min(segment.end, trim.end),
+      }))
+      .filter((segment) => segment.end - segment.start > 0.001)
+  }, [segments, trim.start, trim.end])
 
   const cutMode = useExportStore((s) => s.cutMode)
   const outputFormat = useExportStore((s) => s.outputFormat)
@@ -103,15 +114,18 @@ export function ExportPanel() {
   const profile: ExportProfile =
     cutMode === "fast" && originalAvailable ? "original" : quality
 
-  // Çoklu kesimde dışa aktarılan süre, kalan parçaların toplamıdır.
-  const clipDuration = outputDuration(segments)
+  // Seçim (In/Out) kalan parçalarla kesişir: dışa aktarılan süre bu kesişimdir.
+  const clipDuration = exportSegments.reduce(
+    (total, segment) => total + (segment.end - segment.start),
+    0,
+  )
   const invalidReason = isLive
     ? t("export.liveDisabled")
     : !streamUrl
       ? t("export.noSource")
-      : segments.length === 0
+      : exportSegments.length === 0
         ? t("export.nothingToExport")
-        : segments.length > 1 && outputFormat !== "mp4"
+        : exportSegments.length > 1 && outputFormat !== "mp4"
           ? t("export.multiSegmentMp4Only")
           : clipDuration <= 0.05
             ? t("export.rangeTooShort")
@@ -147,8 +161,8 @@ export function ExportPanel() {
       ? t("export.summaryFps", { fps: effectiveOutputFps })
       : null,
     useGpu ? t("export.summaryGpu") : null,
-    segments.length > 1
-      ? t("export.summaryPieces", { count: segments.length })
+    exportSegments.length > 1
+      ? t("export.summaryPieces", { count: exportSegments.length })
       : null,
   ].filter((value): value is string => Boolean(value))
 
@@ -294,15 +308,18 @@ export function ExportPanel() {
       .trim()
       .replace(/\.(mp4|gif|mp3)$/i, "")
 
+    const clip = exportSegments[0]
+
     startExport.mutate(
       {
         url: streamUrl,
-        start_time: trim.start,
-        end_time: trim.end,
+        // Seçim (In/Out) dışa aktarımın sınırıdır: kaynak parçalar seçimle kesişir.
+        start_time: clip ? clip.start : trim.start,
+        end_time: clip ? clip.end : trim.end,
         // Birden çok parça varsa backend her parçayı ayrı işleyip birleştirir.
         segments:
-          segments.length > 1
-            ? segments.map((segment) => ({
+          exportSegments.length > 1
+            ? exportSegments.map((segment) => ({
                 start_time: segment.start,
                 end_time: segment.end,
               }))
@@ -338,8 +355,8 @@ export function ExportPanel() {
           ? t("log.exportRequestedAudio")
           : null,
       useGpu ? t("log.exportGpu", { encoder: gpu?.label ?? "GPU" }) : null,
-      segments.length > 1
-        ? t("log.exportPieces", { count: segments.length })
+      exportSegments.length > 1
+        ? t("log.exportPieces", { count: exportSegments.length })
         : null,
     ].filter(Boolean).join(" · ")
 
@@ -349,8 +366,11 @@ export function ExportPanel() {
         name: filenameForExport || t("log.autoName"),
         mode: cutMode === "fast" ? t("export.modeFast") : t("export.modeExact"),
         format: outputFormat.toUpperCase(),
-        start: formatTime(trim.start, true),
-        end: formatTime(trim.end, true),
+        start: formatTime(exportSegments[0]?.start ?? trim.start, true),
+        end: formatTime(
+          exportSegments[exportSegments.length - 1]?.end ?? trim.end,
+          true,
+        ),
       }),
       details || undefined,
     )
@@ -362,8 +382,8 @@ export function ExportPanel() {
       className="rounded-xl border border-border/70 bg-card"
     >
       <ExportSummary
-        start={trim.start}
-        end={trim.end}
+        start={exportSegments[0]?.start ?? trim.start}
+        end={exportSegments[exportSegments.length - 1]?.end ?? trim.end}
         duration={clipDuration}
         outputFormat={outputFormat}
         profile={outputFormat === "mp4" ? profile : null}

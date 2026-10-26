@@ -109,7 +109,9 @@ function applyEditSnapshot(record: ProjectWorkspace): void {
   // Trim, kaynağın süresi bilindiğinde (setMeta sonrası) sınırlandırılır.
   if (record.edit.segments.length > 0) {
     editStore.setSegments(record.edit.segments)
-  } else {
+  }
+  // In/Out seçimi segmentlerden bağımsızdır: her durumda geri yüklenir.
+  if (record.edit.trim.end - record.edit.trim.start > 0) {
     editStore.setTrim(record.edit.trim)
   }
 }
