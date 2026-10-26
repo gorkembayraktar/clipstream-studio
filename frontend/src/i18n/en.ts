@@ -386,7 +386,6 @@ export const en = {
   "timeline.zoomResetLevel": "Zoom {percent}%. Click to reset.",
   "timeline.zoomSlider": "Zoom slider — drag to adjust",
 
-  "sourceTimeline.label": "Source",
   "sourceTimeline.hint": "Full source — removed ranges are marked; click or drag to seek",
   "sourceTimeline.removeCut": "Remove cut",
 

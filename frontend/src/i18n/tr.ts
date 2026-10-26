@@ -384,7 +384,6 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.zoomResetLevel": "Yakınlaştırma %{percent}. Sıfırlamak için tıkla.",
   "timeline.zoomSlider": "Yakınlaştırma kaydırıcısı — sürükleyerek ayarla",
 
-  "sourceTimeline.label": "Kaynak",
   "sourceTimeline.hint": "Tam kaynak — kaldırılan aralıklar işaretli; sarmak için tıkla veya sürükle",
   "sourceTimeline.removeCut": "Seçimi kaldır",
 

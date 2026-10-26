@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/context-menu"
 import { useSourceDuration } from "@/hooks/use-source-duration"
 import { useI18n } from "@/i18n"
-import { clamp, compactDuration, formatTick, formatTime, tickStep } from "@/lib/format"
+import { clamp, formatTick, formatTime, tickStep } from "@/lib/format"
 import { gapsOf, useEditStore, type TimeRange } from "@/stores/edit-store"
 import { usePlayerStore } from "@/stores/player-store"
 
@@ -195,12 +195,8 @@ export function SourceTimeline() {
 
   return (
     <div ref={wrapperRef} data-slot="source-timeline" className="relative min-w-0">
-      <div className="flex items-start gap-2 px-2">
-        <span className="flex h-6 shrink-0 items-center text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-          {t("sourceTimeline.label")}
-        </span>
-
-        <div className="min-w-0 flex-1">
+      <div className="px-2">
+        <div className="min-w-0">
           <ContextMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
             <ContextMenuTrigger asChild>
               <div
@@ -353,10 +349,6 @@ export function SourceTimeline() {
             })}
           </div>
         </div>
-
-        <span className="flex h-6 shrink-0 items-center font-mono text-[11px] tabular-nums text-muted-foreground">
-          {compactDuration(duration)}
-        </span>
       </div>
 
       {/* Hover'da kare önizlemesi */}
