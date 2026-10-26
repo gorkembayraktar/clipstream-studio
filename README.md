@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.159-8b5cf6?style=flat-square" alt="Version 0.1.159">
+  <img src="https://img.shields.io/badge/version-0.1.160-8b5cf6?style=flat-square" alt="Version 0.1.160">
   <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Localhost-127.0.0.1-8b5cf6?style=flat-square" alt="Localhost">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
@@ -64,6 +64,20 @@
     <td><strong>Local files</strong><br><sub>Browse or drag and drop.</sub></td>
   </tr>
 </table>
+
+**What each source needs**
+
+| Source | FFmpeg | yt-dlp |
+| --- | :---: | :---: |
+| YouTube | ✅ | ✅ |
+| X (Twitter) | ✅ | ✅ |
+| Instagram | ✅ | ✅ |
+| TikTok | ✅ | ✅ |
+| HLS (`.m3u8`) | ✅ | ❌ |
+| Direct MP4 / WebM | ✅ | ❌ |
+| Local file | ✅ | ❌ |
+
+✅ required · ❌ not required
 
 > YouTube, X, Instagram, and TikTok need `yt-dlp`. HLS and direct files do not.
 >
@@ -130,7 +144,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.1.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.1.159`.
+and the version badge above in sync. Current version: `0.1.160`.
 
 ## Troubleshooting
 
