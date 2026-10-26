@@ -1,7 +1,7 @@
 /** Sabit alt günlük çekmecesi: sistem & hata kayıtları, Kopyala / Temizle, üst kenardan boyutlandırma. */
 import { useEffect, useRef, useState } from "react"
 
-import { ChevronDownIcon, TerminalIcon } from "lucide-react"
+import { ChevronDownIcon, TerminalIcon, XIcon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -82,6 +82,7 @@ export function LogDrawer() {
   const errorCount = useLogStore((s) => s.errorCount)
   const open = useLogStore((s) => s.open)
   const toggle = useLogStore((s) => s.toggle)
+  const setOpen = useLogStore((s) => s.setOpen)
   const log = useLogStore((s) => s.log)
   const clear = useLogStore((s) => s.clear)
 
@@ -234,6 +235,16 @@ export function LogDrawer() {
                 </Button>
                 <Button variant="ghost" size="xs" onClick={clear}>
                   {t("logs.clear")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setOpen(false)}
+                  title={t("logs.close")}
+                  aria-label={t("logs.close")}
+                  data-slot="log-drawer-close"
+                >
+                  <XIcon />
                 </Button>
               </>
             )}
