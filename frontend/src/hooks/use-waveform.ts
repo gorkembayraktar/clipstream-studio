@@ -1,5 +1,5 @@
 /** Kaynağın ses dalga formunu kademeli (NDJSON) olarak getirir. */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { api } from "@/lib/api"
 import { translate } from "@/i18n"
@@ -7,6 +7,10 @@ import type { WaveformStreamEvent } from "@/lib/types"
 import { log } from "@/stores/log-store"
 import { usePreferencesStore } from "@/stores/preferences-store"
 import { useSourceStore } from "@/stores/source-store"
+
+/** Ses parçası değişiminde dalga formu isteğini geciktirir (ms): hızlı dil
+ * denemelerinde her seferinde tam ses taraması yapılmasını önler. */
+const WAVEFORM_SWITCH_DELAY_MS = 700
 
 export interface WaveformData {
   /** Kova başına tepe değeri (0–255). */
@@ -59,6 +63,8 @@ export function useWaveform(
   const [data, setData] = useState<WaveformData | null>(null)
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState<Error | null>(null)
+  /** Son isteğin kaynak kimliği: ses parçası değişimini kaynak değişiminden ayırır. */
+  const sourceKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!enabled || !url) {
@@ -70,14 +76,22 @@ export function useWaveform(
 
     const controller = new AbortController()
     let cancelled = false
-    setData(null)
+    // Kaynak (video) değişmediyse yalnızca ses parçası değişmiştir: eski dalga
+    // formu ekranda kalır ve yeni çıkarım kısa bir gecikmeyle başlar. Böylece
+    // hızlı dil denemelerinde her seferinde tam ses taraması yapılmaz.
+    const sourceKey = `${url}|${origin ?? ""}|${headersKey ?? ""}`
+    const sourceChanged = sourceKeyRef.current !== sourceKey
+    sourceKeyRef.current = sourceKey
+    if (sourceChanged) setData(null)
     setLoading(true)
     setError(null)
 
-    const started = performance.now()
-    log("info", translate("log.waveformPreparing"), audioUrl ?? url)
+    let started = 0
 
-    void (async () => {
+    /** Gecikme dolduktan sonra tek bir çıkarım isteği çalıştırır. */
+    const run = async () => {
+      started = performance.now()
+      log("info", translate("log.waveformPreparing"), audioUrl ?? url)
       try {
         const response = await api.waveformStream(
           {
@@ -227,9 +241,15 @@ export function useWaveform(
           setLoading(false)
         }
       }
-    })()
+    }
+
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      void run()
+    }, sourceChanged ? 0 : WAVEFORM_SWITCH_DELAY_MS)
 
     return () => {
+      window.clearTimeout(timer)
       cancelled = true
       controller.abort()
     }

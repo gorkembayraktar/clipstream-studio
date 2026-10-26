@@ -94,6 +94,7 @@ export function UrlSourceBar() {
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const audioTracks = useSourceStore((s) => s.audioTracks)
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
+  const audioSwitching = useSourceStore((s) => s.audioSwitching)
   const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
   const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const useProxy = useSourceStore((s) => s.useProxy)
@@ -715,6 +716,9 @@ export function UrlSourceBar() {
                     title={t("source.audioTrackTitle")}
                   >
                     <SelectValue />
+                    {audioSwitching && (
+                      <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
+                    )}
                   </SelectTrigger>
                   <SelectContent position="popper" align="end" className="min-w-[160px]">
                     {audioTracks.map((track) => (

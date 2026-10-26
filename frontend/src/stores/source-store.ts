@@ -52,6 +52,8 @@ interface SourceState {
   audioTracks: HlsAudioTrack[]
   /** Seçili ses rendition'ının kararlı kimliği (yoksa null). */
   audioTrackId: string | null
+  /** Ses parçası değişti, yeni akış henüz oynamaya hazır değil (arayüz göstergesi). */
+  audioSwitching: boolean
   /** Kaynak panelinde seçilebilen WebVTT altyazıları. */
   subtitleTracks: HlsSubtitleTrack[]
   /** Seçili altyazı kimliği; null → altyazı kapalı. */
@@ -82,6 +84,7 @@ interface SourceState {
   setUseProxy: (value: boolean) => void
   setSource: (source: SourceInfo) => void
   setAudioTrackId: (id: string) => void
+  setAudioSwitching: (value: boolean) => void
   setSubtitleTrackId: (id: string | null) => void
   setPreviewHeight: (height: number) => void
   setMeta: (meta: Partial<VideoMeta>) => void
@@ -99,6 +102,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   audioUrl: null,
   audioTracks: [],
   audioTrackId: null,
+  audioSwitching: false,
   subtitleTracks: [],
   subtitleTrackId: null,
   sourcePath: null,
@@ -148,6 +152,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioUrl: defaultTrack?.url ?? source.audioUrl ?? null,
       audioTracks,
       audioTrackId: defaultTrack?.id ?? null,
+      audioSwitching: false,
       subtitleTracks,
       subtitleTrackId: null,
       sourcePath: source.sourcePath ?? null,
@@ -172,8 +177,12 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   setAudioTrackId: (id) => {
     const track = get().audioTracks.find((item) => item.id === id)
     if (!track) return
-    set({ audioTrackId: track.id, audioUrl: track.url })
+    // Aynı akışa dönüldüyse yükleme göstergesi açılmaz.
+    const switching = track.url !== get().audioUrl
+    set({ audioTrackId: track.id, audioUrl: track.url, audioSwitching: switching })
   },
+
+  setAudioSwitching: (value) => set({ audioSwitching: value }),
 
   setSubtitleTrackId: (id) => {
     if (id === null) {
@@ -217,6 +226,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioUrl: null,
       audioTracks: [],
       audioTrackId: null,
+      audioSwitching: false,
       subtitleTracks: [],
       subtitleTrackId: null,
       sourcePath: null,

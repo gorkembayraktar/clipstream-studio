@@ -96,6 +96,7 @@ export const en = {
   "source.audioTrackAria": "Audio track",
   "source.audioOriginal": "original",
   "source.audioDefault": "default",
+  "source.audioLoading": "Loading audio…",
   "source.subtitles": "Subtitles",
   "source.subtitlesTitle":
     "WebVTT subtitles shown in the preview (not burned into exports)",

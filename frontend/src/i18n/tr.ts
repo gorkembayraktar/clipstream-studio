@@ -94,6 +94,7 @@ export const tr: Record<TranslationKey, string> = {
   "source.audioTrackAria": "Ses parçası",
   "source.audioOriginal": "özgün",
   "source.audioDefault": "varsayılan",
+  "source.audioLoading": "Ses yükleniyor…",
   "source.subtitles": "Altyazı",
   "source.subtitlesTitle":
     "Önizlemede gösterilecek WebVTT altyazısı (dışa aktarmaya dahil edilmez)",

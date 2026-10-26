@@ -1,7 +1,7 @@
 /** Sahne: video elementi + olay bağlama + overlay'ler. */
 import { useEffect, useRef } from "react"
 
-import { Clapperboard } from "lucide-react"
+import { Clapperboard, Loader2 } from "lucide-react"
 import type HlsJs from "hls.js"
 import { toast } from "sonner"
 
@@ -39,6 +39,8 @@ export function VideoStage() {
   const platform = useSourceStore((s) => s.platform)
   const audioUrl = useSourceStore((s) => s.audioUrl)
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
+  const audioSwitching = useSourceStore((s) => s.audioSwitching)
+  const setAudioSwitching = useSourceStore((s) => s.setAudioSwitching)
   const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
   const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const headers = useSourceStore((s) => s.headers)
@@ -210,9 +212,10 @@ export function VideoStage() {
 
   /** Video akışı sessizse ses ayrı akıştan gelir; duyulabilir olan ses esas alınır.
    *
-   * Altın kural: **ses asla geri sarılmaz.** Video donduğunda sesi geri sarmak
-   * aynı bölümün tekrar tekrar duyulmasına ("çift ses") yol açar; bunun yerine
-   * geride kalan taraf ileri alınır ve sekme gizliyken görüntü oynatılmaya çalışılır. */
+   * Altın kural: **kendiliğinden oluşan kaymada ses geri sarılmaz.** Video
+   * donduğunda sesi geri sarmak aynı bölümün tekrar duyulmasına ("çift ses")
+   * yol açar; bunun yerine geride kalan taraf ileri alınır. Kullanıcının zaman
+   * çizelgesinden sardığı konum ise her iki yönde de esastır (bkz. guardSeek). */
   useEffect(() => {
     const video = videoRef.current
     const audio = audioRef.current
@@ -222,6 +225,12 @@ export function VideoStage() {
     let settleUntil = 0
     const settle = () => {
       settleUntil = performance.now() + 700
+    }
+    /** Kullanıcı zaman çizelgesinden sardığında görüntü konumu esastır: ses
+     * yeni konuma oturmamış olsa bile video geri/ileri çekilmez. */
+    let seekGuardUntil = 0
+    const guardSeek = () => {
+      seekGuardUntil = performance.now() + 2000
     }
     const seekTo = (element: HTMLMediaElement, time: number) => {
       try {
@@ -239,6 +248,8 @@ export function VideoStage() {
     /** Görüntüyü ileri alır (ses ileride kaldıysa; ör. sekme arka plandayken donduysa). */
     const advanceVideo = () => {
       if (performance.now() < settleUntil) return
+      // Kullanıcı sarması yeni tamamlandıysa sesin oturmasını bekle.
+      if (performance.now() < seekGuardUntil) return
       settle()
       seekTo(video, audio.currentTime)
     }
@@ -254,12 +265,15 @@ export function VideoStage() {
      * ses kendiliğinden başlamaz — burada devreye alınır. */
     let syncedForSrc = false
     const syncOnReady = () => {
-      if (syncedForSrc) return
+      const first = !syncedForSrc
       syncedForSrc = true
       audio.playbackRate = video.playbackRate
       audio.volume = video.volume
       audio.muted = video.muted
-      seekTo(audio, video.currentTime)
+      // İlk yüklemede her zaman, sonraki hazır olaylarında yalnızca kayma varsa.
+      if (first || Math.abs(audio.currentTime - video.currentTime) > 0.4) {
+        seekTo(audio, video.currentTime)
+      }
       if (!video.paused && !video.ended && !video.muted) {
         settle()
         void audio.play().catch(() => undefined)
@@ -300,11 +314,15 @@ export function VideoStage() {
       wantsPlayRef.current = false
       audio.pause()
     }
-    const onSeeking = () => audio.pause()
+    const onSeeking = () => {
+      guardSeek()
+      audio.pause()
+    }
     const onSeeked = () => {
-      if (Math.abs(audio.currentTime - video.currentTime) > 0.05) {
-        seekTo(audio, video.currentTime)
-      }
+      guardSeek()
+      // Kullanıcı sarması her iki yönde geçerlidir: ses konumu görüntüye eşitlenir
+      // (geri sarma kuralı yalnızca kendiliğinden oluşan kaymalar içindir).
+      seekTo(audio, video.currentTime)
       if (!video.paused) resumeAudio()
     }
     const onRateChange = () => {
@@ -447,7 +465,12 @@ export function VideoStage() {
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") return
       if (!wantsPlayRef.current || video.ended) return
-      if (audio.currentTime - video.currentTime > 0.35) seekTo(video, audio.currentTime)
+      if (
+        performance.now() >= seekGuardUntil &&
+        audio.currentTime - video.currentTime > 0.35
+      ) {
+        seekTo(video, audio.currentTime)
+      }
       if (video.paused) void video.play().catch(() => undefined)
       if (audio.paused) resumeAudio()
     }
@@ -507,6 +530,30 @@ export function VideoStage() {
     audio.removeAttribute("src")
     audio.load()
   }, [audioSrc])
+
+  /** Yeni ses parçası hazır olunca "Ses yükleniyor" göstergesini kapat.
+   *
+   * Dublaj akışları imzalı CDN adreslerinden geldiği için ilk baytlar birkaç
+   * saniye gecikebilir; gösterge bu süreyi kullanıcıya bildirir. */
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const done = () => setAudioSwitching(false)
+    audio.addEventListener("canplay", done)
+    audio.addEventListener("playing", done)
+    audio.addEventListener("error", done)
+    // Çok hızlı (önbellekten) hazır olan akışta olay dinleyiciler bağlanmadan
+    // önce tetiklenmiş olabilir; durumu bir kez de doğrudan kontrol et.
+    if (audio.readyState >= 3) done()
+    // Olay gelmezse gösterge takılı kalmasın.
+    const timer = window.setTimeout(done, 15000)
+    return () => {
+      window.clearTimeout(timer)
+      audio.removeEventListener("canplay", done)
+      audio.removeEventListener("playing", done)
+      audio.removeEventListener("error", done)
+    }
+  }, [audioSrc, setAudioSwitching])
 
   const { toggle: toggleFullscreen } = useFullscreen()
 
@@ -819,7 +866,19 @@ export function VideoStage() {
 
         <div className="absolute inset-x-3 top-3 z-20 flex items-center gap-2">
           <CropMenu />
-          <StreamStatusBadge className="ml-auto" />
+          <div className="ml-auto flex items-center gap-2">
+            {audioSwitching && (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur"
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="size-3 animate-spin" />
+                {t("source.audioLoading")}
+              </span>
+            )}
+            <StreamStatusBadge />
+          </div>
         </div>
 
         {streamUrl && cropEnabled && <CropOverlay videoRef={videoRef} />}
