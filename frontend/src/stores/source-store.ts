@@ -54,6 +54,8 @@ interface SourceState {
   audioTrackId: string | null
   /** Ses parçası değişti, yeni akış henüz oynamaya hazır değil (arayüz göstergesi). */
   audioSwitching: boolean
+  /** Oynatma sırasında ses akışı yeni konumun verisini bekliyor (seek sonrası). */
+  audioBuffering: boolean
   /** Kaynak panelinde seçilebilen WebVTT altyazıları. */
   subtitleTracks: HlsSubtitleTrack[]
   /** Seçili altyazı kimliği; null → altyazı kapalı. */
@@ -85,6 +87,7 @@ interface SourceState {
   setSource: (source: SourceInfo) => void
   setAudioTrackId: (id: string) => void
   setAudioSwitching: (value: boolean) => void
+  setAudioBuffering: (value: boolean) => void
   setSubtitleTrackId: (id: string | null) => void
   setPreviewHeight: (height: number) => void
   setMeta: (meta: Partial<VideoMeta>) => void
@@ -103,6 +106,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   audioTracks: [],
   audioTrackId: null,
   audioSwitching: false,
+  audioBuffering: false,
   subtitleTracks: [],
   subtitleTrackId: null,
   sourcePath: null,
@@ -153,6 +157,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioTracks,
       audioTrackId: defaultTrack?.id ?? null,
       audioSwitching: false,
+      audioBuffering: false,
       subtitleTracks,
       subtitleTrackId: null,
       sourcePath: source.sourcePath ?? null,
@@ -183,6 +188,11 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   },
 
   setAudioSwitching: (value) => set({ audioSwitching: value }),
+
+  setAudioBuffering: (value) => {
+    if (get().audioBuffering === value) return
+    set({ audioBuffering: value })
+  },
 
   setSubtitleTrackId: (id) => {
     if (id === null) {
@@ -227,6 +237,7 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       audioTracks: [],
       audioTrackId: null,
       audioSwitching: false,
+      audioBuffering: false,
       subtitleTracks: [],
       subtitleTrackId: null,
       sourcePath: null,

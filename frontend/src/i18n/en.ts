@@ -97,6 +97,7 @@ export const en = {
   "source.audioOriginal": "original",
   "source.audioDefault": "default",
   "source.audioLoading": "Loading audio…",
+  "source.audioBuffering": "Waiting for audio…",
   "source.subtitles": "Subtitles",
   "source.subtitlesTitle":
     "WebVTT subtitles shown in the preview (not burned into exports)",

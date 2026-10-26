@@ -27,6 +27,11 @@ import { useSourceStore } from "@/stores/source-store"
 /** "Kare Yüklendi" bildiriminin ekranda kalma süresi (ms). */
 const SEEK_NOTE_MS = 1200
 
+/** Ses akışı seek sonrası veri beklerken göstergenin görünmesi için eşik (ms).
+ *
+ * Kısa duraklamalarda (önbellekteki bölge, hızlı CDN) gösterge yanıp sönmesin. */
+const AUDIO_BUFFER_HINT_MS = 450
+
 export function VideoStage() {
   const { t } = useI18n()
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -41,6 +46,8 @@ export function VideoStage() {
   const audioTrackId = useSourceStore((s) => s.audioTrackId)
   const audioSwitching = useSourceStore((s) => s.audioSwitching)
   const setAudioSwitching = useSourceStore((s) => s.setAudioSwitching)
+  const audioBuffering = useSourceStore((s) => s.audioBuffering)
+  const setAudioBuffering = useSourceStore((s) => s.setAudioBuffering)
   const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
   const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const headers = useSourceStore((s) => s.headers)
@@ -256,6 +263,28 @@ export function VideoStage() {
     const resumeAudio = () => {
       if (video.muted) return
       void audio.play().catch(() => undefined)
+    }
+
+    /** Seek sonrası ses, yeni konumun verisini proxy'den bekler. Kısa
+     * duraklamalarda gösterge yakmamak için 450 ms eşik uygulanır. */
+    let bufferingHint = 0
+    const clearAudioBuffering = () => {
+      if (bufferingHint) {
+        window.clearTimeout(bufferingHint)
+        bufferingHint = 0
+      }
+      setAudioBuffering(false)
+    }
+    const onAudioWaiting = () => {
+      if (bufferingHint) return
+      // Duraklatılmış/sessiz oynatmada beklemeyi bildirmenin anlamı yok.
+      if (video.paused || video.muted || video.ended) return
+      bufferingHint = window.setTimeout(() => {
+        bufferingHint = 0
+        if (!audio.paused && !video.paused && audio.readyState < 3) {
+          setAudioBuffering(true)
+        }
+      }, AUDIO_BUFFER_HINT_MS)
     }
 
     /** Yeni ses kaynağı hazır olduğunda konumu eşitle ve gerekirse oynat.
@@ -486,6 +515,10 @@ export function VideoStage() {
     video.addEventListener("timeupdate", onTimeUpdate)
     audio.addEventListener("error", onAudioError)
     audio.addEventListener("pause", onAudioPause)
+    audio.addEventListener("waiting", onAudioWaiting)
+    audio.addEventListener("playing", clearAudioBuffering)
+    audio.addEventListener("canplay", clearAudioBuffering)
+    audio.addEventListener("error", clearAudioBuffering)
     document.addEventListener("visibilitychange", onVisibilityChange)
 
     return () => {
@@ -502,6 +535,11 @@ export function VideoStage() {
       video.removeEventListener("timeupdate", onTimeUpdate)
       audio.removeEventListener("error", onAudioError)
       audio.removeEventListener("pause", onAudioPause)
+      audio.removeEventListener("waiting", onAudioWaiting)
+      audio.removeEventListener("playing", clearAudioBuffering)
+      audio.removeEventListener("canplay", clearAudioBuffering)
+      audio.removeEventListener("error", clearAudioBuffering)
+      clearAudioBuffering()
       audio.removeEventListener("loadedmetadata", syncOnReady)
       audio.removeEventListener("canplay", syncOnReady)
       // Kaynak BURADA boşaltılmaz: React yeni `src`'yi DOM'a zaten yazdı,
@@ -509,7 +547,7 @@ export function VideoStage() {
       // bırakıyordu. Boşaltma yalnızca bileşen kalkarken yapılır.
       audio.pause()
     }
-  }, [audioSrc])
+  }, [audioSrc, setAudioBuffering])
 
   /** Bileşen kalkarken ses elementini boşalt: eski akış arka planda çalmasın. */
   useEffect(() => {
@@ -867,14 +905,16 @@ export function VideoStage() {
         <div className="absolute inset-x-3 top-3 z-20 flex items-center gap-2">
           <CropMenu />
           <div className="ml-auto flex items-center gap-2">
-            {audioSwitching && (
+            {(audioSwitching || audioBuffering) && (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur"
                 role="status"
                 aria-live="polite"
               >
                 <Loader2 className="size-3 animate-spin" />
-                {t("source.audioLoading")}
+                {audioSwitching
+                  ? t("source.audioLoading")
+                  : t("source.audioBuffering")}
               </span>
             )}
             <StreamStatusBadge />

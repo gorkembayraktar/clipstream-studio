@@ -95,6 +95,7 @@ export const tr: Record<TranslationKey, string> = {
   "source.audioOriginal": "özgün",
   "source.audioDefault": "varsayılan",
   "source.audioLoading": "Ses yükleniyor…",
+  "source.audioBuffering": "Ses bekleniyor…",
   "source.subtitles": "Altyazı",
   "source.subtitlesTitle":
     "Önizlemede gösterilecek WebVTT altyazısı (dışa aktarmaya dahil edilmez)",
