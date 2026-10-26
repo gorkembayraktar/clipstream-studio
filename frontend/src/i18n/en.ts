@@ -380,6 +380,10 @@ export const en = {
   "timeline.zoomResetLevel": "Zoom {percent}%. Click to reset.",
   "timeline.zoomSlider": "Zoom slider — drag to adjust",
 
+  "outputTimeline.label": "Output",
+  "outputTimeline.hint": "Export result — click or drag to seek",
+  "outputTimeline.empty": "Nothing to export yet",
+
   "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",
   "player.seekForward": "Forward 10s (→)",

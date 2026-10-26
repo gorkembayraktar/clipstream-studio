@@ -9,6 +9,7 @@ import { CropMenu } from "@/components/app/crop-menu"
 import { CropOverlay } from "@/components/app/crop-overlay"
 import { StageControls } from "@/components/app/stage-controls"
 import { StreamStatusBadge } from "@/components/app/stream-status-badge"
+import { OutputTimeline } from "@/components/app/output-timeline"
 import { Timeline } from "@/components/app/timeline"
 import { TimelineToolbar } from "@/components/app/timeline-toolbar"
 import { TrimBar } from "@/components/app/trim-bar"
@@ -962,6 +963,7 @@ export function VideoStage() {
       >
         <TimelineToolbar />
         <Timeline />
+        <OutputTimeline />
         <TrimBar />
       </div>
     </div>

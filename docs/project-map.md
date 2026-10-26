@@ -114,6 +114,7 @@
 | `job-progress.tsx`              | JobProgress |
 | `jobs-dock.tsx`                 | JobsDock |
 | `log-drawer.tsx`                | LogDrawer |
+| `output-timeline.tsx`           | OutputTimeline |
 | `project-banner.tsx`            | ProjectBanner |
 | `project-history.tsx`           | ProjectHistory |
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
@@ -181,11 +182,11 @@
 | `api.ts`                | ApiError, api |
 | `app-version.ts`        | APP_VERSION |
 | `curl.ts`               | parseCurl |
-| `format.ts`             | clamp, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, compactDuration |
+| `format.ts`             | clamp, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, compactDuration, formatRemaining, formatRelativeTime, formatDateTime, parseTimeInput |
 | `keyboard-shortcuts.ts` | KEYBOARD_SHORTCUTS |
 | `media.ts`              | isHlsUrl, proxiedUrl, withScheme, extractPastedUrl |
 | `project-handoff.ts`    | projectKey, writeProjectHandoff, readProjectHandoff, removeProjectHandoff |
-| `project-route.ts`      | projectParamFromUrl, isProjectId, readProjectIdFromUrl, projectHash, ensureProjectHash, setProjectInUrl, clearProjectFromUrl, projectUrl |
+| `project-route.ts`      | projectParamFromUrl, isProjectId, readProjectIdFromUrl, projectHash, ensureProjectHash, setProjectInUrl, clearProjectFromUrl, projectUrl, cleanProjectUrl |
 | `project-workspace.ts`  | PROJECT_SCHEMA_VERSION, PROJECT_STORAGE_PREFIX, createProjectId, projectStorageKey, readProjectWorkspace, writeProjectWorkspace, removeProjectWorkspace, listProjectWorkspaces |
 | `types.ts`              | — |
 | `utils.ts`              | — |
@@ -194,11 +195,11 @@
 
 | Dosya                   | Açıklama / semboller |
 |-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, segmentAt, useEditStore |
+| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, sourceToOutputTime, outputToSourceTime, outputLayout, segmentAt, useEditStore |
 | `export-store.ts`       | useExportStore |
 | `local-import-store.ts` | useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |
-| `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, STEP_MODES, FALLBACK_FPS, getVideoElement |
+| `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
 | `preferences-store.ts`  | usePreferencesStore |
 | `project-ui-store.ts`   | useProjectUiStore |
 | `source-store.ts`       | useSourceStore |

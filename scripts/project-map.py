@@ -37,7 +37,7 @@ TS_EXPORT_RE = re.compile(
     r"^export\s+(?:default\s+)?(?:async\s+)?(?:function|const|enum|class)\s+([A-Za-z_$][\w$]*)",
     re.MULTILINE,
 )
-MAX_EXPORTS = 8
+MAX_EXPORTS = 12
 
 
 def first_line(text: str | None) -> str:

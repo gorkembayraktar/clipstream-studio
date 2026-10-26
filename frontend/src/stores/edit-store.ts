@@ -123,12 +123,62 @@ export function keptDuration(segments: Segment[]): number {
   )
 }
 
+/** Bir segmentin çıktı süresi (hız uygulanmış). */
+function segmentOutputLength(segment: Segment): number {
+  const speed = segment.speed > 0 ? segment.speed : 1
+  return Math.max(0, segment.end - segment.start) / speed
+}
+
 /** Segmentlerin hız uygulanmış çıktı süresi (sn). */
 export function outputDuration(segments: Segment[]): number {
-  return segments.reduce((total, segment) => {
-    const speed = segment.speed > 0 ? segment.speed : 1
-    return total + Math.max(0, segment.end - segment.start) / speed
-  }, 0)
+  return segments.reduce((total, segment) => total + segmentOutputLength(segment), 0)
+}
+
+/**
+ * Kaynak zamanını çıktı zamanına çevirir (boşluklar sıkıştırılır).
+ *
+ * Boşluk içindeki bir zaman, o boşluktan sonraki segmentin çıktıdaki başına
+ * eşlenir; böylece imleç kesim sınırında durur, ışınlanmış gibi görünmez.
+ */
+export function sourceToOutputTime(segments: Segment[], time: number): number {
+  let output = 0
+  for (const segment of segments) {
+    if (time < segment.start) return output
+    if (time < segment.end) {
+      const speed = segment.speed > 0 ? segment.speed : 1
+      return output + (time - segment.start) / speed
+    }
+    output += segmentOutputLength(segment)
+  }
+  return output
+}
+
+/** Çıktı zamanını kaynak zamanına çevirir (çıktı çizelgesinde tıklama/sarma). */
+export function outputToSourceTime(segments: Segment[], time: number): number {
+  if (segments.length === 0) return 0
+  let output = 0
+  for (const segment of segments) {
+    const length = segmentOutputLength(segment)
+    if (time < output + length) {
+      const speed = segment.speed > 0 ? segment.speed : 1
+      return segment.start + (time - output) * speed
+    }
+    output += length
+  }
+  return segments[segments.length - 1].end
+}
+
+/** Segmentlerin çıktıdaki yerleşimi: [başlangıç, bitiş) çıktı saniyesi. */
+export function outputLayout(
+  segments: Segment[],
+): Array<{ segment: Segment; start: number; end: number }> {
+  let offset = 0
+  return segments.map((segment) => {
+    const length = segmentOutputLength(segment)
+    const entry = { segment, start: offset, end: offset + length }
+    offset += length
+    return entry
+  })
 }
 
 /** Verilen zamandaki segment (yoksa null → boşluk). */
