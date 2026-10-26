@@ -290,6 +290,14 @@ export function Timeline() {
     event.preventDefault()
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
+    // Shift+sürükle pencerenin üzerinde de kesim seçimi başlatır: seçili
+    // aralığın üstünde Shift+sürüklemek aralığı taşımamalı.
+    if (event.shiftKey) {
+      dragRef.current = "select"
+      selectAnchorRef.current = timeAt(event.clientX)
+      setSelection(null)
+      return
+    }
     dragRef.current = "range"
     rangeRef.current = {
       pointerX: event.clientX,
