@@ -385,7 +385,8 @@ export function UrlSourceBar() {
           <div className="relative min-w-0 flex-1">
             <Input
               ref={urlInputRef}
-              className="h-8 pr-8 text-xs"
+              type="search"
+              className="h-8 pr-14 text-xs"
               placeholder={t("source.urlPlaceholder")}
               aria-label={t("source.urlAria")}
               spellCheck={false}
@@ -402,7 +403,7 @@ export function UrlSourceBar() {
               type="button"
               variant="ghost"
               size="icon-xs"
-              className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
+              className="absolute top-1/2 right-6 -translate-y-1/2 text-muted-foreground"
               onClick={() => void handlePasteFromClipboard()}
               disabled={resolving}
               title={t("source.paste")}
