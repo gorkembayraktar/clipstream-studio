@@ -107,7 +107,11 @@ function applyEditSnapshot(record: ProjectWorkspace): void {
   editStore.setCropRect(record.edit.crop.rect)
   editStore.setCropEnabled(record.edit.crop.enabled)
   // Trim, kaynağın süresi bilindiğinde (setMeta sonrası) sınırlandırılır.
-  editStore.setTrim(record.edit.trim)
+  if (record.edit.segments.length > 0) {
+    editStore.setSegments(record.edit.segments)
+  } else {
+    editStore.setTrim(record.edit.trim)
+  }
 }
 
 function requestRestoredPlayhead(record: ProjectWorkspace): void {
@@ -308,6 +312,10 @@ function snapshotFromStores(
       : null,
     edit: {
       trim: { ...edit.trim },
+      segments: edit.segments.map((segment) => ({
+        start: segment.start,
+        end: segment.end,
+      })),
       loop: edit.loop,
       crop: {
         enabled: edit.crop.enabled,

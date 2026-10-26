@@ -12,11 +12,17 @@ import { useI18n } from "@/i18n"
 import { clamp, formatClock, formatTime } from "@/lib/format"
 import type { StoryboardMeta } from "@/lib/types"
 import { usePlayerStore } from "@/stores/player-store"
-import { useEditStore } from "@/stores/edit-store"
+import { gapsOf, useEditStore } from "@/stores/edit-store"
 import { useSourceStore } from "@/stores/source-store"
 import { useTimelineStore } from "@/stores/timeline-store"
 
-type DragTarget = "playhead" | "start" | "end" | "range"
+type DragTarget =
+  | "playhead"
+  | "start"
+  | "end"
+  | "range"
+  | "select"
+  | { segment: string; edge: "start" | "end" }
 
 /** Bu eşiğin altındaki imleç oynaması tıklama sayılır (aralık içinde imleç taşıma). */
 const RANGE_DRAG_THRESHOLD = 4
@@ -24,6 +30,10 @@ const RANGE_DRAG_THRESHOLD = 4
 /** Kare önizleme balonunun ölçüleri (px) — sunucu da bu ölçüde üretir. */
 const PREVIEW_WIDTH = 160
 const PREVIEW_HEIGHT = 90
+
+/** Kesim bölgesinin çapraz tarama deseni. */
+const CUT_STRIPES =
+  "repeating-linear-gradient(45deg, rgb(248 113 113 / 0.30) 0 5px, rgb(248 113 113 / 0.08) 5px 10px)"
 
 /** Pointer yakalama kenar durumlarda (ör. sentetik olaylar) hata verebilir; sürükleme yine de çalışır. */
 function capturePointer(element: Element | null, pointerId: number) {
@@ -98,6 +108,12 @@ export function Timeline() {
   const { t } = useI18n()
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
+  const segments = useEditStore((s) => s.segments)
+  const selection = useEditStore((s) => s.selection)
+  const setSelection = useEditStore((s) => s.setSelection)
+  const updateSegmentEdge = useEditStore((s) => s.updateSegmentEdge)
+  const shiftSegments = useEditStore((s) => s.shiftSegments)
+  const restoreRange = useEditStore((s) => s.restoreRange)
   const metaDuration = useSourceStore((s) => s.meta?.duration ?? 0)
   const isLive = useSourceStore((s) => s.isLive)
 
@@ -111,15 +127,25 @@ export function Timeline() {
   // Canlı yayında sonlu bir süre yoktur; timeline/trim/storyboard devre dışı.
   const duration = isLive ? 0 : playerDuration || metaDuration
 
+  // Segmentler arasındaki boşluklar = çıkarılan aralıklar (kırmızı bantlar).
+  const gaps = gapsOf(segments, trim)
+
   const wrapperRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const previousZoomRef = useRef(zoom)
   const dragRef = useRef<DragTarget | null>(null)
   /** Aralık taşıma sürüklemesinin başlangıç durumu (imleç X + kesim sınırları). */
-  const rangeRef = useRef<{ pointerX: number; start: number; end: number; moved: boolean } | null>(
-    null,
-  )
+  const rangeRef = useRef<{
+    pointerX: number
+    start: number
+    end: number
+    /** Son uygulanan kaydırma (sn) — birikimli toplama hatasını önler. */
+    applied: number
+    moved: boolean
+  } | null>(null)
+  /** Shift+sürükle seçiminin başladığı zaman (sn). */
+  const selectAnchorRef = useRef<number | null>(null)
 
   const pct = useCallback(
     (time: number) => (duration > 0 ? clamp((time / duration) * 100, 0, 100) : 0),
@@ -148,6 +174,13 @@ export function Timeline() {
   const handleTrackPointerDown = (event: React.PointerEvent) => {
     if (duration <= 0) return
     capturePointer(event.currentTarget, event.pointerId)
+    // Shift+sürükle: kesim oluşturmak için aralık seç (trim penceresine dokunmaz).
+    if (event.shiftKey) {
+      dragRef.current = "select"
+      selectAnchorRef.current = timeAt(event.clientX)
+      setSelection(null)
+      return
+    }
     dragRef.current = "playhead"
     seek(timeAt(event.clientX))
   }
@@ -171,6 +204,20 @@ export function Timeline() {
     const target = dragRef.current
     if (!target) return
 
+    // Segment kenarı sürüklemesi (segment sınırlarını taşır).
+    if (typeof target === "object") {
+      updateSegmentEdge(target.segment, target.edge, timeAt(event.clientX))
+      return
+    }
+
+    // Shift+sürükle seçimi: bant canlı güncellenir.
+    if (target === "select") {
+      const anchor = selectAnchorRef.current
+      if (anchor === null) return
+      setSelection({ start: anchor, end: timeAt(event.clientX) })
+      return
+    }
+
     // Aralığı taşı: süre korunur, pencere [0, duration] içinde kalır
     if (target === "range") {
       const origin = rangeRef.current
@@ -186,10 +233,16 @@ export function Timeline() {
 
       const deltaTime = ((event.clientX - origin.pointerX) / width) * duration
       const span = origin.end - origin.start
-      let start = origin.start + deltaTime
-      if (start < 0) start = 0
-      else if (start + span > duration) start = Math.max(0, duration - span)
-      setTrim({ start, end: start + span })
+      // Pencere [0, duration] içinde kalsın.
+      const delta = clamp(
+        deltaTime,
+        -origin.start,
+        Math.max(-origin.start, duration - span - origin.start),
+      )
+      const step = delta - origin.applied
+      if (Math.abs(step) < 0.0005) return
+      origin.applied = delta
+      shiftSegments(step)
       return
     }
 
@@ -199,17 +252,10 @@ export function Timeline() {
       return
     }
 
-    // Tutamak diğerini geçerse mağaza noktaları takas eder; sürüklenen tutamak
-    // artık karşı taraftır, sonraki hareketlerde onu güncellemeye devam et.
-    if (target === "start") {
-      const previousEnd = useEditStore.getState().trim.end
-      setTrim({ start: time })
-      if (useEditStore.getState().trim.end > previousEnd) dragRef.current = "end"
-    } else {
-      const previousStart = useEditStore.getState().trim.start
-      setTrim({ end: time })
-      if (useEditStore.getState().trim.start < previousStart) dragRef.current = "start"
-    }
+    // Giriş/çıkış tutamağı: yalnızca o segmentin kenarını taşır. Karşı kenarı
+    // geçmeye çalışırsa mağaza en kısa segmentte (MIN_TRIM_SECONDS) durdurur.
+    if (target === "start") setTrim({ start: time })
+    else setTrim({ end: time })
   }
 
   const handlePointerUp = (event: React.PointerEvent) => {
@@ -218,8 +264,13 @@ export function Timeline() {
       const origin = rangeRef.current
       if (origin && !origin.moved) seek(timeAt(event.clientX))
     }
+    // Tek tık (sürüklemesiz) seçim oluşturmaz.
+    if (dragRef.current === "select" && !useEditStore.getState().selection) {
+      setSelection(null)
+    }
     dragRef.current = null
     rangeRef.current = null
+    selectAnchorRef.current = null
     releasePointer(event.currentTarget, event.pointerId)
   }
 
@@ -240,8 +291,24 @@ export function Timeline() {
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
     dragRef.current = "range"
-    rangeRef.current = { pointerX: event.clientX, start: trim.start, end: trim.end, moved: false }
+    rangeRef.current = {
+      pointerX: event.clientX,
+      start: trim.start,
+      end: trim.end,
+      applied: 0,
+      moved: false,
+    }
   }
+
+  /** Kesim kenarını sürükle: segment büyür/küçülür, boşluk kapanabilir. */
+  const beginSegmentEdgeDrag =
+    (segmentId: string, edge: "start" | "end") => (event: React.PointerEvent) => {
+      if (duration <= 0) return
+      event.preventDefault()
+      event.stopPropagation()
+      capturePointer(trackRef.current, event.pointerId)
+      dragRef.current = { segment: segmentId, edge }
+    }
 
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
   const streamUrl = useSourceStore((s) => s.streamUrl)
@@ -402,7 +469,7 @@ export function Timeline() {
           onPointerLeave={handlePointerLeave}
           style={{ width: `${zoom * 100}%` }}
           className={cn(
-            "relative h-14 touch-none",
+            "group/track relative h-14 touch-none",
             duration > 0 ? "cursor-crosshair" : "opacity-60",
           )}
         >
@@ -423,6 +490,85 @@ export function Timeline() {
               onPointerDown={beginRangeDrag}
               className="absolute inset-y-0 cursor-grab touch-none border-l-2 border-r-2 border-emerald-400 border-r-amber-400 bg-linear-to-r from-emerald-400/20 to-amber-400/20 active:cursor-grabbing"
               style={{ left: `${startPct}%`, width: `${Math.max(0, endPct - startPct)}%` }}
+            />
+          )}
+
+          {/* Kesimler: segmentler arasındaki boşluklar (önizlemede atlanır, dışa aktarmada çıkarılır) */}
+          {duration > 0 &&
+            gaps.map((gap) => (
+              <div
+                key={`gap-${gap.start}`}
+                data-slot="timeline-cut"
+                title={t("timeline.cutTitle", {
+                  start: formatTime(gap.start, true),
+                  end: formatTime(gap.end, true),
+                })}
+                className="pointer-events-none absolute inset-y-0 z-10 border-x border-red-400/70"
+                style={{
+                  left: `${pct(gap.start)}%`,
+                  width: `${Math.max(0, pct(gap.end) - pct(gap.start))}%`,
+                  backgroundImage: CUT_STRIPES,
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label={t("timeline.restoreCut")}
+                  title={t("timeline.restoreCut")}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => restoreRange(gap)}
+                  className="pointer-events-auto absolute top-0.5 left-1/2 z-10 -translate-x-1/2 rounded bg-red-600 px-1 text-[9px] leading-4 text-white opacity-0 transition-opacity group-hover/track:opacity-100 focus-visible:opacity-100"
+                >
+                  ↺
+                </button>
+              </div>
+            ))}
+
+          {/* Segment sınırları: yalnızca boşluğa komşu iç kenarlar sürüklenebilir */}
+          {duration > 0 &&
+            segments.map((segment, index) => {
+              const isFirst = index === 0
+              const isLast = index === segments.length - 1
+              return (
+                <div key={`edges-${segment.id}`}>
+                  {!isFirst && (
+                    <div
+                      role="slider"
+                      aria-label={t("timeline.cutStart")}
+                      aria-valuenow={segment.start}
+                      title={t("timeline.cutStart")}
+                      onPointerDown={beginSegmentEdgeDrag(segment.id, "start")}
+                      className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                      style={{ left: `${pct(segment.start)}%` }}
+                    >
+                      <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
+                    </div>
+                  )}
+                  {!isLast && (
+                    <div
+                      role="slider"
+                      aria-label={t("timeline.cutEnd")}
+                      aria-valuenow={segment.end}
+                      title={t("timeline.cutEnd")}
+                      onPointerDown={beginSegmentEdgeDrag(segment.id, "end")}
+                      className="absolute inset-y-0 z-20 w-3 -translate-x-1/2 cursor-ew-resize touch-none"
+                      style={{ left: `${pct(segment.end)}%` }}
+                    >
+                      <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+          {/* Kesim için seçim (Shift + sürükle) */}
+          {duration > 0 && selection && (
+            <div
+              data-slot="timeline-selection"
+              className="pointer-events-none absolute inset-y-0 z-10 border-x border-sky-400 bg-sky-400/25"
+              style={{
+                left: `${pct(selection.start)}%`,
+                width: `${Math.max(0, pct(selection.end) - pct(selection.start))}%`,
+              }}
             />
           )}
 

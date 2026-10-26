@@ -94,6 +94,22 @@ export function useKeyboardShortcuts() {
         case "L":
           edit.setLoop(!edit.loop)
           break
+        // Sil: seçili aralığı segmentlerden çıkarır (böl + at).
+        case "Delete":
+        case "Backspace":
+          if (edit.selection) {
+            event.preventDefault()
+            const at = edit.selection.start
+            edit.removeSelection()
+            player.seek(at)
+          }
+          break
+        case "Escape":
+          if (edit.selection) {
+            event.preventDefault()
+            edit.setSelection(null)
+          }
+          break
         case "t":
         case "T":
           useThemeStore.getState().toggleTheme()

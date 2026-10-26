@@ -19,7 +19,7 @@ import { translate, useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import { isHlsUrl, proxiedUrl } from "@/lib/media"
 import { cn } from "cn"
-import { useEditStore } from "@/stores/edit-store"
+import { gapsOf, useEditStore } from "@/stores/edit-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
@@ -324,11 +324,25 @@ export function VideoStage() {
       }
     }
 
+    /** Oynatma sırasında çıkarılmış aralıkları atlar: duyulan = dışa aktarılan. */
+    const skipGap = () => {
+      const { segments, trim } = useEditStore.getState()
+      if (segments.length === 0) return false
+      const gap = gapsOf(segments, trim).find(
+        (item) => video.currentTime >= item.start && video.currentTime < item.end,
+      )
+      if (!gap) return false
+      guardSeek()
+      video.currentTime = gap.end
+      return true
+    }
+
     const onPlay = () => {
       wantsPlayRef.current = true
       audio.playbackRate = video.playbackRate
       audio.volume = video.volume
       audio.muted = video.muted
+      skipGap()
       forwardSync()
       resumeAudio()
     }
@@ -391,6 +405,7 @@ export function VideoStage() {
     }
     const onTimeUpdate = () => {
       if (video.paused) return
+      if (skipGap()) return
       const drift = audio.currentTime - video.currentTime
       if (drift < -0.35) {
         // Ses geride kaldı → ileri al (geri sarma yok, tekrar duyulmaz).
@@ -614,10 +629,22 @@ export function VideoStage() {
     const tick = () => {
       const video = videoRef.current
       if (!video || video.paused) return
+      const { segments, trim, loop } = useEditStore.getState()
+      // Kesilen aralıklar oynatılırken atlanır: duyulan = dışa aktarılan.
+      if (segments.length > 0) {
+        const gap = gapsOf(segments, trim).find(
+          (item) => video.currentTime >= item.start && video.currentTime < item.end,
+        )
+        if (gap) {
+          video.currentTime = gap.end
+          mark({ currentTime: gap.end })
+          rafId = requestAnimationFrame(tick)
+          return
+        }
+      }
       mark({ currentTime: video.currentTime })
 
       // Döngü: çıkış noktasına gelince başa sar
-      const { trim, loop } = useEditStore.getState()
       if (loop && trim.end > trim.start + 0.05 && video.currentTime >= trim.end) {
         video.currentTime = trim.start
       }

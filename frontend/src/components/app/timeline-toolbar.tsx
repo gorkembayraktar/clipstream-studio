@@ -91,7 +91,11 @@ export function TimelineToolbar() {
     seek(trim.start)
     usePlayerStore.getState().play()
   }
-  const resetRange = () => setTrim({ start: 0, end: duration })
+  const resetSegments = useEditStore((s) => s.resetSegments)
+  const resetRange = () => {
+    // Tüm video: kesimler dahil her şeyi geri getirir.
+    if (duration > 0) resetSegments()
+  }
   const zoomPercent = Math.round(zoom * 100)
   const zoomIndex = Math.max(
     0,

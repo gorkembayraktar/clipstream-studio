@@ -38,8 +38,15 @@ export interface ProjectSourceSnapshot {
   meta: VideoMeta | null
 }
 
+export interface ProjectSegment {
+  start: number
+  end: number
+}
+
 export interface ProjectEditSnapshot {
   trim: { start: number; end: number }
+  /** Dışa aktarılacak parçalar; boşsa eski proje formatı (tek `trim`). */
+  segments: ProjectSegment[]
   loop: boolean
   crop: { enabled: boolean; rect: CropRect | null; aspect: AspectPreset }
 }
@@ -211,11 +218,14 @@ function parseEdit(value: unknown): ProjectEditSnapshot {
   const trim = isRecord(edit.trim) ? edit.trim : {}
   const crop = isRecord(edit.crop) ? edit.crop : {}
 
+  const trimRange = {
+    start: Math.max(0, numberOr(trim.start, 0)),
+    end: Math.max(0, numberOr(trim.end, 0)),
+  }
+
   return {
-    trim: {
-      start: Math.max(0, numberOr(trim.start, 0)),
-      end: Math.max(0, numberOr(trim.end, 0)),
-    },
+    trim: trimRange,
+    segments: parseSegments(edit.segments, trimRange),
     loop: booleanOr(edit.loop, false),
     crop: {
       enabled: booleanOr(crop.enabled, false),
@@ -223,6 +233,28 @@ function parseEdit(value: unknown): ProjectEditSnapshot {
       aspect: oneOf(crop.aspect, ASPECTS, "free"),
     },
   }
+}
+
+/** Segment listesi yoksa (eski proje) `trim` tek segment olarak yorumlanır. */
+function parseSegments(value: unknown, trim: { start: number; end: number }): ProjectSegment[] {
+  if (!Array.isArray(value)) {
+    return trim.end - trim.start > 0.0005 ? [{ ...trim }] : []
+  }
+  const segments = value
+    .map((item) => {
+      if (!isRecord(item)) return null
+      return {
+        start: Math.max(0, numberOr(item.start, 0)),
+        end: Math.max(0, numberOr(item.end, 0)),
+      }
+    })
+    .filter(
+      (segment): segment is ProjectSegment =>
+        segment !== null && segment.end - segment.start > 0.0005,
+    )
+    .sort((a, b) => a.start - b.start)
+  if (segments.length > 0) return segments
+  return trim.end - trim.start > 0.0005 ? [{ ...trim }] : []
 }
 
 function parseExport(value: unknown): ProjectExportSnapshot {

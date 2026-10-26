@@ -20,6 +20,7 @@ export type ShortcutId =
   | "trimIn"
   | "trimOut"
   | "loop"
+  | "cutSelection"
 
 export interface KeyboardShortcut {
   id: ShortcutId
@@ -41,4 +42,5 @@ export const KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { id: "trimIn", keys: ["I", "["], labelKey: "shortcut.trimIn" },
   { id: "trimOut", keys: ["O", "]"], labelKey: "shortcut.trimOut" },
   { id: "loop", keys: ["L"], labelKey: "shortcut.loop" },
+  { id: "cutSelection", keys: ["Delete"], labelKey: "shortcut.cutSelection" },
 ]
