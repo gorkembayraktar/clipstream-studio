@@ -281,6 +281,8 @@ export const api = {
     origin?: string
     duration?: number
     force?: boolean
+    /** `false` ise yeni çıkarım yapılmaz; yalnızca önbellek sunulur. */
+    generate?: boolean
     /** Video akışı sessizse sesin alınacağı ayrı akış. */
     audio_url?: string
     /** Seçili ses rendition'ının kararlı kimliği (önbellek ayrımı için). */
@@ -296,6 +298,8 @@ export const api = {
       origin?: string
       duration?: number
       force?: boolean
+      /** `false` ise yeni çıkarım yapılmaz; yalnızca önbellek sunulur. */
+      generate?: boolean
       audio_url?: string
       /** Seçili ses rendition'ının kararlı kimliği (önbellek ayrımı için). */
       audio_track?: string

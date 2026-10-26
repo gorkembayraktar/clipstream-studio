@@ -2,7 +2,11 @@
 
 İstek gövdesi:
     {"url": "<oynatılan akış>", "origin": "<master m3u8 (varsa)>",
-     "duration": 634.5, "force": false, "audio_url": "<ses-yalnız akış>"}
+     "duration": 634.5, "force": false, "audio_url": "<ses-yalnız akış>",
+     "generate": true}
+
+`generate` false ise yeni çıkarım yapılmaz: yalnızca hazır önbellek sunulur,
+yoksa tek `skipped` olayı döner (ayarlardan üretim kapatıldığında).
 
 `origin` verilirse ve bir master playlist ise ses grubu ya da en hafif varyant
 üzerinden çıkarım yapılır; böylece tam video indirilmez. `audio_url` verilirse
@@ -56,6 +60,7 @@ async def waveform_endpoint(request):
             audio_url=audio_url,
             audio_track=audio_track,
             headers=sanitize_headers(data.get("headers")),
+            generate=data.get("generate", True) is not False,
         )
     except WaveformError as exc:
         return JSONResponse({"success": False, "error": str(exc)}, status_code=exc.status_code)
@@ -112,6 +117,7 @@ async def waveform_stream_endpoint(request):
             audio_url=audio_url,
             audio_track=audio_track,
             headers=sanitize_headers(data.get("headers")),
+            generate=data.get("generate", True) is not False,
         ):
             yield (
                 json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"

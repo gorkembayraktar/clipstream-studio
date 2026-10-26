@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react"
 
 import {
+  AudioWaveformIcon,
   ChevronDownIcon,
   KeyboardIcon,
   LanguagesIcon,
@@ -26,6 +27,7 @@ import { Switch } from "@/components/ui/switch"
 import { LOCALE_OPTIONS, useI18n, type Locale, type TranslationKey } from "@/i18n"
 import { KEYBOARD_SHORTCUTS } from "@/lib/keyboard-shortcuts"
 import { useLogStore } from "@/stores/log-store"
+import { usePreferencesStore } from "@/stores/preferences-store"
 import { useThemeStore } from "@/stores/theme-store"
 
 type SettingsTabId = "preferences" | "logs" | "shortcuts"
@@ -80,6 +82,8 @@ export function SettingsPanel() {
   const setTheme = useThemeStore((s) => s.setTheme)
   const showLogs = useLogStore((s) => s.showLogs)
   const setShowLogs = useLogStore((s) => s.setShowLogs)
+  const waveformEnabled = usePreferencesStore((s) => s.waveformEnabled)
+  const setWaveformEnabled = usePreferencesStore((s) => s.setWaveformEnabled)
   const [openTabs, setOpenTabs] = useState<OpenSettingsTabs>(readOpenSettingsTabs)
 
   useEffect(() => {
@@ -149,6 +153,31 @@ export function SettingsPanel() {
                 <MoonIcon className="size-3.5" aria-hidden />
                 {t("settings.themeDark")}
               </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+            <div className="flex min-w-0 items-start gap-2">
+              <AudioWaveformIcon
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <div className="text-sm">{t("settings.waveformEnabled")}</div>
+                <p className="text-[10px] text-muted-foreground">
+                  {t("settings.waveformEnabledHint")}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-[11px] text-muted-foreground">
+                {waveformEnabled ? t("settings.yes") : t("settings.no")}
+              </span>
+              <Switch
+                checked={waveformEnabled}
+                onCheckedChange={setWaveformEnabled}
+                aria-label={t("settings.waveformEnabled")}
+              />
             </div>
           </div>
         </div>

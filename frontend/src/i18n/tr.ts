@@ -37,6 +37,9 @@ export const tr: Record<TranslationKey, string> = {
   "settings.logs": "Kayıtlar",
   "settings.showErrorLog": "Hata kayıtlarını göster",
   "settings.showErrorLogHint": "Alt log panelini gösterir.",
+  "settings.waveformEnabled": "Dalga formu üret",
+  "settings.waveformEnabledHint":
+    "Kapalıyken yeni çıkarım yapılmaz; önbellekteki dalga formları gösterilmeye devam eder.",
   "settings.yes": "Evet",
   "settings.no": "Hayır",
 
@@ -668,6 +671,8 @@ export const tr: Record<TranslationKey, string> = {
     "Dalga formu hazır: {count} kova ({seconds} sn), {ms} ms{note}.",
   "log.waveformOptimized": " — hafif kaynak kullanıldı",
   "log.waveformFailed": "Dalga formu alınamadı",
+  "log.waveformDisabled":
+    "Dalga formu üretimi kapalı: yeni çıkarım yapılmadı, yalnızca önbellek kullanıldı.",
   "log.storyboardPreparing": "Zaman çizelgesi önizlemesi hazırlanıyor...",
   "log.storyboardCached": "Storyboard disk önbelleğinden geldi",
   "log.storyboardReady": "Zaman çizelgesi önizlemesi hazır: ilk {count} kare, {ms} ms.",

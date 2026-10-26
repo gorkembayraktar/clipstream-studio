@@ -5,6 +5,7 @@ import { api } from "@/lib/api"
 import { translate } from "@/i18n"
 import type { WaveformStreamEvent } from "@/lib/types"
 import { log } from "@/stores/log-store"
+import { usePreferencesStore } from "@/stores/preferences-store"
 import { useSourceStore } from "@/stores/source-store"
 
 export interface WaveformData {
@@ -36,6 +37,9 @@ function decodeBuckets(encoded: string): Uint8Array {
  *
  * `audioUrl` dolu ise (video akışı sessiz — ör. YouTube HLS) ses doğrudan
  * o akıştan çıkarılır.
+ *
+ * Ayarlarda dalga formu üretimi kapalıysa istek yine atılır ama `generate:
+ * false` ile gider: hazır önbellek çizilir, yeni çıkarım yapılmaz.
  */
 export function useWaveform(
   url: string | null,
@@ -50,6 +54,7 @@ export function useWaveform(
     Boolean(url) && duration > 0 && !(hasAudio === false && !audioUrl)
   const headers = useSourceStore((s) => s.headers)
   const headersKey = JSON.stringify(headers ?? {})
+  const waveformEnabled = usePreferencesStore((s) => s.waveformEnabled)
 
   const [data, setData] = useState<WaveformData | null>(null)
   const [loading, setLoading] = useState(enabled)
@@ -79,6 +84,7 @@ export function useWaveform(
             url,
             origin: origin || undefined,
             duration,
+            generate: waveformEnabled,
             audio_url: audioUrl ?? undefined,
             audio_track: audioTrackId ?? undefined,
             headers: headers ?? undefined,
@@ -145,6 +151,14 @@ export function useWaveform(
               Math.min(target.length, event.start + bytes.length),
             )
             publish()
+            return
+          }
+
+          if (event.type === "skipped") {
+            // Üretim ayarlardan kapalı ve önbellekte kayıt yok.
+            setData(null)
+            setLoading(false)
+            log("info", translate("log.waveformDisabled"))
             return
           }
 
@@ -221,7 +235,7 @@ export function useWaveform(
     }
     // `headersKey`, headers nesnesinin içeriğini temsil eder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, origin, duration, audioUrl, audioTrackId, headersKey, enabled])
+  }, [url, origin, duration, audioUrl, audioTrackId, headersKey, enabled, waveformEnabled])
 
   useEffect(() => {
     if (!error) return

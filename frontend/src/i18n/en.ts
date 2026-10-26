@@ -40,6 +40,9 @@ export const en = {
   "settings.logs": "Logs",
   "settings.showErrorLog": "Show error logs",
   "settings.showErrorLogHint": "Shows the bottom log panel.",
+  "settings.waveformEnabled": "Generate waveform",
+  "settings.waveformEnabledHint":
+    "When off, new extraction is skipped; cached waveforms still show.",
   "settings.yes": "Yes",
   "settings.no": "No",
 
@@ -670,6 +673,8 @@ export const en = {
     "Waveform ready: {count} buckets ({seconds}s each), {ms} ms{note}.",
   "log.waveformOptimized": " — lightweight source used",
   "log.waveformFailed": "Could not load waveform",
+  "log.waveformDisabled":
+    "Waveform generation is off: no new extraction, cached waveform only.",
   "log.storyboardPreparing": "Preparing timeline preview…",
   "log.storyboardCached": "Storyboard loaded from disk cache",
   "log.storyboardReady": "Timeline preview ready: first {count} frames, {ms} ms.",

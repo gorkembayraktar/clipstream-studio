@@ -274,6 +274,10 @@ export interface WaveformResponse {
   optimized: boolean
   /** Kaynakta ses akışı yok (sessiz video): dalga formu çizilmez. */
   silent?: boolean
+  /** Üretim ayarlardan kapalı ve önbellekte kayıt yok: çizim yapılmaz. */
+  skipped?: boolean
+  /** `skipped` ise nedeni (`disabled`). Kullanıcıya gösterilen metin değildir. */
+  reason?: string
   error?: string
 }
 
@@ -315,11 +319,19 @@ export interface WaveformErrorEvent {
   status_code?: number
 }
 
+/** Üretim kapalı ve önbellek yok: istek indirme/FFmpeg'e girmeden biter. */
+export interface WaveformSkippedEvent {
+  type: "skipped"
+  /** `disabled` — ayarlardan dalga formu üretimi kapatıldı. */
+  reason: string
+}
+
 export type WaveformStreamEvent =
   | WaveformStartEvent
   | WaveformChunkEvent
   | WaveformDoneEvent
   | WaveformErrorEvent
+  | WaveformSkippedEvent
 
 /** `POST /api/storyboard` — 10 karelik kademeli önizleme grubu. */
 export interface StoryboardBatchMeta {

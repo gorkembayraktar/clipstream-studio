@@ -83,6 +83,31 @@ SILENT_PAYLOAD: dict[str, Any] = {
     "silent": True,
 }
 
+#: `generate=False` ile istenen ama önbellekte karşılığı olmayan kaynak için
+#: dönen boş yanıt. Bu sonuç **önbelleğe yazılmaz**: üretim yeniden açıldığında
+#: dalga formu normal yoldan çıkarılabilir. `reason` kullanıcıya gösterilen bir
+#: metin değil, arayüzün kendi diline çevirdiği makine okunur bir koddur.
+SKIPPED_PAYLOAD: dict[str, Any] = {
+    "success": True,
+    "skipped": True,
+    "reason": "disabled",
+    "bucket_seconds": MIN_BUCKET_SECONDS,
+    "bucket_count": 0,
+    "duration": 0.0,
+    "buckets": "",
+    "cached": False,
+}
+
+
+def _skipped_payload(optimized: bool) -> dict[str, Any]:
+    """Üretim kapalıyken (önbellek yok) dönen boş dalga formu yanıtı."""
+    return {**SKIPPED_PAYLOAD, "optimized": optimized}
+
+
+def _skipped_event() -> dict[str, Any]:
+    """`generate=False` ve önbellek yok: akış tek "skipped" olayıyla biter."""
+    return {"type": "skipped", "reason": "disabled"}
+
 
 # ------------------------------------------------------------------ genel API
 async def build_waveform(
@@ -94,12 +119,16 @@ async def build_waveform(
     audio_url: Optional[str] = None,
     audio_track: Optional[str] = None,
     headers: Any = None,
+    generate: bool = True,
 ) -> dict[str, Any]:
     """Kaynağın dalga formunu üretir (varsa önbellekten döner).
 
     `audio_url` verilirse doğrudan o akış kullanılır: YouTube gibi video akışı
     sessiz olan kaynaklarda sesin tek adresi budur. `headers` (curl ile gelen
     cookie/referer…) hem playlist isteğine hem FFmpeg'e aktarılır.
+
+    `generate=False` ise yeni çıkarım yapılmaz: önbellekte hazır dalga formu
+    varsa o döner (`force` bunu atlatamaz), yoksa boş `skipped` yanıtı verilir.
     """
     if not url:
         raise WaveformError(t("error.sourceEmpty"))
@@ -109,6 +138,14 @@ async def build_waveform(
     else:
         source, optimized = await _select_source(client, origin, url, headers)
     cache_key = _cache_key(source, origin, headers, audio_track)
+
+    if not generate:
+        # Üretim kapalı: kilidi beklemeden, indirme/FFmpeg'e girmeden yalnızca
+        # önbellek sunulur. Sonuç yazılmaz; `force` bu kuralı geçersiz kılmaz.
+        cached = _read_cache(cache_key)
+        if cached is not None:
+            return {**cached, "cached": True, "optimized": optimized}
+        return _skipped_payload(optimized)
 
     if not force:
         cached = _read_cache(cache_key)
@@ -382,8 +419,14 @@ async def stream_waveform(
     audio_url: Optional[str] = None,
     audio_track: Optional[str] = None,
     headers: Any = None,
+    generate: bool = True,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Waveform'u NDJSON olayları olarak üretir (kademeli çizim için)."""
+    """Waveform'u NDJSON olayları olarak üretir (kademeli çizim için).
+
+    `generate=False` ise indirme/FFmpeg çalışmaz: önbellekte hazır dalga formu
+    varsa normal olaylarla sunulur, yoksa akış tek `skipped` olayıyla biter.
+    Ayarlardan dalga formu üretimi kapatıldığında kullanılır.
+    """
     if not url:
         yield {
             "type": "error",
@@ -398,6 +441,15 @@ async def stream_waveform(
         else:
             source, optimized = await _select_source(client, origin, url, headers)
         cache_key = _cache_key(source, origin, headers, audio_track)
+
+        if not generate:
+            cached = _read_cache(cache_key)
+            if cached is not None:
+                async for event in _events_from_payload(cached, optimized, True):
+                    yield event
+                return
+            yield _skipped_event()
+            return
 
         if not force:
             cached = _read_cache(cache_key)

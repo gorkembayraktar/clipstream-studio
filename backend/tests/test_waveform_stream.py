@@ -15,7 +15,12 @@ from services.segment_downloader import (  # noqa: E402
     MediaPlaylist,
     MediaSegment,
 )
-from services.waveform import NoAudioError, _cache_key, stream_waveform  # noqa: E402
+from services.waveform import (  # noqa: E402
+    NoAudioError,
+    _cache_key,
+    build_waveform,
+    stream_waveform,
+)
 
 
 async def collect(events) -> list[dict]:
@@ -185,6 +190,106 @@ class StreamingWaveformTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(events[1]["count"], 2)
         write_cache.assert_called_once()
+
+    async def test_generate_false_without_cache_emits_skipped_only(self):
+        stream = Mock()
+        extract = AsyncMock(return_value=(bytearray(b"\x01"), 0.25))
+        with (
+            patch("services.waveform._read_cache", return_value=None),
+            patch("services.waveform._write_cache") as write_cache,
+            patch("services.waveform._stream_uncached", new=stream),
+            patch("services.waveform._extract", new=extract),
+        ):
+            events = await collect(
+                stream_waveform(
+                    "https://example.com/media",
+                    audio_url="https://example.com/audio.m3u8",
+                    generate=False,
+                )
+            )
+
+        self.assertEqual(events, [{"type": "skipped", "reason": "disabled"}])
+        stream.assert_not_called()
+        extract.assert_not_awaited()
+        write_cache.assert_not_called()
+
+    async def test_generate_false_still_serves_cached_waveform(self):
+        payload = {
+            "success": True,
+            "bucket_seconds": 0.25,
+            "bucket_count": 2,
+            "duration": 0.5,
+            "buckets": base64.b64encode(b"\x05\x06").decode("ascii"),
+            "cached": False,
+            "optimized": True,
+        }
+
+        with (
+            patch("services.waveform._read_cache", return_value=payload),
+            patch("services.waveform._stream_uncached") as extract,
+        ):
+            events = await collect(
+                stream_waveform(
+                    "https://example.com/media",
+                    audio_url="https://example.com/audio.m3u8",
+                    generate=False,
+                )
+            )
+
+        extract.assert_not_called()
+        self.assertEqual(
+            [event["type"] for event in events],
+            ["start", "chunk", "done"],
+        )
+        self.assertTrue(events[-1]["cached"])
+        self.assertEqual(base64.b64decode(events[1]["buckets"]), b"\x05\x06")
+
+
+class WaveformBuildGenerateFlagTests(unittest.IsolatedAsyncioTestCase):
+    """`generate=False`: önbellek varsa sunulur, yoksa boş `skipped` döner."""
+
+    async def test_skipped_response_is_not_cached(self):
+        with (
+            patch("services.waveform._read_cache", return_value=None),
+            patch("services.waveform._write_cache") as write_cache,
+            patch("services.waveform._extract", new=AsyncMock()) as extract,
+        ):
+            payload = await build_waveform(
+                "https://example.com/media",
+                audio_url="https://example.com/audio.m3u8",
+                generate=False,
+            )
+
+        extract.assert_not_awaited()
+        write_cache.assert_not_called()
+        self.assertTrue(payload["skipped"])
+        self.assertEqual(payload["reason"], "disabled")
+        self.assertEqual(payload["bucket_count"], 0)
+
+    async def test_cached_waveform_wins_even_with_force(self):
+        payload = {
+            "success": True,
+            "bucket_seconds": 0.25,
+            "bucket_count": 1,
+            "duration": 0.25,
+            "buckets": base64.b64encode(b"\x07").decode("ascii"),
+            "cached": False,
+            "optimized": True,
+        }
+        with (
+            patch("services.waveform._read_cache", return_value=payload),
+            patch("services.waveform._extract", new=AsyncMock()) as extract,
+        ):
+            result = await build_waveform(
+                "https://example.com/media",
+                audio_url="https://example.com/audio.m3u8",
+                force=True,
+                generate=False,
+            )
+
+        extract.assert_not_awaited()
+        self.assertTrue(result["cached"])
+        self.assertEqual(result["bucket_count"], 1)
 
 
 class WaveformCacheKeyTests(unittest.TestCase):
