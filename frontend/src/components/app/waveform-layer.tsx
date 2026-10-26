@@ -42,7 +42,9 @@ function drawBars(
   const total = duration > 0 ? duration : buckets.length * bucketSeconds
   const available = Math.min(buckets.length, Math.max(0, loadedBuckets))
   if (available <= 0 || total <= 0) return
-  const loadedDuration = Math.min(total, available * bucketSeconds)
+  // Kova verisi kaynak zamanındadır; yüklenen süre de kaynak saniyesi olmalı.
+  // (Çıktı süresiyle kıyaslanırsa ikinci parçanın kuyruğu çizilmez.)
+  const loadedDuration = available * bucketSeconds
   const columns = Math.max(1, Math.floor(canvas.width / (BAR_WIDTH + BAR_GAP)))
   const center = canvas.height / 2
 
@@ -66,7 +68,6 @@ function drawBars(
 
   for (let column = 0; column < columns; column += 1) {
     const from = (column / columns) * total
-    if (from >= loadedDuration) continue
     const to = ((column + 1) / columns) * total
     const range = sourceRange(from, to)
     if (range.from >= loadedDuration) continue
