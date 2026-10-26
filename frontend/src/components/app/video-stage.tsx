@@ -58,13 +58,14 @@ export function VideoStage() {
     null
   const previewStreamUrl = previewVariant?.url ?? streamUrl
   // Kalite değişse de seçili ses rendition'ı kararlı kimlikle eşlenir; o
-  // varyantta yoksa varyantın varsayılan sesine düşülür.
+  // varyantta yoksa mağazadaki seçili ses adresine, o da yoksa varyantın
+  // varsayılan sesine düşülür (seçim hiçbir durumda kaybolmaz).
   const previewAudioTrack =
     previewVariant?.audio_tracks?.find((track) => track.id === audioTrackId) ??
     previewVariant?.audio_tracks?.find((track) => track.default) ??
     null
   const previewAudioUrl = previewVariant
-    ? (previewAudioTrack?.url ?? previewVariant.audio_url ?? null)
+    ? (previewAudioTrack?.url ?? audioUrl ?? previewVariant.audio_url ?? null)
     : audioUrl
   /** Seçili varyantın HLS bilgisi; varyant yoksa kaynak seviyesindeki tespit. */
   const playerIsHls = previewVariant?.hls ?? sourceIsHls
@@ -246,6 +247,27 @@ export function VideoStage() {
       void audio.play().catch(() => undefined)
     }
 
+    /** Yeni ses kaynağı hazır olduğunda konumu eşitle ve gerekirse oynat.
+     *
+     * Ses parçası değişince <audio> yeni `src` ile baştan yüklenir; video ise
+     * oynamaya devam eder. Video elementi yeniden `play` olayı üretmediği için
+     * ses kendiliğinden başlamaz — burada devreye alınır. */
+    let syncedForSrc = false
+    const syncOnReady = () => {
+      if (syncedForSrc) return
+      syncedForSrc = true
+      audio.playbackRate = video.playbackRate
+      audio.volume = video.volume
+      audio.muted = video.muted
+      seekTo(audio, video.currentTime)
+      if (!video.paused && !video.ended && !video.muted) {
+        settle()
+        void audio.play().catch(() => undefined)
+      }
+    }
+    audio.addEventListener("loadedmetadata", syncOnReady)
+    audio.addEventListener("canplay", syncOnReady)
+
     /** Yalnızca ileri yönde hizalar: hiçbir taraf geri sarılmaz (aynı bölüm tekrar duyulmaz). */
     const forwardSync = () => {
       if (performance.now() < settleUntil) return
@@ -338,6 +360,8 @@ export function VideoStage() {
     let frozenSince = 0
     let lastResumeAttempt = 0
     let doubleAudioWarned = false
+    /** Video elementinin kendi sesi duyuluyorsa ayrı ses akışı sürdürülmez. */
+    let videoHasOwnAudio = false
     const watchdog = window.setInterval(() => {
       if (!wantsPlayRef.current || video.ended) return
 
@@ -345,16 +369,19 @@ export function VideoStage() {
       // bilinmişse) ayrı ses elementi kapatılır; iki kaynak birlikte çalınamaz.
       const decodedAudio = (video as HTMLVideoElement & { webkitAudioDecodedByteCount?: number })
         .webkitAudioDecodedByteCount
-      if (typeof decodedAudio === "number" && decodedAudio > 0 && !audio.paused) {
-        audio.pause()
-        if (!doubleAudioWarned) {
-          doubleAudioWarned = true
-          log(
-            "warn",
-            translate("log.doubleAudioStopped"),
-          )
+      if (typeof decodedAudio === "number" && decodedAudio > 0) {
+        videoHasOwnAudio = true
+        if (!audio.paused) {
+          audio.pause()
+          if (!doubleAudioWarned) {
+            doubleAudioWarned = true
+            log(
+              "warn",
+              translate("log.doubleAudioStopped"),
+            )
+          }
+          return
         }
-        return
       }
 
       const now = performance.now()
@@ -375,6 +402,20 @@ export function VideoStage() {
         audio.load()
         seekTo(audio, video.currentTime)
         void audio.play().catch(() => undefined)
+      }
+
+      // Ses parçası değişince yeni akış kendiliğinden başlamayabilir (video
+      // oynamaya devam ettiği için `play` olayı tekrar gelmez): toparla.
+      if (
+        !document.hidden &&
+        !videoHasOwnAudio &&
+        !video.paused &&
+        !video.seeking &&
+        !video.muted &&
+        audio.paused &&
+        audio.readyState >= 2
+      ) {
+        resumeAudio()
       }
 
       const advanced = Math.abs(video.currentTime - lastTime) > 0.05
@@ -438,13 +479,25 @@ export function VideoStage() {
       video.removeEventListener("timeupdate", onTimeUpdate)
       audio.removeEventListener("error", onAudioError)
       audio.removeEventListener("pause", onAudioPause)
+      audio.removeEventListener("loadedmetadata", syncOnReady)
+      audio.removeEventListener("canplay", syncOnReady)
+      // Kaynak BURADA boşaltılmaz: React yeni `src`'yi DOM'a zaten yazdı,
+      // removeAttribute yeni ses parçasının adresini silip videoyu sessiz
+      // bırakıyordu. Boşaltma yalnızca bileşen kalkarken yapılır.
       audio.pause()
-      // Kaynak boşaltılmazsa tarayıcı eski akışı arka planda çalmayı sürdürebilir
-      // (attrsuz kalan medya elementi load() çağrılana kadar çalmaya devam eder).
+    }
+  }, [audioSrc])
+
+  /** Bileşen kalkarken ses elementini boşalt: eski akış arka planda çalmasın. */
+  useEffect(() => {
+    const audio = audioRef.current
+    return () => {
+      if (!audio) return
+      audio.pause()
       audio.removeAttribute("src")
       audio.load()
     }
-  }, [audioSrc])
+  }, [])
 
   /** Ayrı ses akışı yokken ses elementi tamamen susturulur: çift ses olamaz. */
   useEffect(() => {
