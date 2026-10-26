@@ -1,6 +1,6 @@
 # Agent conventions
 
-- The app version is `0.1.x` (currently `0.1.146`).
+- The app version is `0.1.x` (currently `0.1.147`).
 - For every development change, increment the last number by one.
 - Keep these in sync:
   - `frontend/package.json`
@@ -21,7 +21,7 @@ repo: it turns "where is this?" into one grep.
 | Task | Primary files |
 | --- | --- |
 | Export (FFmpeg, jobs, formats) | `backend/services/exporter.py`, `backend/api/jobs.py`, `backend/core/jobs.py`, `frontend/src/components/app/export-*.tsx` |
-| Timeline (trim, cut, zoom, waveform layer) | `frontend/src/components/app/timeline.tsx`, `trim-bar.tsx`, `waveform-layer.tsx`, `frontend/src/stores/timeline-store.ts` |
+| Timeline (trim, cut, zoom, waveform layer, output lane) | `frontend/src/components/app/timeline.tsx`, `output-timeline.tsx`, `trim-bar.tsx`, `waveform-layer.tsx`, `frontend/src/stores/edit-store.ts`, `frontend/src/stores/timeline-store.ts` |
 | Player (HLS, proxy, fullscreen) | `frontend/src/components/app/video-stage.tsx`, `hooks/use-hls-source.ts`, `hooks/use-fullscreen.ts`, `backend/services/proxy.py` |
 | Source/ingest (URL, curl, local files) | `frontend/src/components/app/url-source-bar.tsx`, `file-drop-zone.tsx`, `backend/services/resolver.py`, `local_media.py`, `request_headers.py` |
 | Gallery / library | `frontend/src/components/app/gallery*.tsx`, `frontend/src/hooks/use-library.ts`, `backend/services/library.py` |
