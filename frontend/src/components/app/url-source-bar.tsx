@@ -690,6 +690,7 @@ export function UrlSourceBar() {
                   value={
                     audioTrackId ??
                     audioTracks.find((track) => track.default)?.id ??
+                    audioTracks.find((track) => track.original)?.id ??
                     audioTracks[0].id
                   }
                   onValueChange={(value) => {
@@ -705,7 +706,7 @@ export function UrlSourceBar() {
                 >
                   <SelectTrigger
                     size="sm"
-                    className="w-[132px] text-xs"
+                    className="w-[168px] text-xs"
                     aria-label={t("source.audioTrackAria")}
                     title={t("source.audioTrackTitle")}
                   >
@@ -722,7 +723,11 @@ export function UrlSourceBar() {
                         {track.language && track.language.toLowerCase() !== track.name.toLowerCase()
                           ? ` (${track.language.toUpperCase()})`
                           : ""}
-                        {track.default ? t("source.recommended") : ""}
+                        {track.original
+                          ? ` · ${t("source.audioOriginal")}`
+                          : track.default
+                            ? ` · ${t("source.audioDefault")}`
+                            : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

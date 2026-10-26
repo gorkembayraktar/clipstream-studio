@@ -365,7 +365,8 @@ class YoutubeAudioTrackTests(unittest.TestCase):
         tracks = _ytdlp_audio_tracks(formats)
 
         self.assertEqual([track["language"] for track in tracks], ["en-US", "tr"])
-        self.assertTrue(tracks[0]["default"])
+        self.assertTrue(tracks[0]["original"])
+        self.assertFalse(tracks[0]["default"])
         self.assertFalse(tracks[1]["default"])
         # Aynı dilde AAC ve daha yüksek bit hızı seçilir.
         self.assertEqual(tracks[1]["url"], "https://rr1.googlevideo.com/dub-tr")
@@ -388,7 +389,40 @@ class YoutubeAudioTrackTests(unittest.TestCase):
 
         self.assertEqual(len(tracks), 1)
         self.assertEqual(tracks[0]["id"], "yt|en-US")
-        self.assertTrue(tracks[0]["default"])
+        self.assertTrue(tracks[0]["original"])
+        self.assertFalse(tracks[0]["default"])
+
+    def test_channel_default_dub_is_marked_separately(self):
+        formats = [
+            self.audio_format(),
+            self.audio_format(
+                format_id="140-9",
+                url="https://rr1.googlevideo.com/dub-fr",
+                language="fr",
+                language_preference=5,
+                format_note="French, medium",
+            ),
+            self.audio_format(
+                format_id="140-3",
+                url="https://rr1.googlevideo.com/dub-tr",
+                language="tr",
+                language_preference=-1,
+                format_note="Turkish, medium",
+            ),
+        ]
+
+        tracks = _ytdlp_audio_tracks(formats)
+
+        self.assertEqual(
+            [track["id"] for track in tracks],
+            ["yt|en-US", "yt|fr", "yt|tr"],
+        )
+        self.assertTrue(tracks[0]["original"])
+        self.assertFalse(tracks[0]["default"])
+        self.assertTrue(tracks[1]["default"])
+        self.assertFalse(tracks[1]["original"])
+        self.assertFalse(tracks[2]["default"])
+        self.assertFalse(tracks[2]["original"])
 
     def test_pick_audio_prefers_original_language_over_dub(self):
         formats = [

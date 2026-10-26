@@ -29,7 +29,10 @@ export interface HlsAudioTrack {
   url: string
   /** Ses akışı HLS ise hls.js ile bağlanır. */
   hls?: boolean
+  /** Video/sitenin varsayılan ses parçası. */
   default?: boolean
+  /** Kaynağın özgün dili (YouTube'da dublaj karşılığı değil). */
+  original?: boolean
   autoselect?: boolean
   forced?: boolean
 }

@@ -776,7 +776,7 @@ def _ytdlp_audio_tracks(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
     tracks: list[dict[str, Any]] = []
-    for index, item in enumerate(ordered):
+    for item in ordered:
         tracks.append(
             {
                 "id": item["id"],
@@ -785,8 +785,12 @@ def _ytdlp_audio_tracks(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "language": item["language"],
                 "url": item["url"],
                 "hls": False,
-                # Özgün dil (preference 10) başta gelir; o yoksa ilk dublaj.
-                "default": index == 0,
+                # Özgün dil (preference 10) "original"; kanalın varsayılan
+                # işaretlediği dublaj (preference 5) ise "default" olarak
+                # bildirilir. İkisi ayrı etiketlenir; seçim varsayılanı tercih
+                # eder, yoksa özgün dile düşer.
+                "original": item["preference"] >= 10,
+                "default": item["preference"] == 5,
             }
         )
     return tracks

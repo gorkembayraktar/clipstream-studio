@@ -127,8 +127,11 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       source.audioTracks && source.audioTracks.length > 0
         ? source.audioTracks
         : (defaultVariant?.audio_tracks ?? [])
+    // Arayüz diline göre otomatik seçim yapılmaz: kaynağın kendi varsayılanı
+    // (YouTube'da özgün dil) seçilir, kullanıcı listeden istediği dublajı seçer.
     const defaultTrack =
       audioTracks.find((track) => track.default) ??
+      audioTracks.find((track) => track.original) ??
       audioTracks.find((track) => track.autoselect) ??
       audioTracks[0] ??
       null
