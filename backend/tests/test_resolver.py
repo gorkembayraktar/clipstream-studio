@@ -1,4 +1,4 @@
-"""TikTok URL/platform seÃ§imi ve canlÄ± akÄ±ÅŸ tercihleri."""
+"""TikTok URL/platform seçimi ve canlı akış tercihleri."""
 import json
 import sys
 import unittest
@@ -160,7 +160,7 @@ class TikTokStreamTests(unittest.TestCase):
                 "height": 1080,
                 "tbr": 3000,
             },
-            # yt-dlp aynÄ± URL'yi Ã§Ã¶zÃ¼nÃ¼rlÃ¼k bilgisi olmadan tekrar edebilir.
+            # yt-dlp aynı URL'yi çözünürlük bilgisi olmadan tekrar edebilir.
             {
                 "url": "https://cdn.example.com/live-720.m3u8",
                 "ext": "mp4",
@@ -299,7 +299,7 @@ class TikTokResolvePayloadTests(unittest.IsolatedAsyncioTestCase):
 
 
 class YoutubeAudioTrackTests(unittest.TestCase):
-    """YouTube dublajlarÄ±nÄ±n dil listesine dÃ¶nÃ¼ÅŸtÃ¼rÃ¼lmesi."""
+    """YouTube dublajlarının dil listesine dönüştürülmesi."""
 
     @staticmethod
     def audio_format(**overrides):
@@ -367,7 +367,7 @@ class YoutubeAudioTrackTests(unittest.TestCase):
         self.assertEqual([track["language"] for track in tracks], ["en-US", "tr"])
         self.assertTrue(tracks[0]["default"])
         self.assertFalse(tracks[1]["default"])
-        # AynÄ± dilde AAC ve daha yÃ¼ksek bit hÄ±zÄ± seÃ§ilir.
+        # Aynı dilde AAC ve daha yüksek bit hızı seçilir.
         self.assertEqual(tracks[1]["url"], "https://rr1.googlevideo.com/dub-tr")
         self.assertEqual(tracks[1]["name"], "Turkish")
         self.assertEqual(tracks[1]["id"], "yt|tr")
