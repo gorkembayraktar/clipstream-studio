@@ -194,7 +194,7 @@
 
 | Dosya                   | Açıklama / semboller |
 |-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, useEditStore |
+| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, segmentAt, useEditStore |
 | `export-store.ts`       | useExportStore |
 | `local-import-store.ts` | useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |
