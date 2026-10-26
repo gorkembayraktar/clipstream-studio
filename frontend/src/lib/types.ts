@@ -204,10 +204,17 @@ export interface ExportCapabilities {
   features?: ExportFeatures
 }
 
+export interface ExportSegment {
+  start_time: number
+  end_time: number
+}
+
 export interface ExportRequest {
   url: string
   start_time: number
   end_time: number
+  /** Çoklu kesim: verilirse dışa aktarma parçaları sırayla işleyip birleştirir. */
+  segments?: ExportSegment[]
   mode: CutMode
   output_format: OutputFormat
   /** Yeniden kodlanan MP4 çıktıları için boyut/kalite dengesi. */

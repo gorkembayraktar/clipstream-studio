@@ -35,6 +35,10 @@ MAX_RESUME_ATTEMPTS = 8
 MAX_NO_PROGRESS_ATTEMPTS = 3
 MIN_RESUME_STEP_SECONDS = 0.5
 
+#: Çoklu kesim: tek istekte işlenebilecek en fazla parça ve en kısa parça.
+MAX_EXPORT_SEGMENTS = 200
+MIN_SEGMENT_DURATION = 0.01
+
 #: Yeniden kodlanan MP4 çıktıları için kalite profilleri.
 #: Dengeli profil, HD çözünürlüğü korurken x264'ün daha verimli preset'i ve
 #: biraz daha yüksek CRF değeriyle tipik olarak %20-30 daha küçük dosya üretir.
@@ -899,6 +903,143 @@ async def _run_resumable_export(
         return returncode, stderr_tail or last_stderr
 
 
+def _export_segments(payload: dict[str, Any]) -> list[tuple[float, float]]:
+    """Payload'daki kesim parçalarını doğrular, sıralar ve örtüşmeleri kırpar.
+
+    ``segments`` yoksa (tek aralık istekleri) ``start_time``/``end_time`` tek
+    parça olarak döner. Örtüşen ya da sırasız parçalar kırpılır; çok kısa
+    parçalar atlanır. Böylece ardışık ffmpeg parçaları aynı kareyi iki kez
+    yazmaz.
+    """
+    raw = payload.get("segments")
+    if isinstance(raw, list) and raw:
+        # Parça listesi verildiyse yalnızca geçerli parçalar kullanılır; boş
+        # sonuç "dışa aktarılacak içerik yok" anlamına gelir, tüm pencere değil.
+        candidates: list[tuple[float, float]] = []
+        for item in raw[:MAX_EXPORT_SEGMENTS]:
+            if not isinstance(item, dict):
+                continue
+            start = max(0.0, parse_time_to_seconds(item.get("start_time", 0)))
+            end = max(0.0, parse_time_to_seconds(item.get("end_time", 0)))
+            if end - start >= MIN_SEGMENT_DURATION:
+                candidates.append((start, end))
+    else:
+        start = parse_time_to_seconds(payload.get("start_time", 0))
+        end = parse_time_to_seconds(payload.get("end_time", 0))
+        candidates = [(start, end)] if end - start >= MIN_CLIP_DURATION else []
+
+    candidates.sort(key=lambda item: item[0])
+    segments: list[tuple[float, float]] = []
+    for start, end in candidates:
+        if segments and start < segments[-1][1]:
+            start = segments[-1][1]
+        if end - start < MIN_SEGMENT_DURATION:
+            continue
+        segments.append((start, end))
+    return segments
+
+
+def _segments_duration(segments: list[tuple[float, float]]) -> float:
+    """Parçaların toplam süresi (çıktı süresi)."""
+    return sum(end - start for start, end in segments)
+
+
+async def _run_segmented_export(
+    payload: dict[str, Any],
+    output_path: Path,
+    job: dict[str, Any],
+    gpu_encoder: Optional[str] = None,
+) -> tuple[int, str]:
+    """Çoklu kesimi parça parça işleyip tek MP4'te birleştirir.
+
+    Her kesim ayrı bir MPEG-TS dosyasına yazılır (kopyalama ya da yeniden
+    kodlama) ve sonunda concat demuxer ile tek dosyaya dönüştürülür. Segment
+    bazlı ``speed``/``effects`` alanları ileride tam bu adımda uygulanacak:
+    parça komutu ve concat manifesti zaten segment başına üretiliyor.
+    """
+    segments = _export_segments(payload)
+    if len(segments) < 2:
+        raise ExportError(t("error.invalidRange"))
+
+    total_duration = max(MIN_CLIP_DURATION, _segments_duration(segments))
+    base_start = segments[0][0]
+    #: (parça yolu, concat demuxer için video süresi)
+    parts: list[tuple[Path, float]] = []
+    last_returncode = -1
+    last_stderr = ""
+
+    with tempfile.TemporaryDirectory(prefix="clip-export-") as temp_root:
+        temp_dir = Path(temp_root)
+        offset = 0.0
+        for index, (segment_start, segment_end) in enumerate(segments, start=1):
+            if job["status"] == CANCELLED:
+                return -1, ""
+
+            part_duration = segment_end - segment_start
+            part_path = temp_dir / f"segment_{index:03d}.ts"
+            # Yerelleştirilmiş kaynakta seek dosya başına göre kaydırılır;
+            # `end_time` parçanın kendi sonuna çekilir.
+            part_payload = _resume_payload(
+                payload, segment_start, segment_start - base_start
+            )
+            part_payload["end_time"] = segment_end
+            command = build_ffmpeg_command(
+                part_payload,
+                part_path,
+                gpu_encoder=gpu_encoder,
+                intermediate=True,
+            )
+            job["command"] = " ".join(command)
+            job["stage"] = "segment"
+            job["segment_index"] = index
+            job["segment_count"] = len(segments)
+            job["current_sec"] = round(offset, 2)
+
+            returncode, stderr_tail, _stalled = await _run_ffmpeg(
+                command, job, total_duration, progress_base=offset
+            )
+            last_returncode = returncode
+            if stderr_tail:
+                last_stderr = stderr_tail
+            if job["status"] == CANCELLED:
+                return returncode, stderr_tail
+
+            try:
+                part_ok = part_path.exists() and part_path.stat().st_size > 0
+            except OSError:
+                part_ok = False
+            if returncode != 0 or not part_ok:
+                return returncode, stderr_tail
+
+            probed = await _probe_video_duration(part_path)
+            parts.append(
+                (part_path, min(part_duration, probed or part_duration))
+            )
+            offset += part_duration
+
+        if job["status"] == CANCELLED:
+            return -1, ""
+
+        concat_path = temp_dir / "concat.txt"
+        concat_path.write_text(_build_concat_manifest(parts), encoding="utf-8")
+
+        job.pop("segment_index", None)
+        job["stage"] = "merging"
+        remux_command = _build_concat_remux_command(
+            concat_path,
+            output_path,
+            total_duration,
+            _export_codec(payload),
+        )
+        job["command"] = " ".join(remux_command)
+        returncode, stderr_tail = await _run_ffmpeg_remux(remux_command, job)
+        if job["status"] == CANCELLED:
+            return returncode, stderr_tail
+        if returncode == 0:
+            job.pop("stage", None)
+        return returncode, stderr_tail or last_stderr
+
+
 async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> None:
     """İşi arka planda yürütür; durumu job sözlüğü üzerinden raporlar."""
     set_language(job.get("lang"))
@@ -910,22 +1051,41 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
     downloads: list[DownloadedMedia] = []
 
     try:
-        start = parse_time_to_seconds(payload.get("start_time", 0))
-        end = parse_time_to_seconds(payload.get("end_time", 0))
-        if end - start < MIN_CLIP_DURATION:
+        output_format = str(payload.get("output_format", "mp4")).lower()
+        segments = _export_segments(payload)
+        if not segments:
             raise ExportError(t("error.invalidRange"))
+        if len(segments) > 1 and output_format != "mp4":
+            raise ExportError(t("error.multiSegmentMp4Only"))
+
+        # Pencere = ilk parçanın başı → son parçanın sonu; süre = kalan parçalar.
+        start = segments[0][0]
+        end = segments[-1][1]
+        clip_duration = _segments_duration(segments)
+        if clip_duration < MIN_CLIP_DURATION:
+            raise ExportError(t("error.invalidRange"))
+        if len(segments) == 1:
+            # Tek parça: komut, istemcinin ham `start_time`/`end_time` değeri
+            # yerine doğrulanmış parçadan üretilir (kırpma/örtüşme düzeltmesi).
+            payload = {
+                **payload,
+                "start_time": segments[0][0],
+                "end_time": segments[0][1],
+            }
 
         output_path = build_output_path(
             str(payload.get("filename", "")),
-            str(payload.get("output_format", "mp4")).lower(),
+            output_format,
         )
         job["output_path"] = str(output_path)
         job["output_filename"] = output_path.name
-        job["clip_duration"] = round(end - start, 3)
+        job["clip_duration"] = round(clip_duration, 3)
         #: Arayüzde paralel iş kartlarını ayırt etmek için kısa bilgiler.
         job["clip_start"] = round(start, 3)
         job["clip_end"] = round(end, 3)
-        job["output_format"] = str(payload.get("output_format", "mp4")).lower()
+        if len(segments) > 1:
+            job["segment_count"] = len(segments)
+        job["output_format"] = output_format
         job["mode"] = str(payload.get("mode", "exact")).lower()
         job["quality"] = _quality_profile(payload)[0]
         job["codec"] = _export_codec(payload)
@@ -969,13 +1129,18 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         job["command"] = " ".join(command)
 
         resumable = _can_resume(payload)
-        if resumable:
+        if len(segments) > 1:
+            # Çoklu kesim: boşluklar atlanır, parçalar birleştirilir.
+            returncode, stderr_tail = await _run_segmented_export(
+                payload, output_path, job, gpu_encoder=gpu_encoder
+            )
+        elif resumable:
             returncode, stderr_tail = await _run_resumable_export(
                 payload, output_path, job, gpu_encoder=gpu_encoder
             )
         else:
             returncode, stderr_tail, _stalled = await _run_ffmpeg(
-                command, job, end - start
+                command, job, clip_duration
             )
         if job["status"] == CANCELLED:
             return
@@ -1006,13 +1171,17 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
 
             cpu_command = build_ffmpeg_command(payload, output_path)
             job["command"] = " ".join(cpu_command)
-            if resumable:
+            if len(segments) > 1:
+                returncode, stderr_tail = await _run_segmented_export(
+                    payload, output_path, job, gpu_encoder=None
+                )
+            elif resumable:
                 returncode, stderr_tail = await _run_resumable_export(
                     payload, output_path, job, gpu_encoder=None
                 )
             else:
                 returncode, stderr_tail, _stalled = await _run_ffmpeg(
-                    cpu_command, job, end - start
+                    cpu_command, job, clip_duration
                 )
             if job["status"] == CANCELLED:
                 return

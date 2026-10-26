@@ -26,6 +26,10 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "End time must be greater than start time.",
         "Bitiş zamanı, başlangıç zamanından büyük olmalıdır.",
     ),
+    "error.multiSegmentMp4Only": (
+        "Multiple cuts are only supported for MP4 output.",
+        "Çoklu kesim yalnızca MP4 çıktısında desteklenir.",
+    ),
     "error.jobNotFound": ("Job not found.", "İşlem bulunamadı."),
     "error.jobFinished": ("Job has already finished.", "İşlem zaten sonlandı."),
     "error.jobCancelled": ("Export cancelled.", "Dışa aktarma iptal edildi."),

@@ -12,7 +12,7 @@ import type {
   OutputFormat,
 } from "@/lib/types"
 import { log } from "@/stores/log-store"
-import { useEditStore } from "@/stores/edit-store"
+import { outputDuration, useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { useSourceStore } from "@/stores/source-store"
 
@@ -35,6 +35,7 @@ export function ExportPanel() {
   const headerToken = useSourceStore((s) => s.headerToken)
 
   const trim = useEditStore((s) => s.trim)
+  const segments = useEditStore((s) => s.segments)
   const crop = useEditStore((s) => s.crop)
 
   const cutMode = useExportStore((s) => s.cutMode)
@@ -102,14 +103,19 @@ export function ExportPanel() {
   const profile: ExportProfile =
     cutMode === "fast" && originalAvailable ? "original" : quality
 
-  const clipDuration = trim.end - trim.start
+  // Çoklu kesimde dışa aktarılan süre, kalan parçaların toplamıdır.
+  const clipDuration = outputDuration(segments)
   const invalidReason = isLive
     ? t("export.liveDisabled")
     : !streamUrl
       ? t("export.noSource")
-      : clipDuration <= 0.05
-        ? t("export.rangeTooShort")
-        : null
+      : segments.length === 0
+        ? t("export.nothingToExport")
+        : segments.length > 1 && outputFormat !== "mp4"
+          ? t("export.multiSegmentMp4Only")
+          : clipDuration <= 0.05
+            ? t("export.rangeTooShort")
+            : null
 
   const gpuHint = (() => {
     if (gpuCapability.isPending) return t("gpu.checking")
@@ -141,6 +147,9 @@ export function ExportPanel() {
       ? t("export.summaryFps", { fps: effectiveOutputFps })
       : null,
     useGpu ? t("export.summaryGpu") : null,
+    segments.length > 1
+      ? t("export.summaryPieces", { count: segments.length })
+      : null,
   ].filter((value): value is string => Boolean(value))
 
   useEffect(() => {
@@ -290,6 +299,14 @@ export function ExportPanel() {
         url: streamUrl,
         start_time: trim.start,
         end_time: trim.end,
+        // Birden çok parça varsa backend her parçayı ayrı işleyip birleştirir.
+        segments:
+          segments.length > 1
+            ? segments.map((segment) => ({
+                start_time: segment.start,
+                end_time: segment.end,
+              }))
+            : undefined,
         mode: cutMode,
         output_format: outputFormat,
         quality: qualityApplicable ? quality : undefined,
@@ -321,9 +338,10 @@ export function ExportPanel() {
           ? t("log.exportRequestedAudio")
           : null,
       useGpu ? t("log.exportGpu", { encoder: gpu?.label ?? "GPU" }) : null,
-    ]
-      .filter(Boolean)
-      .join(" · ")
+      segments.length > 1
+        ? t("log.exportPieces", { count: segments.length })
+        : null,
+    ].filter(Boolean).join(" · ")
 
     log(
       "info",
