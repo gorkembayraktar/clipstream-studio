@@ -67,6 +67,7 @@ export const tr: Record<TranslationKey, string> = {
   "source.resolveCancelled": "İndirme iptal edildi.",
   "source.cancelDownload": "İndirmeyi İptal Et",
   "source.load": "Yükle",
+  "source.actions": "Kaynak işlemleri",
   "source.picking": "Dosya seçiliyor…",
   "source.preparingBrowser": "Tarayıcıya hazırlanıyor…",
   "source.uploading": "Yükleniyor %{percent}",

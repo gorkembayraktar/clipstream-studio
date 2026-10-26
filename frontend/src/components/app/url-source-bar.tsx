@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react"
 import {
   ClipboardPaste,
   Download,
+  EllipsisVertical,
   ExternalLink,
   FilePlus2,
   FolderOpen,
@@ -25,6 +26,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -420,6 +428,56 @@ export function UrlSourceBar() {
             {resolving ? <Loader2 className="animate-spin" /> : <Download />}
             {resolving ? t("source.resolving") : t("source.load")}
           </Button>
+
+          {/* Yerel dosya ve curl/başlık işlemleri yer kaplamasın diye menüde. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8 shrink-0"
+                disabled={resolving}
+                title={t("source.actions")}
+                aria-label={t("source.actions")}
+              >
+                <EllipsisVertical />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[11rem]">
+              <DropdownMenuItem
+                onSelect={() => void pickFile()}
+                title={t("source.pickFileNativeTitle")}
+              >
+                <FolderOpen />
+                {t("source.pickFile")}
+              </DropdownMenuItem>
+              {nativeUnavailable && (
+                <DropdownMenuItem
+                  onSelect={() => fileInputRef.current?.click()}
+                  title={t("source.pickFileBrowserTitle")}
+                >
+                  <FilePlus2 />
+                  <span className="min-w-0 truncate">
+                    {t("source.pickFileBrowser")}
+                  </span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setAdvancedOpen(true)}
+                title={t("source.curlTitle")}
+              >
+                <Terminal />
+                <span className="min-w-0 truncate">{t("source.curl")}</span>
+                {appliedHeaderNames.length > 0 && (
+                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[9px] leading-4 font-semibold text-primary">
+                    {appliedHeaderNames.length}
+                  </span>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <input
@@ -465,7 +523,7 @@ export function UrlSourceBar() {
           </div>
         )}
 
-        {picking || importing ? (
+        {(picking || importing) && (
           <div className="space-y-1.5 rounded-xl border border-primary/25 bg-primary/5 p-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-2">
@@ -516,51 +574,6 @@ export function UrlSourceBar() {
               </p>
             )}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 justify-center gap-1.5 px-2 text-xs font-normal"
-              onClick={() => void pickFile()}
-              disabled={resolving}
-              title={t("source.pickFileNativeTitle")}
-            >
-              <FolderOpen className="size-3.5" />
-              {t("source.pickFile")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 justify-center gap-1.5 px-2 text-xs font-normal"
-              onClick={() => setAdvancedOpen(true)}
-              disabled={resolving}
-              title={t("source.curlTitle")}
-            >
-              <Terminal className="size-3.5" />
-              {t("source.curl")}
-              {appliedHeaderNames.length > 0 && (
-                <span className="rounded-full bg-primary/15 px-1.5 text-[9px] leading-4 font-semibold text-primary">
-                  {appliedHeaderNames.length}
-                </span>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {nativeUnavailable && !picking && !importing && !resolving && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className="h-6 justify-start px-1.5 text-[10px] font-normal text-muted-foreground"
-            onClick={() => fileInputRef.current?.click()}
-            title={t("source.pickFileBrowserTitle")}
-          >
-            {t("source.pickFileBrowser")} · {t("source.tempCopy")}
-          </Button>
         )}
 
         {/* Aktif kaynak özeti */}

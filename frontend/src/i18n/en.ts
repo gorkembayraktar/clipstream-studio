@@ -70,6 +70,7 @@ export const en = {
   "source.resolveCancelled": "Download cancelled.",
   "source.cancelDownload": "Cancel Download",
   "source.load": "Load",
+  "source.actions": "Source actions",
   "source.picking": "Choosing file…",
   "source.preparingBrowser": "Preparing for browser…",
   "source.uploading": "Uploading {percent}%",
