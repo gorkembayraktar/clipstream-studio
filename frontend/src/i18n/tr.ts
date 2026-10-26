@@ -158,6 +158,10 @@ export const tr: Record<TranslationKey, string> = {
   "project.historyConfirmTitle": "Başka bir proje açılsın mı?",
   "project.historyConfirmDescription":
     "Bu projede yüklü bir kaynak var. Başka bir proje açmak bu sekmeyi yeniden yükler. Mevcut projeniz otomatik olarak kaydedilir.",
+  "project.historyDelete": "Projeyi sil",
+  "project.historyDeleteTitle": "Bu proje silinsin mi?",
+  "project.historyDeleteDescription":
+    "Bu projenin bu tarayıcıdaki kaydı silinir. Dışa aktarılan klipler galeride kalır.",
 
   "export.selection": "Seçili aralık",
   "export.output": "Çıktı",

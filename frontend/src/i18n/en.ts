@@ -160,6 +160,10 @@ export const en = {
   "project.historyConfirmTitle": "Open another project?",
   "project.historyConfirmDescription":
     "This project has a loaded source. Opening another project will reload this tab. Your current project is saved automatically.",
+  "project.historyDelete": "Delete project",
+  "project.historyDeleteTitle": "Delete this project?",
+  "project.historyDeleteDescription":
+    "The saved workspace for this project is removed from this browser. Exported clips stay in the gallery.",
 
   "export.selection": "Selected range",
   "export.output": "Output",

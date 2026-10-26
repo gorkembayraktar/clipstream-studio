@@ -1,7 +1,13 @@
 /** Kaynak panelinin altında bu tarayıcıda kayıtlı son projeleri gösterir. */
 import { useEffect, useRef, useState } from "react"
 
-import { ChevronDown, ExternalLink, History, RefreshCwIcon } from "lucide-react"
+import {
+  ChevronDown,
+  ExternalLink,
+  History,
+  RefreshCwIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 import { cn } from "cn"
 
@@ -21,6 +27,7 @@ import { useI18n } from "@/i18n"
 import { projectUrl } from "@/lib/project-route"
 import {
   listProjectWorkspaces,
+  removeProjectWorkspace,
   type ProjectWorkspace,
 } from "@/lib/project-workspace"
 import { useProjectUiStore } from "@/stores/project-ui-store"
@@ -50,6 +57,7 @@ export function ProjectHistory() {
   const historyOpen = useProjectUiStore((state) => state.historyOpen)
   const setHistoryOpen = useProjectUiStore((state) => state.setHistoryOpen)
   const [pending, setPending] = useState<ProjectWorkspace | null>(null)
+  const [deleting, setDeleting] = useState<ProjectWorkspace | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const refreshTimerRef = useRef<number | null>(null)
 
@@ -170,6 +178,17 @@ export function ProjectHistory() {
             >
               <ExternalLink />
             </Button>
+
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0 text-muted-foreground opacity-70 group-hover:opacity-100 hover:text-destructive"
+              onClick={() => setDeleting(item)}
+              title={t("project.historyDelete")}
+              aria-label={`${t("project.historyDelete")}: ${projectTitle(item)}`}
+            >
+              <Trash2Icon />
+            </Button>
           </li>
         ))}
       </ul>
@@ -215,6 +234,45 @@ export function ProjectHistory() {
               }}
             >
               {t("project.historyOpen")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("project.historyDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("project.historyDeleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {deleting && (
+            <p className="truncate rounded-lg border bg-muted/30 px-3 py-2 text-left text-xs font-medium">
+              {projectTitle(deleting)}
+            </p>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const target = deleting
+                // Kayıt silinince liste bir sonraki render'da localStorage'dan
+                // yeniden okunur.
+                setDeleting(null)
+                if (target) removeProjectWorkspace(target.id)
+              }}
+            >
+              <Trash2Icon />
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
