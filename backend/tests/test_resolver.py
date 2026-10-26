@@ -1,4 +1,4 @@
-"""TikTok URL/platform seçimi ve canlı akış tercihleri."""
+"""TikTok URL/platform seÃ§imi ve canlÄ± akÄ±ÅŸ tercihleri."""
 import json
 import sys
 import unittest
@@ -12,10 +12,13 @@ if str(BACKEND_DIR) not in sys.path:
 from services import resolver  # noqa: E402
 from services.resolver import (  # noqa: E402
     ResolveError,
+    _audio_track_label,
     _lookup_tiktok_live_room,
+    _pick_audio,
     _pick_tiktok_stream,
     _tiktok_live_uploader,
     _tiktok_live_variants,
+    _ytdlp_audio_tracks,
     platform_of,
 )
 
@@ -157,7 +160,7 @@ class TikTokStreamTests(unittest.TestCase):
                 "height": 1080,
                 "tbr": 3000,
             },
-            # yt-dlp aynı URL'yi çözünürlük bilgisi olmadan tekrar edebilir.
+            # yt-dlp aynÄ± URL'yi Ã§Ã¶zÃ¼nÃ¼rlÃ¼k bilgisi olmadan tekrar edebilir.
             {
                 "url": "https://cdn.example.com/live-720.m3u8",
                 "ext": "mp4",
@@ -292,6 +295,121 @@ class TikTokResolvePayloadTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             "https://m.tiktok.com/share/live/7699840766693657351/",
             captured["args"],
+        )
+
+
+class YoutubeAudioTrackTests(unittest.TestCase):
+    """YouTube dublajlarÄ±nÄ±n dil listesine dÃ¶nÃ¼ÅŸtÃ¼rÃ¼lmesi."""
+
+    @staticmethod
+    def audio_format(**overrides):
+        base = {
+            "format_id": "140",
+            "url": "https://rr1.googlevideo.com/videoplayback?itag=140",
+            "ext": "m4a",
+            "acodec": "mp4a.40.2",
+            "vcodec": "none",
+            "abr": 129.4,
+            "language": "en-US",
+            "language_preference": 10,
+            "format_note": "English (US) original (default), medium",
+            "protocol": "https",
+        }
+        base.update(overrides)
+        return base
+
+    def test_label_keeps_audio_track_name(self):
+        self.assertEqual(
+            _audio_track_label(self.audio_format()),
+            "English (US)",
+        )
+        self.assertEqual(
+            _audio_track_label(self.audio_format(format_note="Turkish, medium")),
+            "Turkish",
+        )
+        self.assertEqual(
+            _audio_track_label(self.audio_format(format_note="low, DRC")),
+            "",
+        )
+
+    def test_dubs_are_deduped_per_language_and_original_is_default(self):
+        formats = [
+            self.audio_format(),
+            self.audio_format(
+                format_id="140-3",
+                url="https://rr1.googlevideo.com/dub-tr",
+                language="tr",
+                language_preference=-1,
+                format_note="Turkish, medium",
+            ),
+            self.audio_format(
+                format_id="251-7",
+                url="https://rr1.googlevideo.com/dub-tr-webm",
+                ext="webm",
+                acodec="opus",
+                abr=128.1,
+                language="tr",
+                language_preference=-1,
+                format_note="Turkish, medium",
+            ),
+            self.audio_format(
+                format_id="139-22",
+                url="https://rr1.googlevideo.com/dub-tr-low",
+                abr=48.7,
+                language="tr",
+                language_preference=-1,
+                format_note="Turkish, low",
+            ),
+        ]
+
+        tracks = _ytdlp_audio_tracks(formats)
+
+        self.assertEqual([track["language"] for track in tracks], ["en-US", "tr"])
+        self.assertTrue(tracks[0]["default"])
+        self.assertFalse(tracks[1]["default"])
+        # AynÄ± dilde AAC ve daha yÃ¼ksek bit hÄ±zÄ± seÃ§ilir.
+        self.assertEqual(tracks[1]["url"], "https://rr1.googlevideo.com/dub-tr")
+        self.assertEqual(tracks[1]["name"], "Turkish")
+        self.assertEqual(tracks[1]["id"], "yt|tr")
+        self.assertTrue(all(track["id"].startswith("yt|") for track in tracks))
+
+    def test_single_language_yields_single_track(self):
+        formats = [
+            self.audio_format(
+                format_id="139-drc",
+                abr=48.8,
+                format_note="low, DRC",
+                url="https://rr1.googlevideo.com/drc",
+            ),
+            self.audio_format(format_note="medium", abr=129.4),
+        ]
+
+        tracks = _ytdlp_audio_tracks(formats)
+
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual(tracks[0]["id"], "yt|en-US")
+        self.assertTrue(tracks[0]["default"])
+
+    def test_pick_audio_prefers_original_language_over_dub(self):
+        formats = [
+            self.audio_format(
+                url="https://rr1.googlevideo.com/dub",
+                language="tr",
+                language_preference=-1,
+                abr=129.4,
+            ),
+            self.audio_format(
+                url="https://rr1.googlevideo.com/original",
+                ext="webm",
+                acodec="opus",
+                abr=125.3,
+                language_preference=10,
+            ),
+        ]
+
+        self.assertEqual(
+            _pick_audio(formats),
+            "https://rr1.googlevideo.com/original",
         )
 
 

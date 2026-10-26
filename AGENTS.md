@@ -1,6 +1,6 @@
 # Agent conventions
 
-- The app version is `0.1.x` (currently `0.1.139`).
+- The app version is `0.1.x` (currently `0.1.140`).
 - For every development change, increment the last number by one.
 - Keep these in sync:
   - `frontend/package.json`

@@ -569,8 +569,19 @@ async def resolve_url(
     # dışa aktarmada FFmpeg ikisini birleştirir.
     audio_url = None if best["has_audio"] else _pick_audio(formats)
 
+    # YouTube dublajları ayrı ses formatlarıdır: tek ses varsa eski davranış
+    # korunur (önbellek anahtarı değişmesin), birden fazlaysa kullanıcıya
+    # seçim listesi sunulur ve özgün dil varsayılan olur.
+    audio_tracks: list[dict[str, Any]] = []
+    if platform == "youtube" and not is_live and not best["has_audio"]:
+        tracks = _ytdlp_audio_tracks(formats)
+        if len(tracks) > 1:
+            audio_tracks = tracks
+            audio_url = tracks[0]["url"]
+
     for variant in variants:
         variant["audio_url"] = None if variant["has_audio"] else audio_url
+        variant["audio_tracks"] = [] if variant["has_audio"] else audio_tracks
         variant["default"] = _variant_quality(variant) == default_height
 
     selected_headers = next(
@@ -600,7 +611,7 @@ async def resolve_url(
         "resolution": f"{_variant_quality(best)}p" if _variant_quality(best) else "",
         "has_audio": best["has_audio"],
         "audio_url": audio_url,
-        "audio_tracks": [],
+        "audio_tracks": audio_tracks,
         "subtitle_tracks": [],
         #: Kaynak panelindeki kalite listesi (varsayılan `default: true` ile işaretli).
         "variants": variants,
@@ -697,6 +708,88 @@ def _has_audio(fmt: dict[str, Any]) -> bool:
     """Formatın ses akışı içerip içermediği (yt-dlp acodec alanı)."""
     acodec = fmt.get("acodec")
     return bool(acodec and acodec != "none")
+
+
+def _audio_track_label(fmt: dict[str, Any]) -> str:
+    """Ses formatının görünen adı (ör. "Turkish", "English (US)").
+
+    yt-dlp `format_note` alanına YouTube'un ses parçası adını ve kalite sınıfını
+    virgülle birleştirir: "Turkish, medium". Yalnızca ilk parça ad olarak alınır;
+    "(original)" / "(default)" işaretleri arayüzde ayrıca gösterildiği için
+    temizlenir.
+    """
+    head = str(fmt.get("format_note") or "").split(",")[0].strip()
+    if head.lower() in {"tiny", "low", "medium", "high", "premium", "drc"}:
+        return ""
+    head = re.sub(r"\s*\((?:original|default)\)", "", head, flags=re.IGNORECASE)
+    head = re.sub(r"\s*\b(?:original|default)\b", "", head, flags=re.IGNORECASE)
+    return head.strip()
+
+
+def _ytdlp_audio_tracks(formats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """YouTube'un dublajlı ses parçalarını dil başına tek kayıt olarak listeler.
+
+    YouTube, otomatik dublajları ayrı ses formatları olarak sunar. yt-dlp her
+    birine `language` (ISO kodu) ve `language_preference` yazar: 10 özgün dil,
+    5 varsayılan parça, -1 dublaj. Aynı dil hem AAC (m4a) hem Opus (webm)
+    olarak, birden çok bit hızında gelebildiği için dil başına en iyi kayıt
+    seçilir (AAC önce, sonra bit hızı).
+
+    Dönen kimlik dil ve ada dayanır: yt-dlp'nin `format_id` alanı aynı itag'in
+    dublaj kopyalarında `140-3` gibi sıra numarası taşıdığından yeniden
+    çözümlemede kararlı değildir. Dalga formu önbelleği bu kimliğe göre ayrılır.
+    """
+    best: dict[str, dict[str, Any]] = {}
+
+    for fmt in formats:
+        url = fmt.get("url")
+        if not url or not _has_audio(fmt) or fmt.get("vcodec") not in (None, "none"):
+            continue
+        if _is_hls_format(fmt):
+            continue
+
+        language = str(fmt.get("language") or "").strip()
+        label = _audio_track_label(fmt)
+        key = (language or label).lower()
+        if not key:
+            continue
+
+        preference = int(fmt.get("language_preference") or 0)
+        aac = 1 if (fmt.get("ext") or "").lower() in DIRECT_AUDIO_EXTENSIONS else 0
+        score = (aac, preference, float(fmt.get("abr") or fmt.get("tbr") or 0))
+
+        current = best.get(key)
+        if current is not None and current["score"] >= score:
+            continue
+        best[key] = {
+            "score": score,
+            "preference": preference,
+            "id": f"yt|{language or label}",
+            "name": label or language.upper(),
+            "language": language or None,
+            "url": url,
+        }
+
+    ordered = sorted(
+        best.values(),
+        key=lambda item: (-item["preference"], item["name"].lower()),
+    )
+
+    tracks: list[dict[str, Any]] = []
+    for index, item in enumerate(ordered):
+        tracks.append(
+            {
+                "id": item["id"],
+                "group_id": "ytdlp",
+                "name": item["name"],
+                "language": item["language"],
+                "url": item["url"],
+                "hls": False,
+                # Özgün dil (preference 10) başta gelir; o yoksa ilk dublaj.
+                "default": index == 0,
+            }
+        )
+    return tracks
 
 
 def _is_hls_format(fmt: dict[str, Any]) -> bool:
@@ -1224,7 +1317,10 @@ def _pick_audio(formats: list[dict[str, Any]]) -> Optional[str]:
         if not fmt_url or not _has_audio(fmt) or fmt.get("vcodec") not in (None, "none"):
             continue
 
-        score = float(fmt.get("abr") or fmt.get("tbr") or 0)
+        # Özgün dil (yt-dlp `language_preference` 10) her zaman dublajdan önce
+        # gelir; aynı dilde AAC ve daha yüksek bit hızı tercih edilir.
+        preference = float(fmt.get("language_preference") or 0)
+        score = preference * 2_000 + float(fmt.get("abr") or fmt.get("tbr") or 0)
         if (fmt.get("ext") or "").lower() in DIRECT_AUDIO_EXTENSIONS:
             score += 10_000  # AAC tercihi
         if score > best_score:
