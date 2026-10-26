@@ -1,32 +1,26 @@
 /** Zaman çizelgesi dalga formu katmanı (nötr gri).
  *
- * Çubuklar yalnızca veri/boyut değiştiğinde çizilir; oynatma sırasında
- * yeniden çizim yapılmaz.
+ * Veri `WaveformProvider`'dan gelir (çıktı şeridiyle paylaşılır). Çubuklar
+ * yalnızca veri/boyut değiştiğinde çizilir; oynatma sırasında yeniden çizim
+ * yapılmaz.
  */
 import { useEffect, useRef, useState } from "react"
 
-import { useWaveform } from "@/hooks/use-waveform"
+import { useWaveformData } from "@/components/app/waveform-provider"
 import { clamp } from "@/lib/format"
-import { useSourceStore } from "@/stores/source-store"
-
-/** Çubuk genişliği ve komşusuyla arası (px). */
-const BAR_WIDTH = 2
-const BAR_GAP = 1
-/** Çubukların en küçük yüksekliği (sessiz bölümler de görünür kalsın). */
-const MIN_BAR_HEIGHT = 1
-/** Sabit gri (muted-foreground okunamazsa yedek). */
-const FALLBACK_GRAY = "#a1a1aa"
-/** Yüksek yakınlaştırmada canvas boyutunu tarayıcı sınırlarında tutar. */
-const MAX_CANVAS_WIDTH = 16384
+import {
+  BAR_GAP,
+  BAR_WIDTH,
+  MAX_CANVAS_WIDTH,
+  MIN_BAR_HEIGHT,
+  WAVEFORM_ALPHA,
+  type WaveformSpan,
+  waveformColor,
+} from "@/lib/waveform"
 
 interface Size {
   width: number
   height: number
-}
-
-/** Canvas'ın anlayacağı bir renk mi? (color-mix gibi değerler çizilemez) */
-function isDrawableColor(value: string): boolean {
-  return /^(#|rgb|hsl|oklch|lab|lch|color\()/i.test(value.trim())
 }
 
 function drawBars(
@@ -36,12 +30,13 @@ function drawBars(
   duration: number,
   loadedBuckets: number,
   color: string,
+  spans?: WaveformSpan[],
 ) {
   const context = canvas.getContext("2d")
   if (!context || canvas.width <= 0 || canvas.height <= 0) return
 
   context.clearRect(0, 0, canvas.width, canvas.height)
-  context.globalAlpha = 0.9
+  context.globalAlpha = WAVEFORM_ALPHA
   context.fillStyle = color
 
   const total = duration > 0 ? duration : buckets.length * bucketSeconds
@@ -51,12 +46,36 @@ function drawBars(
   const columns = Math.max(1, Math.floor(canvas.width / (BAR_WIDTH + BAR_GAP)))
   const center = canvas.height / 2
 
+  /**
+   * Çıktı zamanı aralığını kaynak zamanına çevirir. `spans` yoksa çizelge
+   * zaten kaynak zamanındadır (kimlik dönüşümü). Kesimler atlandığı için
+   * çubuklar bitişik parçalardan örneklenir.
+   */
+  const sourceRange = (from: number, to: number) => {
+    if (!spans || spans.length === 0) return { from, to }
+    const span =
+      spans.find((item) => from >= item.start && from < item.end) ?? spans[spans.length - 1]
+    const speed = span.speed > 0 ? span.speed : 1
+    const localFrom = clamp(from - span.start, 0, span.end - span.start)
+    const localTo = clamp(to - span.start, localFrom, span.end - span.start)
+    return {
+      from: span.sourceStart + localFrom * speed,
+      to: Math.min(span.sourceEnd, span.sourceStart + localTo * speed),
+    }
+  }
+
   for (let column = 0; column < columns; column += 1) {
     const from = (column / columns) * total
     if (from >= loadedDuration) continue
-    const to = Math.min(((column + 1) / columns) * total, loadedDuration)
-    const first = clamp(Math.floor(from / bucketSeconds), 0, available - 1)
-    const last = clamp(Math.ceil(to / bucketSeconds), first + 1, available)
+    const to = ((column + 1) / columns) * total
+    const range = sourceRange(from, to)
+    if (range.from >= loadedDuration) continue
+    const first = clamp(Math.floor(range.from / bucketSeconds), 0, available - 1)
+    const last = clamp(
+      Math.ceil(Math.min(range.to, loadedDuration) / bucketSeconds),
+      first + 1,
+      available,
+    )
 
     let peak = 0
     for (let index = first; index < last; index += 1) {
@@ -70,22 +89,17 @@ function drawBars(
   context.globalAlpha = 1
 }
 
-export function WaveformLayer({ duration, zoom }: { duration: number; zoom: number }) {
-  const streamUrl = useSourceStore((s) => s.streamUrl)
-  const origin = useSourceStore((s) => s.sourceOrigin)
-  const audioUrl = useSourceStore((s) => s.audioUrl)
-  const audioTrackId = useSourceStore((s) => s.audioTrackId)
-  const hasAudio = useSourceStore((s) => s.meta?.hasAudio)
-  const waveformAudioUrl =
-    audioTrackId || hasAudio === false ? audioUrl : null
-  const { data } = useWaveform(
-    streamUrl,
-    origin,
-    duration,
-    waveformAudioUrl,
-    hasAudio ?? null,
-    audioTrackId,
-  )
+export function WaveformLayer({
+  duration,
+  zoom,
+  spans,
+}: {
+  duration: number
+  zoom: number
+  /** Çıktı zamanı yerleşimi; verilirse kesilen aralıklar atlanarak çizilir. */
+  spans?: WaveformSpan[]
+}) {
+  const data = useWaveformData()
 
   const hostRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -116,16 +130,16 @@ export function WaveformLayer({ duration, zoom }: { duration: number; zoom: numb
     canvas.width = Math.round(renderWidth * ratio)
     canvas.height = Math.round(height * ratio)
 
-    const computed = hostRef.current ? getComputedStyle(hostRef.current).color : ""
     drawBars(
       canvas,
       data.buckets,
       data.bucketSeconds,
       duration,
       data.loadedBuckets,
-      isDrawableColor(computed) ? computed : FALLBACK_GRAY,
+      waveformColor(hostRef.current),
+      spans,
     )
-  }, [data, size, duration])
+  }, [data, size, duration, spans])
 
   if (!data) return null
 

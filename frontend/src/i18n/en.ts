@@ -373,6 +373,7 @@ export const en = {
   "timeline.storyboardFailed": "Preview unavailable",
   "timeline.loadSource": "Load a source to use the timeline",
   "timeline.live": "LIVE source · editing is unavailable until a finite clip is loaded",
+  "timeline.allCut": "Every part is cut out — restore a cut to keep editing",
   "timeline.zoom": "Timeline zoom",
   "timeline.zoomIn": "Zoom in",
   "timeline.zoomOut": "Zoom out",
@@ -380,9 +381,8 @@ export const en = {
   "timeline.zoomResetLevel": "Zoom {percent}%. Click to reset.",
   "timeline.zoomSlider": "Zoom slider — drag to adjust",
 
-  "outputTimeline.label": "Output",
-  "outputTimeline.hint": "Export result — click or drag to seek",
-  "outputTimeline.empty": "Nothing to export yet",
+  "sourceTimeline.label": "Source",
+  "sourceTimeline.hint": "Full source — removed ranges are marked; click or drag to seek",
 
   "player.seekBack": "Back 5s (←)",
   "player.playPause": "Play / pause (Space)",

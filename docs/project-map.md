@@ -114,7 +114,6 @@
 | `job-progress.tsx`              | JobProgress |
 | `jobs-dock.tsx`                 | JobsDock |
 | `log-drawer.tsx`                | LogDrawer |
-| `output-timeline.tsx`           | OutputTimeline |
 | `project-banner.tsx`            | ProjectBanner |
 | `project-history.tsx`           | ProjectHistory |
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
@@ -122,14 +121,18 @@
 | `project-workspace-context.tsx` | ProjectWorkspaceProvider, useProjectWorkspaceController |
 | `settings-panel.tsx`            | SettingsPanel |
 | `side-panel.tsx`                | SidePanel |
+| `source-timeline.tsx`           | SourceTimeline |
 | `stage-controls.tsx`            | StageControls |
+| `storyboard-provider.tsx`       | StoryboardProvider, useStoryboardData |
 | `stream-status-badge.tsx`       | StreamStatusBadge |
+| `timeline-preview.tsx`          | PREVIEW_WIDTH, PREVIEW_HEIGHT, TimelinePreview |
 | `timeline-toolbar.tsx`          | TimelineToolbar |
 | `timeline.tsx`                  | Timeline |
 | `trim-bar.tsx`                  | TrimBar |
 | `url-source-bar.tsx`            | UrlSourceBar |
 | `video-stage.tsx`               | VideoStage |
 | `waveform-layer.tsx`            | WaveformLayer |
+| `waveform-provider.tsx`         | WaveformProvider, useWaveformData |
 
 ### UI temelleri (`components/ui/`)
 
@@ -171,6 +174,7 @@
 | `use-library.ts`            | libraryKeys, useLibrary, useLibraryFileMeta, useDeleteLibraryFile, useDeleteLibraryFiles, useRevealInExplorer |
 | `use-project-route.ts`      | useProjectRoute |
 | `use-project-workspace.ts`  | useProjectWorkspace |
+| `use-source-duration.ts`    | useSourceDuration |
 | `use-storyboard.ts`         | useStoryboard |
 | `use-subtitles.ts`          | useSubtitleVtt |
 | `use-waveform.ts`           | useWaveform |
@@ -182,7 +186,7 @@
 | `api.ts`                | ApiError, api |
 | `app-version.ts`        | APP_VERSION |
 | `curl.ts`               | parseCurl |
-| `format.ts`             | clamp, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, compactDuration, formatRemaining, formatRelativeTime, formatDateTime, parseTimeInput |
+| `format.ts`             | clamp, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, tickStep, formatTick, compactDuration, formatRemaining, formatRelativeTime |
 | `keyboard-shortcuts.ts` | KEYBOARD_SHORTCUTS |
 | `media.ts`              | isHlsUrl, proxiedUrl, withScheme, extractPastedUrl |
 | `project-handoff.ts`    | projectKey, writeProjectHandoff, readProjectHandoff, removeProjectHandoff |
@@ -190,12 +194,13 @@
 | `project-workspace.ts`  | PROJECT_SCHEMA_VERSION, PROJECT_STORAGE_PREFIX, createProjectId, projectStorageKey, readProjectWorkspace, writeProjectWorkspace, removeProjectWorkspace, listProjectWorkspaces |
 | `types.ts`              | — |
 | `utils.ts`              | — |
+| `waveform.ts`           | BAR_WIDTH, BAR_GAP, MIN_BAR_HEIGHT, FALLBACK_WAVEFORM_COLOR, WAVEFORM_ALPHA, MAX_CANVAS_WIDTH, isDrawableColor, waveformColor |
 
 ### Zustand store'ları (`stores/`)
 
 | Dosya                   | Açıklama / semboller |
 |-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, sourceToOutputTime, outputToSourceTime, outputLayout, segmentAt, useEditStore |
+| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt, useEditStore |
 | `export-store.ts`       | useExportStore |
 | `local-import-store.ts` | useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |

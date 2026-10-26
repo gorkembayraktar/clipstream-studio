@@ -371,6 +371,7 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.storyboardFailed": "Önizleme kullanılamıyor",
   "timeline.loadSource": "Zaman çizelgesi için bir kaynak yükle",
   "timeline.live": "LIVE kaynak · sonlu bir klip yüklenene kadar düzenleme kapalı",
+  "timeline.allCut": "Tüm içerik kesildi — düzenlemeye devam etmek için bir kesimi geri al",
   "timeline.zoom": "Zaman çizelgesi yakınlaştırması",
   "timeline.zoomIn": "Yakınlaştır",
   "timeline.zoomOut": "Uzaklaştır",
@@ -378,9 +379,8 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.zoomResetLevel": "Yakınlaştırma %{percent}. Sıfırlamak için tıkla.",
   "timeline.zoomSlider": "Yakınlaştırma kaydırıcısı — sürükleyerek ayarla",
 
-  "outputTimeline.label": "Çıktı",
-  "outputTimeline.hint": "Dışa aktarma sonucu — sarmak için tıkla veya sürükle",
-  "outputTimeline.empty": "Henüz dışa aktarılacak içerik yok",
+  "sourceTimeline.label": "Kaynak",
+  "sourceTimeline.hint": "Tam kaynak — kaldırılan aralıklar işaretli; sarmak için tıkla veya sürükle",
 
   "player.seekBack": "5 sn geri (←)",
   "player.playPause": "Oynat / Durdur (Boşluk)",

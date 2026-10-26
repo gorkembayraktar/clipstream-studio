@@ -67,6 +67,28 @@ export function formatClock(seconds: number): string {
   return `${minutes}:${String(secs).padStart(2, "0")}`
 }
 
+/** Zaman çizelgesi çentik aralığı: okunur adımlardan birini seçer.
+ *
+ * `span`, çentiklerin bölüneceği toplam süredir (kaynak veya çıktı).
+ */
+export function tickStep(span: number): number {
+  const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600]
+  const target = span / 10
+  return steps.find((step) => step >= target) ?? 3600
+}
+
+/** Çentiği etikete çevirir; yakınlaştırmada saniye altı adımları da okunur tutar. */
+export function formatTick(seconds: number, step: number): string {
+  if (step >= 1) return formatClock(seconds)
+  const total = Math.max(0, seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = (total % 60).toFixed(1).padStart(4, "0")
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${secs}`
+    : `${minutes}:${secs}`
+}
+
 /** "21.4 sn" / "1 dk 05 sn" or "21.4s" / "1m 05s" compact duration text. */
 export function compactDuration(seconds: number): string {
   const turkish = getLocale() === "tr"

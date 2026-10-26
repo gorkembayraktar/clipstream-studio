@@ -1,8 +1,10 @@
 /** Düzenleme durumu: segmentler (çoklu kesim), döngü ve kırpma.
  *
- * Zaman çizelgesi **kaynak zamanında** kalır: bir segment kaynaktaki
+ * Segmentler **kaynak zamanında** tutulur: bir segment kaynaktaki
  * `[start, end)` aralığını temsil eder, aradaki boşluklar dışa aktarmadan
- * çıkarılır. Segment üzerindeki `speed`/`effects` alanları ileride hız, blur,
+ * çıkarılır. Ana çizelge bu segmentleri **çıktı zamanında** (boşluksuz,
+ * birleşik) gösterir; dönüşüm `sourceToOutputTime` / `outputToSourceTime` ile
+ * yapılır. Segment üzerindeki `speed`/`effects` alanları ileride hız, blur,
  * filigran gibi işlemler için ayrılmıştır; dışa aktarma her segmenti ayrı
  * işleyip birleştirdiği için bu alanlar migration gerektirmeden eklenebilir.
  */
@@ -134,51 +136,55 @@ export function outputDuration(segments: Segment[]): number {
   return segments.reduce((total, segment) => total + segmentOutputLength(segment), 0)
 }
 
-/**
- * Kaynak zamanını çıktı zamanına çevirir (boşluklar sıkıştırılır).
- *
- * Boşluk içindeki bir zaman, o boşluktan sonraki segmentin çıktıdaki başına
- * eşlenir; böylece imleç kesim sınırında durur, ışınlanmış gibi görünmez.
- */
+/** Bir segmentin çıktı zamanındaki yeri. */
+export interface SegmentSpan {
+  segment: Segment
+  /** Çıktı zamanı başlangıcı (sn). */
+  start: number
+  /** Çıktı zamanı bitişi (sn). */
+  end: number
+}
+
+/** Segmentleri boşluk bırakmadan çıktı zamanına dizer. */
+export function layoutOf(segments: Segment[]): SegmentSpan[] {
+  const spans: SegmentSpan[] = []
+  let cursor = 0
+  for (const segment of segments) {
+    const length = segmentOutputLength(segment)
+    spans.push({ segment, start: cursor, end: cursor + length })
+    cursor += length
+  }
+  return spans
+}
+
+/** Kaynak zamanını çıktı zamanına çevirir (boşlukta en yakın sınıra düşer). */
 export function sourceToOutputTime(segments: Segment[], time: number): number {
-  let output = 0
+  let cursor = 0
   for (const segment of segments) {
-    if (time < segment.start) return output
-    if (time < segment.end) {
+    const length = segmentOutputLength(segment)
+    if (time < segment.start) return cursor
+    if (time <= segment.end) {
       const speed = segment.speed > 0 ? segment.speed : 1
-      return output + (time - segment.start) / speed
+      return cursor + Math.min(length, (time - segment.start) / speed)
     }
-    output += segmentOutputLength(segment)
+    cursor += length
   }
-  return output
+  return cursor
 }
 
-/** Çıktı zamanını kaynak zamanına çevirir (çıktı çizelgesinde tıklama/sarma). */
+/** Çıktı zamanını kaynak zamanına çevirir. */
 export function outputToSourceTime(segments: Segment[], time: number): number {
-  if (segments.length === 0) return 0
-  let output = 0
+  let cursor = 0
   for (const segment of segments) {
     const length = segmentOutputLength(segment)
-    if (time < output + length) {
-      const speed = segment.speed > 0 ? segment.speed : 1
-      return segment.start + (time - output) * speed
+    const speed = segment.speed > 0 ? segment.speed : 1
+    if (time <= cursor + length) {
+      return segment.start + clamp((time - cursor) * speed, 0, segment.end - segment.start)
     }
-    output += length
+    cursor += length
   }
-  return segments[segments.length - 1].end
-}
-
-/** Segmentlerin çıktıdaki yerleşimi: [başlangıç, bitiş) çıktı saniyesi. */
-export function outputLayout(
-  segments: Segment[],
-): Array<{ segment: Segment; start: number; end: number }> {
-  let offset = 0
-  return segments.map((segment) => {
-    const length = segmentOutputLength(segment)
-    const entry = { segment, start: offset, end: offset + length }
-    offset += length
-    return entry
-  })
+  const last = segments[segments.length - 1]
+  return last ? last.end : 0
 }
 
 /** Verilen zamandaki segment (yoksa null → boşluk). */

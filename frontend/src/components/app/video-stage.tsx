@@ -9,10 +9,12 @@ import { CropMenu } from "@/components/app/crop-menu"
 import { CropOverlay } from "@/components/app/crop-overlay"
 import { StageControls } from "@/components/app/stage-controls"
 import { StreamStatusBadge } from "@/components/app/stream-status-badge"
-import { OutputTimeline } from "@/components/app/output-timeline"
+import { SourceTimeline } from "@/components/app/source-timeline"
+import { StoryboardProvider } from "@/components/app/storyboard-provider"
 import { Timeline } from "@/components/app/timeline"
 import { TimelineToolbar } from "@/components/app/timeline-toolbar"
 import { TrimBar } from "@/components/app/trim-bar"
+import { WaveformProvider } from "@/components/app/waveform-provider"
 import { useHlsSource } from "@/hooks/use-hls-source"
 import { useSubtitleVtt } from "@/hooks/use-subtitles"
 import { useFullscreen } from "@/hooks/use-fullscreen"
@@ -962,8 +964,12 @@ export function VideoStage() {
         )}
       >
         <TimelineToolbar />
-        <Timeline />
-        <OutputTimeline />
+        <WaveformProvider>
+          <StoryboardProvider>
+            <Timeline />
+            <SourceTimeline />
+          </StoryboardProvider>
+        </WaveformProvider>
         <TrimBar />
       </div>
     </div>
