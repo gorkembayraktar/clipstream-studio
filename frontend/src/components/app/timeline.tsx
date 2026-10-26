@@ -5,10 +5,11 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { ScissorsIcon } from "lucide-react"
+import { ChevronRightIcon, DownloadIcon, ScissorsIcon } from "lucide-react"
 
 import { cn } from "cn"
 
+import { PROFILE_LABEL_KEYS } from "@/components/app/export-panel-constants"
 import { useStoryboardData } from "@/components/app/storyboard-provider"
 import { PREVIEW_WIDTH, TimelinePreview } from "@/components/app/timeline-preview"
 import { WaveformLayer } from "@/components/app/waveform-layer"
@@ -17,8 +18,12 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { useQuickExport, QUICK_EXPORT_PROFILES } from "@/hooks/use-quick-export"
 import { useSourceDuration } from "@/hooks/use-source-duration"
 import { useI18n } from "@/i18n"
 import { clamp, formatTick, tickStep } from "@/lib/format"
@@ -85,6 +90,7 @@ export function Timeline() {
   const zoom = useTimelineStore((s) => s.zoom)
   const resetZoom = useTimelineStore((s) => s.resetZoom)
   const selectMode = useTimelineStore((s) => s.selectMode)
+  const quickExport = useQuickExport()
 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -529,6 +535,47 @@ export function Timeline() {
               <span className="size-2 rounded-full bg-amber-500 dark:bg-amber-400" />
               {t("timeline.contextOut")}
             </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuSub>
+              <ContextMenuSubTrigger disabled={!quickExport.canExport}>
+                <DownloadIcon />
+                {t("timeline.exportMenu")}
+                <ChevronRightIcon className="ml-auto" />
+              </ContextMenuSubTrigger>
+              <ContextMenuSubContent className="min-w-[10rem]">
+                <ContextMenuSub>
+                  <ContextMenuSubTrigger>
+                    MP4
+                    <ChevronRightIcon className="ml-auto" />
+                  </ContextMenuSubTrigger>
+                  <ContextMenuSubContent>
+                    {QUICK_EXPORT_PROFILES.map((profile) => (
+                      <ContextMenuItem
+                        key={profile}
+                        disabled={
+                          profile === "original" && !quickExport.originalAvailable
+                        }
+                        onSelect={() => quickExport.run("mp4", profile)}
+                      >
+                        {t(PROFILE_LABEL_KEYS[profile])}
+                      </ContextMenuItem>
+                    ))}
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
+                <ContextMenuItem
+                  disabled={quickExport.multiSegment}
+                  onSelect={() => quickExport.run("gif")}
+                >
+                  GIF
+                </ContextMenuItem>
+                <ContextMenuItem
+                  disabled={quickExport.multiSegment}
+                  onSelect={() => quickExport.run("mp3")}
+                >
+                  MP3
+                </ContextMenuItem>
+              </ContextMenuSubContent>
+            </ContextMenuSub>
             <ContextMenuSeparator />
             <ContextMenuItem disabled={!selection} onSelect={cutSelection}>
               <ScissorsIcon />

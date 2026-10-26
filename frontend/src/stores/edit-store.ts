@@ -111,6 +111,18 @@ export function ensureTrim(trim: TimeRange, segments: Segment[]): TimeRange {
   return trimOf(segments)
 }
 
+/** In/Out seçimiyle kesişen parçalar (dışa aktarmanın gerçek sınırı). */
+export function clippedSegments(segments: Segment[], trim: TimeRange): TimeRange[] {
+  if (trim.end - trim.start < 0.001) return []
+  const clipped: TimeRange[] = []
+  for (const segment of segments) {
+    const start = Math.max(segment.start, trim.start)
+    const end = Math.min(segment.end, trim.end)
+    if (end - start > 0.001) clipped.push({ start, end })
+  }
+  return clipped
+}
+
 /** Segmentler arasındaki boşluklar (dışa aktarmadan çıkarılan aralıklar). */
 export function gapsOf(segments: Segment[], window: TimeRange): TimeRange[] {
   if (window.end <= window.start) return []

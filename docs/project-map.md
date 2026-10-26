@@ -175,6 +175,7 @@
 | `use-library.ts`            | libraryKeys, useLibrary, useLibraryFileMeta, useDeleteLibraryFile, useDeleteLibraryFiles, useRevealInExplorer |
 | `use-project-route.ts`      | useProjectRoute |
 | `use-project-workspace.ts`  | useProjectWorkspace |
+| `use-quick-export.ts`       | QUICK_EXPORT_PROFILES, useQuickExport |
 | `use-source-duration.ts`    | useSourceDuration |
 | `use-storyboard.ts`         | useStoryboard |
 | `use-subtitles.ts`          | useSubtitleVtt |
@@ -201,7 +202,7 @@
 
 | Dosya                   | Açıklama / semboller |
 |-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt, useEditStore |
+| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, clippedSegments, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt |
 | `export-store.ts`       | useExportStore |
 | `local-import-store.ts` | useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |

@@ -12,7 +12,7 @@ import type {
   OutputFormat,
 } from "@/lib/types"
 import { log } from "@/stores/log-store"
-import { useEditStore } from "@/stores/edit-store"
+import { useEditStore, clippedSegments } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { useSourceStore } from "@/stores/source-store"
 
@@ -39,15 +39,10 @@ export function ExportPanel() {
   const crop = useEditStore((s) => s.crop)
 
   // In/Out seçimi dışa aktarımı sınırlar; timeline'ı değiştirmez.
-  const exportSegments = useMemo(() => {
-    if (trim.end - trim.start < 0.001) return []
-    return segments
-      .map((segment) => ({
-        start: Math.max(segment.start, trim.start),
-        end: Math.min(segment.end, trim.end),
-      }))
-      .filter((segment) => segment.end - segment.start > 0.001)
-  }, [segments, trim.start, trim.end])
+  const exportSegments = useMemo(
+    () => clippedSegments(segments, trim),
+    [segments, trim],
+  )
 
   const cutMode = useExportStore((s) => s.cutMode)
   const outputFormat = useExportStore((s) => s.outputFormat)

@@ -374,6 +374,7 @@ export const en = {
   "timeline.selectMode": "Select",
   "timeline.selectModeTitle":
     "Select mode — drag to pick a cut area (no Shift needed)",
+  "timeline.exportMenu": "Export",
   "timeline.storyboardLoading": "Preparing preview…",
   "timeline.storyboardFailed": "Preview unavailable",
   "timeline.loadSource": "Load a source to use the timeline",

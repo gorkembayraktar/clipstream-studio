@@ -372,6 +372,7 @@ export const tr: Record<TranslationKey, string> = {
   "timeline.selectMode": "Seçim",
   "timeline.selectModeTitle":
     "Seçim modu — açıkken sürükleyerek kesim alanı seç (Shift gerekmez)",
+  "timeline.exportMenu": "Dışa aktar",
   "timeline.storyboardLoading": "Önizleme hazırlanıyor…",
   "timeline.storyboardFailed": "Önizleme kullanılamıyor",
   "timeline.loadSource": "Zaman çizelgesi için bir kaynak yükle",
