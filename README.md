@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.160-8b5cf6?style=flat-square" alt="Version 0.1.160">
+  <img src="https://img.shields.io/badge/version-0.1.161-8b5cf6?style=flat-square" alt="Version 0.1.161">
   <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Localhost-127.0.0.1-8b5cf6?style=flat-square" alt="Localhost">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
@@ -36,52 +36,50 @@
 
 <table>
   <tr>
+    <td width="64"></td>
+    <td><strong>Source</strong></td>
+    <td align="center" width="72"><strong>yt-dlp</strong></td>
+  </tr>
+  <tr>
     <td align="center" width="64"><img src="docs/logos/youtube.svg" width="30" alt="YouTube logo"></td>
     <td><strong>YouTube</strong><br><sub>Videos and Shorts.</sub></td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/x.svg" width="30" alt="X logo"></td>
     <td><strong>X (Twitter)</strong><br><sub>Video posts.</sub></td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/instagram.svg" width="30" alt="Instagram logo"></td>
     <td><strong>Instagram</strong><br><sub>Public posts and reels.</sub></td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/tiktok.svg" width="30" alt="TikTok logo"></td>
     <td><strong>TikTok</strong><br><sub>Videos and Live streams (playback only).</sub></td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/hls.svg" width="30" alt="HLS Stream logo"></td>
     <td><strong>m3u8 / HLS Stream</strong><br><sub>Master and media playlists. Supports <code>.m3u8</code>, <code>.txt</code>, and extensionless URLs.</sub></td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/ffmpeg.svg" width="30" alt="FFmpeg logo"></td>
     <td><strong>Direct MP4 / WebM</strong><br><sub>HTTP(S) video files.</sub></td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/local-file.svg" width="30" alt="Local file logo"></td>
     <td><strong>Local files</strong><br><sub>Browse or drag and drop.</sub></td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
 </table>
 
-**What each source needs**
+✅ yt-dlp required · ❌ not required
 
-| Source | FFmpeg | yt-dlp |
-| --- | :---: | :---: |
-| YouTube | ✅ | ✅ |
-| X (Twitter) | ✅ | ✅ |
-| Instagram | ✅ | ✅ |
-| TikTok | ✅ | ✅ |
-| HLS (`.m3u8`) | ✅ | ❌ |
-| Direct MP4 / WebM | ✅ | ❌ |
-| Local file | ✅ | ❌ |
-
-✅ required · ❌ not required
-
-> YouTube, X, Instagram, and TikTok need `yt-dlp`. HLS and direct files do not.
->
-> <sub>Brand logos are from Simple Icons (CC0). HLS and local file icons are custom.</sub>
+> <sub>FFmpeg is required for every source. Brand logos are from Simple Icons (CC0). HLS and local file icons are custom.</sub>
 
 ## Features
 
@@ -144,7 +142,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.1.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.1.160`.
+and the version badge above in sync. Current version: `0.1.161`.
 
 ## Troubleshooting
 
