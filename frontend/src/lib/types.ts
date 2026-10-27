@@ -233,6 +233,30 @@ export interface ExportRequest {
   headers?: Record<string, string> | null
   /** Resolve sonrası dönen CDN başlık belirteci (TikTok Referer gibi). */
   header_token?: string | null
+  /**
+   * Canlı/DVR zaman çizelgesi bağlantısı: `time` anında `sequence` numaralı
+   * segment başlıyor. Pencere kaydığı için backend klip sınırlarını bu
+   * segmentin güncel penceredeki konumuna göre taşır.
+   */
+  anchor?: TimelineAnchorPoint
+}
+
+/** İstemci zaman çizelgesinde bilinen bir segment başlangıcı. */
+export interface TimelineAnchorPoint {
+  /** HLS medya sırası (`EXT-X-MEDIA-SEQUENCE` + index). */
+  sequence: number
+  /** Segmentin istemci zaman çizelgesindeki başlangıcı (sn). */
+  time: number
+}
+
+/** Bir HLS penceresinin zaman çizelgesi ↔ medya sırası haritası. */
+export interface TimelineAnchor {
+  /** Pencerenin ilk segmentinin medya sırası. */
+  start_sequence: number
+  /** İlk segmentin zaman çizelgesindeki başlangıcı (sn). */
+  start_time: number
+  /** Segmentlerin süreleri (ilk segmentten itibaren, sn). */
+  durations: number[]
 }
 
 export interface ExportJob {
@@ -415,4 +439,87 @@ export interface LibraryFileMeta {
   size_mb: number
   /** Sonuç süreç önbelleğinden mi geldi? */
   cached: boolean
+}
+
+/** Canlı kayıt durumu: yakalanıyor veya duraklatıldı.
+ *
+ * Bitmiş kayıt diye bir durum yoktur: segmentler doğrudan proje akışına
+ * yazıldığı için kayıt biter bitmez akışın bir bloğu olur.
+ */
+export type RecordingStatus = "recording" | "paused"
+
+/** Canlı yayın kaydı (`/api/recordings`) — yalnızca süren kayıtlar. */
+export interface Recording {
+  id: string
+  title: string
+  status: RecordingStatus
+  /** Unix zaman damgası (sn). */
+  created_at: number
+  updated_at: number
+  /** Yakalanan medya süresi (sn). */
+  duration: number
+  /** Yakalanan segment sayısı. */
+  segments: number
+  bytes: number
+  size_mb: number
+  /** Pencere kaydığı için kaçırılan segment sayısı. */
+  gaps: number
+  error: string | null
+  /** Süre/boyut sınırına takıldı mı? */
+  limit_reached: boolean
+  /** Kaydı başlatan proje kimliği (kayıtlar projeye özeldir). */
+  project_id?: string | null
+  /** Segmentlerin yazıldığı akış (proje kimliği). */
+  stream_id: string
+}
+
+/** `POST /api/recordings` gövdesi. */
+export interface StartRecordingRequest {
+  url: string
+  title?: string
+  headers?: Record<string, string> | null
+  header_token?: string | null
+  /** Segmentlerin yazılacağı proje/akış kimliği. */
+  project_id: string
+}
+
+/** Akıştaki tek blok: bir kaydın ard arda segmentleri (zaman çizelgesi). */
+export interface StreamBlock {
+  /** Bloğu üreten kayıt; silme bu kimlikle yapılır. */
+  recording_id: string
+  title: string
+  /** Akış zamanında başlangıç/bitiş (sn). */
+  start: number
+  end: number
+  segments: number
+  bytes: number
+  created_at: number
+}
+
+/** Proje akışı (`/api/streams/<proje>`): kayıtların ard arda eklendiği akış. */
+export interface StreamSummary {
+  id: string
+  project_id: string | null
+  title: string | null
+  /** Toplam süre (sn); segment sürelerinin toplamı. */
+  duration: number
+  segments: number
+  bytes: number
+  size_mb: number
+  created_at: number
+  updated_at: number
+  width: number
+  height: number
+  fps: number
+  has_audio: boolean
+  /** HLS playlist adresi (tarayıcı + ffmpeg). */
+  url: string
+  /** Segment sayısı: her ekleme/silme yeni bir sürüm demektir. */
+  revision: number
+  /**
+   * Yıkıcı değişim sayacı (blok silme). Oynatma adresi buna göre tazelenir;
+   * kayıt eklemek sayacı değiştirmez, böylece video yeniden yüklenmez.
+   */
+  playback: number
+  blocks: StreamBlock[]
 }

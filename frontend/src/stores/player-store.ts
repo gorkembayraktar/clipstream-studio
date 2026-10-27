@@ -25,6 +25,16 @@ export const VOLUME_STEP = 0.05
 export const SEEK_BACK_SECONDS = 5
 export const SEEK_FORWARD_SECONDS = 10
 
+/** "Canlıya geç" hedefi: canlı ucun bu kadar gerisi (son saniyeyi gösterir). */
+export const LIVE_EDGE_MARGIN = 1
+
+/** Duraklatılmışken canlı uçtan bu kadar geride kalınca "Canlıya geç" görünür (sn). */
+export const LIVE_BUTTON_THRESHOLD = 3
+
+/** Oynatma sürerken eşik daha büyük: canlı uç her manifest yenilemesinde bir
+ * segment sıçradığı için küçük eşik düğmeyi sürekli açıp kapatıyordu (sn). */
+export const LIVE_BUTTON_PLAYING_THRESHOLD = 15
+
 /** Hassas adım modları: "1 kare" ya da sabit milisaniye değerleri. */
 export const STEP_MODES = ["frame", "ms10", "ms50", "ms100", "ms250", "ms500"] as const
 export type StepMode = (typeof STEP_MODES)[number]
@@ -66,6 +76,12 @@ interface PlayerState {
   stepMode: StepMode
   /** Proje geri yüklenirken meta veri hazır olunca uygulanacak konum. */
   pendingSeek: number | null
+  /** Kaynak yeniden bağlanınca (akış sürümü) oynatmayı sürdür. */
+  pendingPlay: boolean
+  /** Kaynak canlı mı (HLS `ENDLIST` yok)? DVR penceresinde de true'dur. */
+  live: boolean
+  /** Canlı ucun zaman çizelgesindeki konumu (sn); canlı değilse 0. */
+  liveEdge: number
 
   bind: (el: HTMLVideoElement | null) => void
   mark: (
@@ -103,8 +119,15 @@ interface PlayerState {
   /** Video meta verisi hazır olduğunda uygulanacak konumu işaretler. */
   requestSeek: (time: number) => void
   clearPendingSeek: () => void
+  /** Kaynak yeniden bağlandığında oynatmayı sürdürmeyi işaretler. */
+  requestPlay: () => void
+  clearPendingPlay: () => void
   /** Hassas adım: count adet adım ileri (+) / geri (−) sarar. */
   step: (count: number) => void
+  /** Canlı yayın durumunu ve canlı uç konumunu günceller. */
+  markLive: (edge: number | null) => void
+  /** Oynatıcıyı canlı ucun son saniyesine atlar. */
+  goLive: () => void
 }
 
 /** Video elementi store dışında tutulur: React yeniden render'ına gerek yok. */
@@ -181,6 +204,9 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
   videoHeight: 0,
   stepMode: initialPrefs.stepMode,
   pendingSeek: null,
+  pendingPlay: false,
+  live: false,
+  liveEdge: 0,
 
   bind: (el) => {
     videoEl = el
@@ -195,6 +221,9 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
         pipActive: false,
         videoWidth: 0,
         videoHeight: 0,
+        live: false,
+        liveEdge: 0,
+        pendingPlay: false,
       })
       return
     }
@@ -319,6 +348,10 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
 
   clearPendingSeek: () => set({ pendingSeek: null }),
 
+  requestPlay: () => set({ pendingPlay: true }),
+
+  clearPendingPlay: () => set({ pendingPlay: false }),
+
   /** Hassas adım: kare modunda fps'e göre, ms modlarında sabit süreyle sarar. */
   step: (count) => {
     const el = videoEl
@@ -341,5 +374,29 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     }
 
     get().seek(current + (STEP_MS[mode] / 1000) * count)
+  },
+
+  markLive: (edge) => {
+    if (edge === null || !Number.isFinite(edge) || edge <= 0) {
+      if (get().live) set({ live: false, liveEdge: 0 })
+      return
+    }
+    set({ live: true, liveEdge: edge })
+  },
+
+  /**
+   * Canlı ucun `LIVE_EDGE_MARGIN` saniye gerisine atlar: kullanıcı son saniyeyi
+   * görür, tampon da hemen dolar. Oynatma duraklatılmışsa devam ettirir.
+   */
+  goLive: () => {
+    const el = videoEl
+    const { liveEdge } = get()
+    if (!el || !liveEdge) return
+
+    const limit = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : liveEdge
+    const target = Math.min(Math.max(0, liveEdge - LIVE_EDGE_MARGIN), limit)
+    el.currentTime = target
+    set({ currentTime: target, pendingSeek: null })
+    if (el.paused) void el.play().catch(() => undefined)
   },
 }))

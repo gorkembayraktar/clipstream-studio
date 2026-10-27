@@ -14,7 +14,7 @@ import type {
 import { log } from "@/stores/log-store"
 import { useEditStore, clippedSegments } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
-import { useSourceStore } from "@/stores/source-store"
+import { anchorAtTime, useSourceStore } from "@/stores/source-store"
 
 import { ExportActionBar } from "./export-action-bar"
 import { ExportAdvancedSettings } from "./export-advanced-settings"
@@ -304,12 +304,17 @@ export function ExportPanel() {
       .replace(/\.(mp4|gif|mp3)$/i, "")
 
     const clip = exportSegments[0]
+    const clipStart = clip ? clip.start : trim.start
+    // Canlı/DVR: klibin başladığı segmenti bildir; backend pencere kaymasını
+    // bu segmentin güncel konumundan hesaplar.
+    const timelineMap = useSourceStore.getState().timelineAnchor
+    const anchor = timelineMap ? anchorAtTime(timelineMap, clipStart) : null
 
     startExport.mutate(
       {
         url: streamUrl,
         // Seçim (In/Out) dışa aktarımın sınırıdır: kaynak parçalar seçimle kesişir.
-        start_time: clip ? clip.start : trim.start,
+        start_time: clipStart,
         end_time: clip ? clip.end : trim.end,
         // Birden çok parça varsa backend her parçayı ayrı işleyip birleştirir.
         segments:
@@ -330,6 +335,7 @@ export function ExportPanel() {
         audio_url: separateAudio,
         headers: headers ?? undefined,
         header_token: headerToken ?? undefined,
+        anchor: anchor ?? undefined,
       },
       {
         onSettled: (_data, error) => {

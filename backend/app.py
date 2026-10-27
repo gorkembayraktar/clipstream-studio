@@ -33,7 +33,9 @@ from api import jobs as jobs_api
 from api import library as library_api
 from api import local as local_api
 from api import media as media_api
+from api import recordings as recordings_api
 from api import storyboard as storyboard_api
+from api import streams as streams_api
 from api import waveform as waveform_api
 from config import (
     EXPORTS_DIR,
@@ -47,6 +49,7 @@ from config import (
 from core.i18n import LanguageMiddleware, current_language, t
 from core.jobs import JobManager
 from services.local_media import cleanup_uploads
+from services.recorder import manager as recorder
 from services.segment_downloader import cleanup_stale_temp_dirs
 from services.storyboard import cleanup_storyboards
 from services.thumbnails import cleanup_thumbnails
@@ -125,6 +128,8 @@ def create_app() -> Starlette:
         *waveform_api.routes,
         *storyboard_api.routes,
         *frames_api.routes,
+        *recordings_api.routes,
+        *streams_api.routes,
     ]
 
     routes.append(Mount("/exports", app=StaticFiles(directory=str(EXPORTS_DIR)), name="exports"))
@@ -156,9 +161,19 @@ def create_app() -> Starlette:
         headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
     )
 
+    # Canlı kayıtlar backend'de sürer; açılışta diskteki durum geri yüklenir ve
+    # yarıda kalan kayıtlar kaldığı segmentten devam eder (F5/çökme dayanıklı).
+    app.state.recorder = recorder
+    recorder.bind(app.state.http)
+
+    async def on_startup() -> None:
+        await recorder.restore()
+
     async def on_shutdown() -> None:
+        await recorder.shutdown()
         await app.state.http.aclose()
 
+    app.add_event_handler("startup", on_startup)
     app.add_event_handler("shutdown", on_shutdown)
     return app
 

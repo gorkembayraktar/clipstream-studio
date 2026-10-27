@@ -17,17 +17,29 @@ Her iki durumda da ffmpeg/ffprobe yol eşlemesi `local_path()` üzerinden yapıl
 ne kopyalama ne de sunucunun kendisine ağ turu olur.
 """
 import asyncio
+import re
 import secrets
 import time
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import unquote, urlparse
 
-from config import HOST, PORT, UPLOADS_DIR, UPLOADS_ROUTE
+from config import (
+    HOST,
+    PORT,
+    STREAMS_DIR,
+    STREAMS_ROUTE,
+    UPLOADS_DIR,
+    UPLOADS_ROUTE,
+)
 from core.i18n import t
 
 REMUX_TIMEOUT_SECONDS = 900.0
 FILE_ROUTE = "/api/local/file"
+
+#: Akış klasörü/adı doğrulaması (yol kaçırmayı engeller).
+STREAM_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}")
+STREAM_PLAYLIST = "index.m3u8"
 
 #: Kullanıcının seçebileceği video uzantıları (tarayıcı `accept` ile aynı).
 VIDEO_EXTENSIONS = {
@@ -134,6 +146,8 @@ def local_path(value: str) -> Optional[Path]:
     Kabul edilen biçimler:
       `/uploads/<ad>`, `http://127.0.0.1:8765/uploads/<ad>` (kopyalanan dosya)
       `/api/local/file/<jeton>`, `http://127.0.0.1:8765/api/local/file/<jeton>`
+      `/api/streams/<akış>/index.m3u8` (proje akışı playlist'i; ffmpeg'e sonlu
+      `index.vod.m3u8` kopyası verilir)
     Diğer adreslerde (ve yol kaçırma denemelerinde) `None` döner; çağıran
     taraf özgün adresi kullanmaya devam eder.
     """
@@ -155,6 +169,35 @@ def local_path(value: str) -> Optional[Path]:
         route = text
 
     route = unquote(route.split("?", 1)[0].split("#", 1)[0])
+
+    # Proje akışı: playlist yerel dosya olarak okunur; segment adresleri
+    # playlist'e göre göreceli olduğu için ffmpeg ağ turu yapmaz.
+    stream_prefix = STREAMS_ROUTE.rstrip("/") + "/"
+    if route.startswith(stream_prefix):
+        parts = [part for part in route[len(stream_prefix):].split("/") if part]
+        if len(parts) != 2:
+            return None
+        stream_id, file_name = parts
+        if not STREAM_ID_PATTERN.fullmatch(stream_id):
+            return None
+        if file_name == STREAM_PLAYLIST:
+            # Tarayıcı büyüyen EVENT listesini okur; ffmpeg/ffprobe ise sonlu
+            # (`ENDLIST`) kopyayı okumalı, yoksa yayını hiç bitmez sanır.
+            from services import streams as streams_service
+
+            streams_service.ensure_playlists(stream_id)
+            file_name = streams_service.VOD_PLAYLIST_FILE
+        elif not re.fullmatch(r"seg_\d{6}\.ts", file_name):
+            return None
+        try:
+            resolved = (STREAMS_DIR / stream_id / file_name).resolve()
+            if resolved.parent != (STREAMS_DIR / stream_id).resolve():
+                return None
+            if not resolved.is_file():
+                return None
+        except OSError:
+            return None
+        return resolved
 
     file_prefix = FILE_ROUTE.rstrip("/") + "/"
     if route.startswith(file_prefix):

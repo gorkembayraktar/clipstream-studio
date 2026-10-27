@@ -29,7 +29,9 @@
 | `library.py`      | Galeri uç noktaları: listeleme, silme, gezginde gösterme ve thumbnail. |
 | `local.py`        | Yerel dosya uç noktaları: kopyasız seçim, yükleme ve oynatma. |
 | `media.py`        | Medya uç noktaları: kaynak çözümleme, analiz ve CORS proxy'si. |
+| `recordings.py`   | Canlı yayın kaydı uç noktaları: başlat, durdur, devam et, listele, sil. |
 | `storyboard.py`   | Zaman çizelgesi storyboard uç noktaları. |
+| `streams.py`      | Proje akışı uç noktaları: özet + HLS playlist + segmentler. |
 | `waveform.py`     | Dalga formu uç noktası: kaynağın ses tepe değerlerini (önbellekli) döner. |
 
 ### Çekirdek yardımcılar (`backend/core/`)
@@ -57,10 +59,12 @@
 | `local_media.py`        | Yerel dosya kaynakları: yükleme, kopyasız seçim ve yol eşleme. |
 | `prober.py`             | ffprobe ile uzak medya analizi. |
 | `proxy.py`              | CORS proxy'si: uzak yayınları tarayıcıya aktarır ve HLS playlist'lerini yeniden yazar. |
+| `recorder.py`           | Canlı HLS yayınlarını proje akışına segment segment ekler. |
 | `request_headers.py`    | Kullanıcı tanımlı HTTP başlıkları (curl yapıştırma). |
 | `resolver.py`           | yt-dlp ile video sitelerini (YouTube, X, Instagram, TikTok ve diğerleri) oynatılabilir akışa çözer. |
 | `segment_downloader.py` | HLS medya playlist'ini paralel indirip yerel bir dosyada birleştirir. |
 | `storyboard.py`         | Zaman çizelgesi storyboard'u: kaynak başına kademeli JPEG döşemeleri + JSON. |
+| `streams.py`            | Proje akışı: kayıtların ard arda eklendiği tek HLS akışı. |
 | `subtitles.py`          | HLS WebVTT altyazılarını tek bir oynatılabilir WebVTT metnine dönüştürür. |
 | `thumbnails.py`         | Galeri ve iş kartları için küçük, önbellekli thumbnail üretimi. |
 | `waveform.py`           | Ses dalga formu (waveform) çıkarımı ve önbelleği. |
@@ -73,9 +77,11 @@
 | `test_hls_detection.py`      | Uzantısız HLS playlist'lerinin tespiti ve doğrudan kaynak çözümlemesi. |
 | `test_library.py`            | Galeri metadata uç noktası: güvenli çözümleme, ffprobe ve önbellek. |
 | `test_proxy.py`              | CORS proxy'sinin uzantısız/`.txt` HLS playlist'lerini ve sıkıştırılmış yanıtları aktarımı. |
+| `test_recorder.py`           | Canlı kayıt yöneticisi: segment yakalama sırası, dayanıklılık, akışa yazma. |
 | `test_resolver.py`           | TikTok URL/platform seçimi ve canlı akış tercihleri. |
 | `test_segment_downloader.py` | Paralel HLS segment indiricisi: sıralı birleştirme ve geçici dosya temizliği. |
 | `test_storyboard.py`         | Storyboard planı, önbellek anahtarı, komut ve temizlik testleri. |
+| `test_streams.py`            | Proje akışı: segment ekleme, playlist, bloklar, silme ve yol eşlemesi. |
 | `test_subtitles.py`          | HLS WebVTT altyazılarının tek bir oynatılabilir metne dönüştürülmesi. |
 | `test_waveform_parallel.py`  | Paralel waveform çıkarımı: kova hizalama ve tepe birleştirme testleri. |
 | `test_waveform_stream.py`    | Kademeli waveform akışı: NDJSON olayları, önbellek ve sessiz kaynak. |
@@ -119,6 +125,7 @@
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
 | `project-recovery-screen.tsx`   | ProjectRecoveryScreen |
 | `project-workspace-context.tsx` | ProjectWorkspaceProvider, useProjectWorkspaceController |
+| `recorder-controls.tsx`         | RecorderControls |
 | `settings-panel.tsx`            | SettingsPanel |
 | `side-panel.tsx`                | SidePanel |
 | `source-timeline.tsx`           | SourceTimeline |
@@ -176,6 +183,7 @@
 | `use-project-route.ts`      | useProjectRoute |
 | `use-project-workspace.ts`  | useProjectWorkspace |
 | `use-quick-export.ts`       | QUICK_EXPORT_PROFILES, useQuickExport |
+| `use-recorder.ts`           | RECORDER_ACTIVE_POLL_MS, RECORDER_IDLE_POLL_MS, useRecorder |
 | `use-source-duration.ts`    | useSourceDuration |
 | `use-storyboard.ts`         | useStoryboard |
 | `use-subtitles.ts`          | useSubtitleVtt |
@@ -204,12 +212,15 @@
 |-------------------------|------------------------|
 | `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, clippedSegments, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt |
 | `export-store.ts`       | useExportStore |
-| `local-import-store.ts` | useLocalImportStore |
+| `local-import-store.ts` | applyLocalSource, useLocalImportStore |
 | `log-store.ts`          | useLogStore, log |
-| `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
+| `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, LIVE_EDGE_MARGIN, LIVE_BUTTON_THRESHOLD, LIVE_BUTTON_PLAYING_THRESHOLD, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
 | `preferences-store.ts`  | usePreferencesStore |
+| `project-store.ts`      | useProjectStore |
 | `project-ui-store.ts`   | useProjectUiStore |
-| `source-store.ts`       | useSourceStore |
+| `recorder-store.ts`     | useRecorderStore |
+| `source-store.ts`       | anchorAtTime, onExternalSource, streamPlaylistUrl, useSourceStore |
+| `stream-store.ts`       | useStreamStore |
 | `theme-store.ts`        | useThemeStore |
 | `timeline-store.ts`     | TIMELINE_ZOOM_LEVELS, MIN_TIMELINE_ZOOM, MAX_TIMELINE_ZOOM, useTimelineStore |
 

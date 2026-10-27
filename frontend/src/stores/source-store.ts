@@ -5,10 +5,36 @@ import type {
   HlsAudioTrack,
   HlsSubtitleTrack,
   SourcePlatform,
+  StreamSummary,
   StreamVariant,
+  TimelineAnchor,
+  TimelineAnchorPoint,
   VideoMeta,
 } from "@/lib/types"
 import { useEditStore } from "@/stores/edit-store"
+
+/**
+ * Zaman çizelgesindeki bir anı medya sırasına çevirir.
+ *
+ * Harita, oynatıcının son okuduğu pencereden gelir; `time` pencerenin
+ * dışındaysa `null` döner (içerik artık indirilemez).
+ */
+export function anchorAtTime(
+  anchor: TimelineAnchor,
+  time: number,
+): TimelineAnchorPoint | null {
+  let cursor = anchor.start_time
+  if (time < cursor) return null
+  for (let index = 0; index < anchor.durations.length; index += 1) {
+    const duration = anchor.durations[index]
+    if (duration <= 0) continue
+    if (time < cursor + duration) {
+      return { sequence: anchor.start_sequence + index, time: cursor }
+    }
+    cursor += duration
+  }
+  return null
+}
 
 interface SourceInfo {
   streamUrl: string
@@ -38,6 +64,20 @@ interface SourceInfo {
   headers?: Record<string, string> | null
   /** Oynatma proxy'sinin başlıkları tanıması için kısa ömürlü belirteç. */
   headerToken?: string | null
+  /** Kaynak bir proje akışı ise kararlı kimliği (proje kimliği). */
+  streamId?: string | null
+}
+
+/** Akış dışı bir kaynak yüklendiğinde dinleyicileri (akış store'u) haberdar eder. */
+let externalSourceListener: (() => void) | null = null
+
+export function onExternalSource(listener: (() => void) | null): void {
+  externalSourceListener = listener
+}
+
+/** Akış özetinden oynatma adresi: sürüm sorgusu önbelleği tazeler, yol değişmez. */
+export function streamPlaylistUrl(url: string, playback: number): string {
+  return playback > 0 ? `${url}?v=${playback}` : url
 }
 
 interface SourceState {
@@ -80,11 +120,35 @@ interface SourceState {
   previewHeight: number | null
   meta: VideoMeta | null
   sourceLoading: boolean
+  /** Kaynak bir proje akışı ise kararlı kimliği (proje kimliği). */
+  streamId: string | null
+  /** Kayıt için kullanılacak çözümlenmiş canlı yayın adresi (yoksa null). */
+  liveUrl: string | null
+  /**
+   * Sahne canlı yayını mı gösteriyor? Kayıt alındıktan sonra kaynak proje
+   * akışına döner; kullanıcı "Canlı" düğmesiyle yayını izlemeye devam eder.
+   * Yalnızca görüntüyü değiştirir (proje/kimlik korunur).
+   */
+  previewLive: boolean
+  /**
+   * Oynatıcının son okuduğu HLS penceresinin zaman çizelgesi haritası.
+   * Canlı/DVR kaynaklarda pencere kaydığı için dışa aktarma sınırları bu
+   * haritayla medya sırasına çevrilir; VOD kaynakta kullanılmaz.
+   */
+  timelineAnchor: TimelineAnchor | null
 
   // Eylemler
   setInputUrl: (url: string) => void
   setUseProxy: (value: boolean) => void
   setSource: (source: SourceInfo) => void
+  /** Proje akışını kaynak yapar: timeline/oynatıcı artık kaydedilmiş akıştır. */
+  setStreamSource: (summary: StreamSummary) => void
+  /** Akışı yeniden bağlamadan süre/meta bilgisini tazeler. */
+  syncStreamMeta: (summary: StreamSummary) => void
+  /** Kayıt için çözümlenen canlı yayın adresini hatırlar. */
+  setLiveUrl: (url: string | null) => void
+  /** Sahneyi canlı yayına / kayda alır (yalnızca görüntü modu). */
+  setPreviewLive: (value: boolean) => void
   setAudioTrackId: (id: string) => void
   setAudioSwitching: (value: boolean) => void
   setAudioBuffering: (value: boolean) => void
@@ -92,6 +156,7 @@ interface SourceState {
   setPreviewHeight: (height: number) => void
   setMeta: (meta: Partial<VideoMeta>) => void
   setSourceLoading: (value: boolean) => void
+  setTimelineAnchor: (anchor: TimelineAnchor | null) => void
   clearSource: () => void
 }
 
@@ -120,6 +185,10 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
   previewHeight: null,
   meta: null,
   sourceLoading: false,
+  timelineAnchor: null,
+  streamId: null,
+  liveUrl: null,
+  previewLive: false,
 
   setInputUrl: (url) => set({ inputUrl: url }),
   setUseProxy: (value) => set({ useProxy: value }),
@@ -176,7 +245,89 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
         null,
       meta: null,
       sourceLoading: false,
+      // Yeni kaynak → oynatıcı zaman çizelgesi yeni baştan kurulacak.
+      timelineAnchor: null,
+      streamId: source.streamId ?? null,
+      // Canlı kaynak: kayıt bu adresten yapılır. VOD/yerel kaynakta yok.
+      liveUrl: source.isLive ? source.streamUrl : null,
+      // Yeni kaynak: sahne kaynağın kendisini gösterir.
+      previewLive: false,
     })
+
+    // Akış dışı bir kaynak yüklendi: açık akış kapanır. Bu bildirim **durum
+    // yazıldıktan sonra** yapılmalı; aksi halde `streamId` hâlâ önceki akışın
+    // kimliğini taşır ve akış store'u temizlenmez (sonraki kayıt yanlış akışa
+    // bağlanır, proje kimliği bölünür).
+    if (!source.streamId) externalSourceListener?.()
+  },
+
+  setStreamSource: (summary) => {
+    // Kaynak gerçekten değişiyorsa (proje açılışı) kesimler sıfırlanır;
+    // aynı akışta yalnızca süre tazeleniyorsa (kayıt eklendi) düzen korunur.
+    if (get().streamId !== summary.id) useEditStore.getState().resetEdit()
+    set({
+      streamUrl: streamPlaylistUrl(summary.url, summary.playback),
+      title: summary.title,
+      resolution:
+        summary.width > 0 && summary.height > 0
+          ? `${summary.width}×${summary.height}`
+          : null,
+      platform: "local",
+      streamId: summary.id,
+      audioUrl: null,
+      audioTracks: [],
+      audioTrackId: null,
+      audioSwitching: false,
+      audioBuffering: false,
+      subtitleTracks: [],
+      subtitleTrackId: null,
+      sourcePath: null,
+      previewCopy: false,
+      // Dalga formu/storyboard önbelleği her kayıtta tazelenir.
+      sourceOrigin: `stream:${summary.id}#${summary.revision}`,
+      variants: [],
+      isHls: true,
+      isLive: false,
+      headers: null,
+      headerToken: null,
+      previewHeight: null,
+      sourceLoading: false,
+      timelineAnchor: null,
+      // Kayıt eklendi: sahne yeni kayda döner (canlı önizleme kapanır).
+      previewLive: false,
+    })
+    get().setMeta({
+      width: summary.width,
+      height: summary.height,
+      duration: summary.duration,
+      hasAudio: summary.has_audio,
+      fps: summary.fps > 0 ? summary.fps : undefined,
+    })
+  },
+
+  syncStreamMeta: (summary) => {
+    if (get().streamId !== summary.id) return
+    const before = get().meta?.duration ?? 0
+    set({
+      streamUrl: streamPlaylistUrl(summary.url, summary.playback),
+      title: summary.title,
+      sourceOrigin: `stream:${summary.id}#${summary.revision}`,
+      resolution:
+        summary.width > 0 && summary.height > 0
+          ? `${summary.width}×${summary.height}`
+          : null,
+    })
+    get().setMeta({
+      width: summary.width,
+      height: summary.height,
+      duration: summary.duration,
+      hasAudio: summary.has_audio,
+      fps: summary.fps > 0 ? summary.fps : undefined,
+    })
+    // Akış büyüdüyse çizelge de büyür: yeni kayıt bloğu görünür kalır.
+    if (summary.duration > before) {
+      useEditStore.getState().extendToDuration(before, summary.duration)
+    }
   },
 
   setAudioTrackId: (id) => {
@@ -251,6 +402,31 @@ export const useSourceStore = create<SourceState>()((set, get) => ({
       previewHeight: null,
       meta: null,
       sourceLoading: false,
+      timelineAnchor: null,
+      streamId: null,
+      liveUrl: null,
+      previewLive: false,
     })
+
+    // Akış store'u **durum yazıldıktan sonra** kapatılır (yukarıdaki
+    // `setSource` ile aynı kural: dinleyici güncel `streamId`'yi görmeli).
+    externalSourceListener?.()
+  },
+
+  setTimelineAnchor: (anchor) => set({ timelineAnchor: anchor }),
+
+  setLiveUrl: (liveUrl) => set({ liveUrl }),
+
+  setPreviewLive: (value) => {
+    // Canlı adres yoksa (ör. VOD kaynak) canlı önizleme açılmaz.
+    if (value && !get().liveUrl) return
+    if (get().previewLive === value) return
+    // Canlı önizleme açıkken zaman çizelgesi anlamsızdır (kayan pencere).
+    if (value) {
+      useEditStore.getState().setSelection(null)
+      set({ previewLive: true, timelineAnchor: null })
+      return
+    }
+    set({ previewLive: false, timelineAnchor: null })
   },
 }))

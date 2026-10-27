@@ -5,10 +5,14 @@ import {
   PauseIcon,
   PictureInPicture2Icon,
   PlayIcon,
+  RadioIcon,
+  SkipForwardIcon,
+  TvIcon,
   Volume2Icon,
   VolumeXIcon,
 } from "lucide-react"
 
+import { RecorderControls } from "@/components/app/recorder-controls"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -21,7 +25,7 @@ import { Slider } from "@/components/ui/slider"
 import { useFullscreen } from "@/hooks/use-fullscreen"
 import { useI18n } from "@/i18n"
 import { cn } from "cn"
-import { usePlayerStore } from "@/stores/player-store"
+import { LIVE_BUTTON_PLAYING_THRESHOLD, LIVE_BUTTON_THRESHOLD, usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
 
 /** Hız menüsündeki hazır oynatma hızları. */
@@ -50,6 +54,15 @@ export function StageControls() {
   const currentTime = usePlayerStore((s) => s.currentTime)
   const duration = usePlayerStore((s) => s.duration)
   const isLive = useSourceStore((s) => s.isLive)
+  const streamId = useSourceStore((s) => s.streamId)
+  const liveUrl = useSourceStore((s) => s.liveUrl)
+  const previewLive = useSourceStore((s) => s.previewLive)
+  const setPreviewLive = useSourceStore((s) => s.setPreviewLive)
+  /** Kayıtlar var ama canlı adres de biliniyor: sahne canlıya çevrilebilir. */
+  const canWatchLive = Boolean(streamId && liveUrl)
+  const live = usePlayerStore((s) => s.live)
+  const liveEdge = usePlayerStore((s) => s.liveEdge)
+  const goLive = usePlayerStore((s) => s.goLive)
   const volume = usePlayerStore((s) => s.volume)
   const muted = usePlayerStore((s) => s.muted)
   const playbackRate = usePlayerStore((s) => s.playbackRate)
@@ -63,6 +76,15 @@ export function StageControls() {
 
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen()
 
+  // Canlı uç her manifest yenilemesinde bir segment ileri sıçrar; bu yüzden
+  // düğme yalnızca belirgin biçimde geride kalınca çıkar (duraklatılmışken
+  // eşik küçük, oynarken büyük). Tek karelik dalgalanmalar düğmeyi titretmez.
+  const liveGap = liveEdge - currentTime
+  const behindLive =
+    live &&
+    liveGap >
+      (playing ? LIVE_BUTTON_PLAYING_THRESHOLD : LIVE_BUTTON_THRESHOLD)
+
   return (
     <div
       data-slot="stage-controls"
@@ -71,20 +93,72 @@ export function StageControls() {
     >
       <div className="pointer-events-auto">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-          <div className="inline-flex h-7 min-w-0 items-center justify-self-start rounded-md bg-black/50 px-2 font-mono text-[11px] tabular-nums whitespace-nowrap text-white/70 shadow-[0_2px_10px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-sm">
-            {isLive ? (
-              // Canlı yayında bitiş süresi bilinmez; toplam süre gösterme.
-              <span className="inline-flex items-center gap-1.5 font-sans font-semibold tracking-wide text-white/90">
-                <span className="size-1.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.9)]" />
-                {t("status.live")}
-              </span>
-            ) : (
-              <>
-                <span className="text-white/90">{formatTransportTime(currentTime)}</span>
-                <span className="mx-1 text-white/30">/</span>
-                <span>{formatTransportTime(duration)}</span>
-              </>
-            )}
+          <div className="flex min-w-0 items-center gap-2 justify-self-start">
+            <div className="inline-flex h-7 min-w-0 items-center justify-self-start rounded-md bg-black/50 px-2 font-mono text-[11px] tabular-nums whitespace-nowrap text-white/70 shadow-[0_2px_10px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-sm">
+              {isLive || live ? (
+                // Canlı yayında bitiş süresi bilinmez; "LIVE" etiketi sağ üstteki
+                // durum rozetinde. Burada yalnızca pencere içindeki konum verilir.
+                <span className="text-white/90">
+                  {formatTransportTime(currentTime)}
+                </span>
+              ) : (
+                <>
+                  <span className="text-white/90">{formatTransportTime(currentTime)}</span>
+                  <span className="mx-1 text-white/30">/</span>
+                  <span>{formatTransportTime(duration)}</span>
+                </>
+              )}
+            </div>
+
+            {/* Kayıt alındıktan sonra sahneyi canlı yayına çevirme düğmesi.
+                Yalnızca görüntü modunu değiştirir; proje ve kayıtlar korunur. */}
+            {canWatchLive ? (
+              <button
+                type="button"
+                onClick={() => setPreviewLive(!previewLive)}
+                title={
+                  previewLive
+                    ? t("player.backToRecordingTitle")
+                    : t("player.watchLiveTitle")
+                }
+                className={cn(
+                  "inline-flex h-7 items-center gap-1.5 rounded-md px-2 font-sans text-[11px] font-semibold tracking-wide whitespace-nowrap shadow-[0_2px_10px_rgba(0,0,0,0.45)] ring-1 backdrop-blur-sm transition-colors",
+                  previewLive
+                    ? "bg-red-600/90 text-white ring-red-300/40 hover:bg-red-600"
+                    : "bg-black/50 text-white/90 ring-white/10 hover:bg-black/70 hover:text-white",
+                )}
+              >
+                {previewLive ? (
+                  <TvIcon className="size-3.5" />
+                ) : (
+                  <RadioIcon className="size-3.5" />
+                )}
+                {previewLive
+                  ? t("player.backToRecording")
+                  : t("player.watchLive")}
+              </button>
+            ) : null}
+
+            {/* Canlı yayında düğme yerini korur; yalnızca görünürlüğü değişir ki
+                kayıt düğmesi ileri geri kaymasın. */}
+            {live ? (
+              <button
+                type="button"
+                onClick={goLive}
+                title={t("player.goLiveTitle")}
+                aria-hidden={!behindLive}
+                tabIndex={behindLive ? 0 : -1}
+                className={cn(
+                  "inline-flex h-7 items-center gap-1.5 rounded-md bg-black/50 px-2 font-sans text-[11px] font-semibold tracking-wide whitespace-nowrap text-white/90 shadow-[0_2px_10px_rgba(0,0,0,0.45)] ring-1 ring-white/10 backdrop-blur-sm transition-opacity duration-200 hover:bg-black/70 hover:text-white",
+                  behindLive ? "opacity-100" : "pointer-events-none opacity-0",
+                )}
+              >
+                <SkipForwardIcon className="size-3.5" />
+                {t("player.goLive")}
+              </button>
+            ) : null}
+
+            <RecorderControls />
           </div>
 
           <div className="flex items-center gap-0.5">

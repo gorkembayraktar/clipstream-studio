@@ -213,9 +213,69 @@ export function segmentAt(segments: Segment[], time: number): Segment | null {
   return segments.find((segment) => time >= segment.start && time < segment.end) ?? null
 }
 
+/** İki bölme noktası bundan yakınsa tek sayılır (sn). */
+const SPLIT_EPSILON = 0.05
+
+/** Bölme noktalarını sıralar, pencereye sığdırır ve tekrarları atar. */
+export function normalizeSplits(points: number[], duration: number): number[] {
+  const max = duration > 0 ? duration : Number.MAX_SAFE_INTEGER
+  const sorted = points
+    .map((point) => clamp(roundMs(point), 0, max))
+    .filter((point) => point > SPLIT_EPSILON && point < max - SPLIT_EPSILON)
+    .sort((a, b) => a - b)
+  const result: number[] = []
+  for (const point of sorted) {
+    const last = result[result.length - 1]
+    if (last === undefined || point - last > SPLIT_EPSILON) result.push(point)
+  }
+  return result
+}
+
+/** Yalnızca korunan bir parçanın **içinde** kalan bölmeler tutulur. */
+export function pruneSplits(splits: number[], segments: Segment[]): number[] {
+  if (splits.length === 0) return splits
+  return splits.filter((point) =>
+    segments.some(
+      (segment) =>
+        point > segment.start + SPLIT_EPSILON && point < segment.end - SPLIT_EPSILON,
+    ),
+  )
+}
+
+/**
+ * Verilen zamandaki parçanın sınırları.
+ *
+ * Parça = segment (korunan aralık) içinde kullanıcı bölmeleriyle ayrılmış en
+ * küçük birim. Kullanıcı imleçten böldüğünde hiçbir içerik atılmaz; yalnızca
+ * yeni bir sınır eklenir ve o parça tek başına silinebilir/dışa aktarılabilir.
+ */
+export function pieceAt(
+  segments: Segment[],
+  splits: number[],
+  time: number,
+): TimeRange | null {
+  const segment = segmentAt(segments, time)
+  if (!segment) return null
+  let start = segment.start
+  let end = segment.end
+  for (const point of splits) {
+    if (point <= segment.start || point >= segment.end) continue
+    if (point <= time && point > start) start = point
+    if (point > time && point < end) end = point
+  }
+  return { start, end }
+}
+
 interface EditState {
   /** Dışa aktarılacak parçalar (kaynak zamanında, sıralı). */
   segments: Segment[]
+  /**
+   * Kullanıcı bölme noktaları (kaynak zamanında, kalıcı).
+   *
+   * Gerçek editördeki makas: imleçten bölmek içerik **atmaz**, yalnızca parçayı
+   * ikiye ayırır. Silme ayrı bir eylemdir (`removePieceAt`) ve boşluk bırakır.
+   */
+  splits: number[]
   /** Giriş/çıkış seçimi (kaynak zamanında, kalıcı). Segmentleri kırpmaz. */
   trim: TimeRange
   /** Zaman çizelgesinde seçilen aralık (kesmek için; kalıcı değil). */
@@ -235,7 +295,13 @@ interface EditState {
   setTrim: (partial: Partial<TimeRange>) => void
   /** Segment listesini doğrudan kurar (proje geri yükleme). */
   setSegments: (ranges: TimeRange[]) => void
+  /** Bölme noktalarını kurar (proje geri yükleme). */
+  setSplits: (points: number[]) => void
   setSelection: (range: TimeRange | null) => void
+  /** İmleçten böler: parçayı ikiye ayırır, içerik atmaz (makas). */
+  splitAt: (time: number) => boolean
+  /** Verilen zamandaki parçayı siler (boşluk bırakır, geri alınabilir). */
+  removePieceAt: (time: number) => boolean
   /** Seçili aralığı segmentlerden çıkarır (böl + at). */
   removeSelection: () => void
   removeRange: (range: TimeRange) => void
@@ -255,10 +321,13 @@ interface EditState {
   resetEdit: () => void
   /** Segmentleri kaynak süresine sığdırır (meta güncellendiğinde). */
   clampTrimToDuration: (duration: number) => void
+  /** Akışa yeni içerik eklendiğinde son segmenti/Out noktasını uzatır. */
+  extendToDuration: (from: number, to: number) => void
 }
 
-export const useEditStore = create<EditState>()((set) => ({
+export const useEditStore = create<EditState>()((set, get) => ({
   segments: [],
+  splits: [],
   trim: { start: 0, end: 0 },
   selection: null,
   loop: false,
@@ -288,8 +357,24 @@ export const useEditStore = create<EditState>()((set) => ({
         ranges.map((range) => createSegment(range.start, range.end)),
         state.sourceDuration,
       )
-      return { segments, trim: ensureTrim(state.trim, segments), selection: null }
+      return {
+        segments,
+        splits: pruneSplits(
+          normalizeSplits(state.splits, state.sourceDuration),
+          segments,
+        ),
+        trim: ensureTrim(state.trim, segments),
+        selection: null,
+      }
     }),
+
+  setSplits: (points) =>
+    set((state) => ({
+      splits: pruneSplits(
+        normalizeSplits(points, state.sourceDuration),
+        state.segments,
+      ),
+    })),
 
   setSelection: (range) =>
     set((state) => {
@@ -303,12 +388,60 @@ export const useEditStore = create<EditState>()((set) => ({
       return { selection: { start, end } }
     }),
 
+  splitAt: (time) => {
+    const state = get()
+    const at = roundMs(time)
+    const piece = pieceAt(state.segments, state.splits, at)
+    // Boşlukta, sınırın üzerinde veya çok yakınında bölme anlamsız.
+    if (!piece) return false
+    if (at <= piece.start + SPLIT_EPSILON || at >= piece.end - SPLIT_EPSILON) {
+      return false
+    }
+    set({
+      splits: normalizeSplits([...state.splits, at], state.sourceDuration),
+      selection: null,
+    })
+    return true
+  },
+
+  removePieceAt: (time) => {
+    const state = get()
+    const piece = pieceAt(state.segments, state.splits, time)
+    if (!piece) return false
+    if (piece.end - piece.start < MIN_TRIM_SECONDS) return false
+    const segments = cutRange(
+      state.segments,
+      piece.start,
+      piece.end,
+      state.sourceDuration,
+    )
+    const splits = pruneSplits(
+      state.splits.filter(
+        (point) =>
+          point < piece.start - SPLIT_EPSILON || point > piece.end + SPLIT_EPSILON,
+      ),
+      segments,
+    )
+    set({
+      segments,
+      splits,
+      trim: ensureTrim(state.trim, segments),
+      selection: null,
+    })
+    return true
+  },
+
   removeSelection: () =>
     set((state) => {
       if (!state.selection) return {}
       const { start, end } = state.selection
       const next = cutRange(state.segments, start, end, state.sourceDuration)
-      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
+      return {
+        segments: next,
+        splits: pruneSplits(state.splits, next),
+        trim: ensureTrim(state.trim, next),
+        selection: null,
+      }
     }),
 
   removeRange: (range) =>
@@ -317,7 +450,12 @@ export const useEditStore = create<EditState>()((set) => ({
       const end = Math.max(range.start, range.end)
       if (end - start < MIN_TRIM_SECONDS) return {}
       const next = cutRange(state.segments, start, end, state.sourceDuration)
-      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
+      return {
+        segments: next,
+        splits: pruneSplits(state.splits, next),
+        trim: ensureTrim(state.trim, next),
+        selection: null,
+      }
     }),
 
   restoreRange: (range) =>
@@ -329,7 +467,12 @@ export const useEditStore = create<EditState>()((set) => ({
         [...state.segments, createSegment(start, end)],
         state.sourceDuration,
       )
-      return { segments: next, trim: ensureTrim(state.trim, next), selection: null }
+      return {
+        segments: next,
+        splits: pruneSplits(state.splits, next),
+        trim: ensureTrim(state.trim, next),
+        selection: null,
+      }
     }),
 
   updateSegmentEdge: (id, edge, time) =>
@@ -368,7 +511,11 @@ export const useEditStore = create<EditState>()((set) => ({
       // Sürükleme sırasında birleştirme yapılmaz: kenar komşuya dayandığında
       // segment kaybolmasın, sürükleme aynı kimlikle devam etsin.
       const normalized = normalizeSegments(segments, state.sourceDuration, false)
-      return { segments: normalized, trim: ensureTrim(state.trim, normalized) }
+      return {
+        segments: normalized,
+        splits: pruneSplits(state.splits, normalized),
+        trim: ensureTrim(state.trim, normalized),
+      }
     }),
 
   shiftSegments: (delta) =>
@@ -391,7 +538,14 @@ export const useEditStore = create<EditState>()((set) => ({
         start: clamp(state.trim.start + clamped, 0, max),
         end: clamp(state.trim.end + clamped, 0, max),
       }
-      return { segments, trim: ensureTrim(trim, segments) }
+      const splits = pruneSplits(
+        normalizeSplits(
+          state.splits.map((point) => point + clamped),
+          duration,
+        ),
+        segments,
+      )
+      return { segments, splits, trim: ensureTrim(trim, segments) }
     }),
 
   resetSegments: () =>
@@ -400,6 +554,7 @@ export const useEditStore = create<EditState>()((set) => ({
       const next = duration > 0 ? [createSegment(0, duration)] : []
       return {
         segments: next,
+        splits: [],
         trim: ensureTrim(state.trim, next),
         selection: null,
       }
@@ -414,6 +569,7 @@ export const useEditStore = create<EditState>()((set) => ({
   resetEdit: () =>
     set({
       segments: [],
+      splits: [],
       trim: { start: 0, end: 0 },
       selection: null,
       crop: { enabled: false, rect: null, aspect: "free" },
@@ -442,7 +598,41 @@ export const useEditStore = create<EditState>()((set) => ({
         },
         segments,
       )
-      return { sourceDuration, segments, trim }
+      return {
+        sourceDuration,
+        segments,
+        splits: pruneSplits(
+          normalizeSplits(state.splits, sourceDuration),
+          segments,
+        ),
+        trim,
+      }
+    }),
+
+  /**
+   * Akışa yeni kayıt eklendiğinde çizelgeyi uzatır.
+   *
+   * Son segment akışın sonuna dayanıyorsa uzatılır. Kullanıcı kuyruğu
+   * kesmişse yeni kayıt kesiğin ardına ayrı segment olarak eklenir: kesim
+   * korunur ama yeni içerik görünür ve dışa aktarılabilir kalır.
+   */
+  extendToDuration: (from, to) =>
+    set((state) => {
+      if (from <= 0 || to <= from) return {}
+      const segments = [...state.segments]
+      if (segments.length === 0) {
+        segments.push(createSegment(0, to))
+      } else {
+        const last = segments[segments.length - 1]
+        if (Math.abs(last.end - from) <= 0.05) {
+          segments[segments.length - 1] = { ...last, end: to }
+        } else {
+          segments.push(createSegment(from, to))
+        }
+      }
+      // Out noktası yeni içeriği kapsar; neyin kesildiğini segmentler belirler.
+      const trim = { ...state.trim, end: Math.max(state.trim.end, to) }
+      return { segments, trim }
     }),
 }))
 

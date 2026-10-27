@@ -36,6 +36,10 @@ export interface ProjectSourceSnapshot {
   isHls: boolean
   isLive: boolean
   meta: VideoMeta | null
+  /** Kaynak açık bir proje akışı ise kimliği (yoksa null). */
+  streamId?: string | null
+  /** Kayda kaynaklık eden canlı yayın adresi (varsa). */
+  liveUrl?: string | null
 }
 
 export interface ProjectSegment {
@@ -47,6 +51,8 @@ export interface ProjectEditSnapshot {
   trim: { start: number; end: number }
   /** Dışa aktarılacak parçalar; boşsa eski proje formatı (tek `trim`). */
   segments: ProjectSegment[]
+  /** Kullanıcı bölme noktaları (makas); kaynak zamanında, kalıcı. */
+  splits: number[]
   loop: boolean
   crop: { enabled: boolean; rect: CropRect | null; aspect: AspectPreset }
 }
@@ -70,6 +76,11 @@ export interface ProjectUiSnapshot {
   panelTab: PanelTab
 }
 
+/** Proje çalışma alanı (kalıcı).
+ *
+ * Projenin tek "zaman çizelgesi" vardır: kayıtların biriktiği akış. Ayrı bir
+ * dizi/çocuk görünüm durumu yoktur; akış kimliği `source.streamId` içindedir.
+ */
 export interface ProjectWorkspace {
   schemaVersion: number
   id: string
@@ -197,6 +208,8 @@ function parseSource(value: unknown): ProjectSourceSnapshot | null {
     isHls: booleanOr(value.isHls, false),
     isLive: booleanOr(value.isLive, false),
     meta: parseMeta(value.meta),
+    streamId: stringOrNull(value.streamId),
+    liveUrl: stringOrNull(value.liveUrl),
   }
 }
 
@@ -226,6 +239,7 @@ function parseEdit(value: unknown): ProjectEditSnapshot {
   return {
     trim: trimRange,
     segments: parseSegments(edit.segments, trimRange),
+    splits: parseSplits(edit.splits),
     loop: booleanOr(edit.loop, false),
     crop: {
       enabled: booleanOr(crop.enabled, false),
@@ -233,6 +247,21 @@ function parseEdit(value: unknown): ProjectEditSnapshot {
       aspect: oneOf(crop.aspect, ASPECTS, "free"),
     },
   }
+}
+
+/** Bölme noktaları: sonlu, pozitif, sıralı; bozuk kayıtlar sessizce atlanır. */
+function parseSplits(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  const points = value
+    .filter((item): item is number => typeof item === "number" && Number.isFinite(item))
+    .map((item) => Math.max(0, item))
+    .sort((a, b) => a - b)
+  const result: number[] = []
+  for (const point of points) {
+    const last = result[result.length - 1]
+    if (last === undefined || point - last > 0.05) result.push(point)
+  }
+  return result
 }
 
 /** Segment listesi yoksa (eski proje) `trim` tek segment olarak yorumlanır. */

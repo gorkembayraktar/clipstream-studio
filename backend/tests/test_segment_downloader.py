@@ -13,15 +13,18 @@ if str(BACKEND_DIR) not in sys.path:
 
 from services.segment_downloader import (  # noqa: E402
     HlsDownloadError,
+    LiveTimelineError,
     MediaSegment,
     _remux_parts_with_ffmpeg,
     download_hls_media,
     download_hls_range,
     download_hls_segments,
     iter_hls_chunks,
+    live_timeline_shift,
     load_hls_playlist,
     locate_segment,
     parse_media_playlist,
+    segment_offset,
 )
 
 PLAYLIST_URL = "https://cdn.example.com/path/media.m3u8"
@@ -59,6 +62,21 @@ seg2.jpg
 #EXTINF:6.0,
 seg3.jpg
 #EXT-X-ENDLIST
+"""
+
+#: 24 saatlik DVR penceresi gibi `ENDLIST` taşımayan kayan canlı playlist.
+LIVE_PLAYLIST = """#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:1000
+#EXTINF:6.0,
+live1000.ts
+#EXTINF:6.0,
+live1001.ts
+#EXTINF:4.0,
+live1002.ts
+#EXTINF:6.0,
+live1003.ts
 """
 
 
@@ -572,6 +590,133 @@ class ChunkedDownloadTests(unittest.IsolatedAsyncioTestCase):
                         self.fail("hatalı segmentte parça üretilmemeli")
 
             self.assertEqual(list(temp_root.iterdir()), [])
+
+
+class LiveWindowTests(unittest.IsolatedAsyncioTestCase):
+    """Canlı/DVR penceresinde medya sırası ile zaman eşlemesi."""
+
+    def test_media_sequence_and_segment_identity_are_parsed(self):
+        playlist = parse_media_playlist(LIVE_PLAYLIST, PLAYLIST_URL)
+
+        self.assertIsNotNone(playlist)
+        assert playlist is not None
+        self.assertFalse(playlist.endlist)
+        self.assertEqual(playlist.media_sequence, 1000)
+        self.assertEqual(playlist.target_duration, 6.0)
+        self.assertEqual(
+            [segment.sequence for segment in playlist.segments],
+            [1000, 1001, 1002, 1003],
+        )
+
+    def test_vod_playlist_starts_from_its_own_sequence(self):
+        playlist = parse_media_playlist(PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+        self.assertEqual(playlist.media_sequence, 1)
+        self.assertEqual([s.sequence for s in playlist.segments], [1, 2, 3])
+
+    def test_segment_offset_maps_sequence_to_window_position(self):
+        playlist = parse_media_playlist(LIVE_PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+
+        self.assertEqual(segment_offset(playlist, 1000), 0.0)
+        self.assertAlmostEqual(segment_offset(playlist, 1001), 6.0)
+        self.assertAlmostEqual(segment_offset(playlist, 1002), 12.0)
+        self.assertAlmostEqual(segment_offset(playlist, 1003), 16.0)
+
+    def test_segment_offset_is_none_for_evicted_sequences(self):
+        playlist = parse_media_playlist(LIVE_PLAYLIST, PLAYLIST_URL)
+        assert playlist is not None
+        self.assertIsNone(segment_offset(playlist, 999))
+        self.assertIsNone(segment_offset(playlist, 1004))
+
+    async def test_live_playlist_is_usable_for_export_playlists(self):
+        client = FakeClient(playlist=LIVE_PLAYLIST)
+
+        self.assertIsNone(await load_hls_playlist(client, PLAYLIST_URL))
+        playlist = await load_hls_playlist(client, PLAYLIST_URL, allow_live=True)
+        self.assertIsNotNone(playlist)
+
+    async def test_live_shift_aligns_the_anchor_segment(self):
+        client = FakeClient(playlist=LIVE_PLAYLIST)
+
+        # İstemci çizelgesinde 1002 numaralı segment 6.0 sn'de başlıyordu;
+        # güncel pencerede aynı segment 12.0 sn'de. Kayma 6.0 sn olmalı.
+        shift, playlist = await live_timeline_shift(
+            client,
+            PLAYLIST_URL,
+            {"sequence": 1002, "time": 6.0},
+            None,
+            start=0.0,
+            end=10.0,
+        )
+        self.assertAlmostEqual(shift, 6.0)
+        # İndirme adımı aynı anlık görüntüyü kullanmalı (pencere kaymasın).
+        self.assertIsNotNone(playlist)
+        assert playlist is not None
+        self.assertEqual(playlist.media_sequence, 1000)
+
+    async def test_live_shift_ignores_seconds_since_the_player_started(self):
+        client = FakeClient(playlist=LIVE_PLAYLIST)
+
+        # Bağlantı noktası klibin kendisinden geldiği için, oynatıcı açıldıktan
+        # çok sonra (pencere kaymışken) da aynı sonucu vermeli.
+        first, _ = await live_timeline_shift(
+            client, PLAYLIST_URL, {"sequence": 1001, "time": 0.0}, None
+        )
+        later, _ = await live_timeline_shift(
+            client, PLAYLIST_URL, {"sequence": 1001, "time": 0.0}, None
+        )
+        self.assertAlmostEqual(first, 6.0)
+        self.assertAlmostEqual(later, 6.0)
+
+    async def test_live_shift_rejects_a_range_outside_the_window(self):
+        client = FakeClient(playlist=LIVE_PLAYLIST)
+
+        with self.assertRaises(LiveTimelineError):
+            await live_timeline_shift(
+                client,
+                PLAYLIST_URL,
+                {"sequence": 900, "time": 0.0},
+                None,
+                start=0.0,
+                end=5.0,
+            )
+        with self.assertRaises(LiveTimelineError):
+            await live_timeline_shift(
+                client,
+                PLAYLIST_URL,
+                {"sequence": 1000, "time": 0.0},
+                None,
+                start=0.0,
+                end=500.0,
+            )
+
+    async def test_live_shift_is_zero_without_an_anchor(self):
+        client = FakeClient(playlist=LIVE_PLAYLIST)
+        shift, playlist = await live_timeline_shift(client, PLAYLIST_URL, None)
+        self.assertEqual(shift, 0.0)
+        self.assertIsNone(playlist)
+
+    async def test_live_range_downloads_from_the_current_window(self):
+        base = "https://cdn.example.com/path/"
+        bodies = {
+            base + f"live{sn}.ts": f"SEG{sn}".encode()
+            for sn in range(1000, 1004)
+        }
+        client = FakeClient(playlist=LIVE_PLAYLIST, bodies=bodies)
+
+        with tempfile.TemporaryDirectory() as root:
+            download = await download_hls_range(
+                client, PLAYLIST_URL, 0.0, 5.0, temp_root=Path(root)
+            )
+            self.assertIsNotNone(download)
+            assert download is not None
+            try:
+                self.assertTrue(download.path.exists())
+                self.assertEqual(download.start, 0.0)
+                self.assertEqual(download.duration, 12.0)
+            finally:
+                download.cleanup()
 
 
 if __name__ == "__main__":

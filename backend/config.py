@@ -1,10 +1,21 @@
 """Uygulama genel yapılandırması ve sabitler."""
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent        # backend/
 PROJECT_ROOT = BASE_DIR.parent                    # clip2/
 EXPORTS_DIR = PROJECT_ROOT / "exports"
 CACHE_DIR = PROJECT_ROOT / "cache"
+#: Canlı yayın kayıtları: yalnızca süren/duraklatılmış kaydın durum dosyası.
+#: Segmentler doğrudan proje akışına yazılır (bkz. `STREAMS_DIR`).
+RECORDINGS_DIR = CACHE_DIR / "recordings"
+#: Proje akışı: kayıtların ard arda eklendiği tek HLS akışı.
+#: Klasör adı proje kimliğidir; segmentler + `index.m3u8` burada durur.
+STREAMS_DIR = CACHE_DIR / "streams"
+STREAMS_ROUTE = "/api/streams"
+#: Güvenlik sınırları: aşıldığında kayıt kendiliğinden durur (disk şişmesin).
+RECORDINGS_MAX_SECONDS = 6 * 3600
+RECORDINGS_MAX_BYTES = 16 * 1024 ** 3
 WAVEFORM_CACHE_DIR = CACHE_DIR / "waveform"
 WAVEFORM_TEMP_DIR = CACHE_DIR / "waveform-tmp"
 STORYBOARD_CACHE_DIR = CACHE_DIR / "storyboard"
@@ -12,8 +23,10 @@ STORYBOARD_TEMP_DIR = CACHE_DIR / "storyboard-tmp"
 THUMBNAIL_CACHE_DIR = CACHE_DIR / "thumbnails"
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
-HOST = "127.0.0.1"
-PORT = 8765
+#: Dinleme adresi. `CLIPSTREAM_PORT` ile ikinci bir kopya (test) ayrı portta
+#: çalıştırılabilir; üretilen dosya adresleri de bu portu kullanır.
+HOST = os.environ.get("CLIPSTREAM_HOST", "127.0.0.1")
+PORT = int(os.environ.get("CLIPSTREAM_PORT", "8765"))
 
 # Yerel dosya kaynakları: tarayıcıdan yüklenen videolar burada (geçici) saklanır.
 # Oynatma adresi `/uploads/<dosya>`; ffmpeg/ffprobe aynı dosyayı doğrudan okur.
@@ -37,3 +50,5 @@ STORYBOARD_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 STORYBOARD_TEMP_DIR.mkdir(parents=True, exist_ok=True)
 THUMBNAIL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+STREAMS_DIR.mkdir(parents=True, exist_ok=True)

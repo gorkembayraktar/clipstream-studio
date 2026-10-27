@@ -9,8 +9,11 @@ import type {
   LocalPickResponse,
   LocalUploadResponse,
   ProbeResponse,
+  Recording,
   ResolveResponse,
+  StartRecordingRequest,
   StoryboardBatchMeta,
+  StreamSummary,
   SubtitleResponse,
   WaveformResponse,
 } from "@/lib/types"
@@ -410,4 +413,42 @@ export const api = {
       version === undefined ? "" : `?v=${encodeURIComponent(String(version))}`
     return `/api/library/${encodeURIComponent(name)}/thumbnail${query}`
   },
+
+  /** Canlı kayıtlar: backend'de sürer, tarayıcı kapansa da devam eder. */
+  recordings: (options?: { silent?: boolean }) =>
+    request<{ recordings: Recording[] }>("/api/recordings", undefined, options),
+  startRecording: (payload: StartRecordingRequest) =>
+    post<Recording>("/api/recordings", payload),
+  stopRecording: (id: string) => post<Recording>(`/api/recordings/${id}/stop`),
+  /** Duraklat: akışa ekleme durur; `resume` kaldığı yerden devam eder. */
+  pauseRecording: (id: string) => post<Recording>(`/api/recordings/${id}/pause`),
+  resumeRecording: (id: string) => post<Recording>(`/api/recordings/${id}/resume`),
+  deleteRecording: (id: string, options?: { silent?: boolean }) =>
+    request<{ success: boolean }>(
+      `/api/recordings/${id}`,
+      { method: "DELETE" },
+      options,
+    ),
+
+  /** Proje akışı: kayıtların ard arda eklendiği tek HLS akışı. */
+  stream: (streamId: string, options?: { silent?: boolean }) =>
+    request<StreamSummary>(
+      `/api/streams/${encodeURIComponent(streamId)}`,
+      undefined,
+      options,
+    ),
+  /** Akıştaki tek bir kaydı (bloğu) siler; güncel özeti döner. */
+  deleteStreamRecording: (
+    streamId: string,
+    recordingId: string,
+    options?: { silent?: boolean },
+  ) =>
+    request<StreamSummary>(
+      `/api/streams/${encodeURIComponent(streamId)}/recordings/${encodeURIComponent(recordingId)}`,
+      { method: "DELETE" },
+      options,
+    ),
+  /** Oynatma adresi: sürüm sorgusu önbelleği tazeler, yol değişmez. */
+  streamUrl: (url: string, revision: number) =>
+    revision > 0 ? `${url}?v=${revision}` : url,
 }

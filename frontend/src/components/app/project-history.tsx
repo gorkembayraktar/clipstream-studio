@@ -47,7 +47,11 @@ function formatUpdated(timestamp: number, locale: string): string {
 }
 
 function projectTitle(project: ProjectWorkspace): string {
-  return project.source?.title || project.source?.inputUrl || project.id
+  return (
+    project.source?.title ||
+    project.source?.inputUrl ||
+    project.id
+  )
 }
 
 export function ProjectHistory() {

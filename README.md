@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.161-8b5cf6?style=flat-square" alt="Version 0.1.161">
+  <img src="https://img.shields.io/badge/version-0.1.173-8b5cf6?style=flat-square" alt="Version 0.1.173">
   <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Localhost-127.0.0.1-8b5cf6?style=flat-square" alt="Localhost">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
@@ -90,6 +90,8 @@
 - **Trim:** Set in and out points on the timeline.
 - **Multi-cut:** Shift+drag a range on the timeline and press `Delete` to remove it; the preview skips the removed range and the export is rendered without it. The main timeline closes the gap up (ripple), so its duration always matches the export. Multiple cuts apply to MP4 exports.
 - **Source lane:** A second lane under the main timeline shows the whole source in source time, with removed ranges marked in red and vertical time labels. Drag the red edges to fine-tune a cut, click the red area to restore it, and hover for frame previews.
+- **Live recording:** Record a live HLS stream while it keeps playing. The backend keeps recording if the page reloads, converts the result to MP4 on stop, and keeps it out of the gallery as a raw source.
+- **Clip sequence:** Finished recordings are appended to the project's timeline in order. The backend merges them into one continuous stream without re-encoding, so the playhead crosses clip boundaries and in/out points plus export cover the whole sequence. Recordings belong to the project they were started in.
 - **Crop:** Use presets or freeform selection.
 - **Export:** MP4, GIF, and MP3.
 - **Export quality:** Original/fast, High, Balanced, and Compact profiles with estimated savings, plus optional H.265 and 30 fps for smaller files.
@@ -142,7 +144,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.1.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.1.161`.
+and the version badge above in sync. Current version: `0.1.170`.
 
 ## Troubleshooting
 

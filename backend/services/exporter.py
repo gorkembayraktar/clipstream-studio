@@ -19,7 +19,12 @@ from services.gpu import (
 from services.header_store import get_headers
 from services.local_media import local_path
 from services.request_headers import ffmpeg_input_args, sanitize_headers
-from services.segment_downloader import DownloadedMedia, download_hls_range
+from services.segment_downloader import (
+    DownloadedMedia,
+    LiveTimelineError,
+    download_hls_range,
+    live_timeline_shift,
+)
 from services.thumbnails import generate_thumbnail
 
 logger = logging.getLogger(__name__)
@@ -409,12 +414,18 @@ async def stage_hls_sources(
     client: Any,
     start: float,
     end: float,
+    *,
+    playlist: Any = None,
 ) -> tuple[dict[str, Any], list[DownloadedMedia]]:
     """Dışa aktarma için HLS girişlerini istenen aralıkla yerelleştirir.
 
     AV1/fMP4 HLS'te FFmpeg'in uzak playlist üzerinde seek etmesi güvenilir
     değil; yalnızca klip aralığını indirip yerel dosyadan kesmek hem doğru hem
     çok daha hızlı. Uygun olmayan kaynaklarda payload değişmeden döner.
+
+    `playlist`, canlı/DVR kaynağında zaman kaymasının hesaplandığı anlık
+    görüntüdür. İndirme aynı görüntüyü kullanır; aksi halde iki okuma arasında
+    pencere kayar ve klip bir segment kaymış olur.
     """
     staged = dict(payload)
     downloads: list[DownloadedMedia] = []
@@ -436,7 +447,12 @@ async def stage_hls_sources(
 
     if primary_url.startswith(("http://", "https://")) and not primary_is_local:
         media = await download_hls_range(
-            client, primary_url, start, end, headers
+            client,
+            primary_url,
+            start,
+            end,
+            headers,
+            playlist=None if primary_is_audio else playlist,
         )
         if media is not None:
             seek = max(0.0, start - media.start)
@@ -944,6 +960,95 @@ def _segments_duration(segments: list[tuple[float, float]]) -> float:
     return sum(end - start for start, end in segments)
 
 
+async def align_live_timeline(
+    payload: dict[str, Any],
+    segments: list[tuple[float, float]],
+    client: Any,
+) -> tuple[dict[str, Any], list[tuple[float, float]], float, Any]:
+    """Canlı/DVR kaynakta istemci zaman çizelgesini güncel pencereye taşır.
+
+    Oynatıcı (hls.js) zaman çizelgesini **ilk okuduğu playlist'in ilk
+    segmentinde** sıfırlar ve kayan pencere ilerledikçe bu çizgi büyümeye
+    devam eder. Dışa aktarma ise playlist'i yeniden okur; bu yüzden FFmpeg'in
+    `-ss` değeri ve segment eşlemesi **güncel** pencere başına göre yapılır.
+
+    İstemci, klibin başladığı segmentin medya sırasını ve o segmentin kendi
+    zaman çizelgesindeki başlangıcını (`anchor`) bildirir. Kayma, aynı
+    segmentin güncel penceredeki başlangıcından hesaplanır; böylece pencere
+    kaymış olsa da klip doğru içeriğe düşer.
+
+    Dönüş: `(payload, segments, kayma, playlist_anlık_görüntüsü)`. Kayma
+    uygulanamıyorsa (VOD kaynak, bağlantı yok) değerler değişmeden döner.
+    Anlık görüntü indirme adımına geçirilmelidir; pencere her birkaç saniyede
+    kaydığı için yeniden okumak klibi bir segment kaydırır.
+    """
+    anchor = payload.get("anchor")
+
+    # Bağlantı noktası tek seferliktir: yeniden denemelerde/parçalarda
+    # ikinci kez uygulanmaması için payload'dan çıkarılır.
+    cleaned = {key: value for key, value in payload.items() if key != "anchor"}
+    if not isinstance(anchor, dict) or client is None or not segments:
+        return cleaned, segments, 0.0, None
+
+    url = str(payload.get("url", "")).strip()
+    if not url.startswith(("http://", "https://")) or local_path(url) is not None:
+        return cleaned, segments, 0.0, None
+
+    token_headers = get_headers(payload.get("header_token"))
+    user_headers = sanitize_headers(payload.get("headers"))
+    headers = {**token_headers, **user_headers} or None
+
+    try:
+        shift, playlist = await live_timeline_shift(
+            client,
+            url,
+            anchor,
+            headers,
+            start=segments[0][0],
+            end=segments[-1][1],
+        )
+    except LiveTimelineError as exc:
+        raise ExportError(str(exc)) from exc
+
+    if not shift:
+        return cleaned, segments, 0.0, None
+
+    staged = dict(cleaned)
+    for key in ("start_time", "end_time"):
+        try:
+            staged[key] = max(0.0, float(payload.get(key) or 0) + shift)
+        except (TypeError, ValueError):
+            continue
+
+    raw_segments = payload.get("segments")
+    if isinstance(raw_segments, list) and raw_segments:
+        moved: list[dict[str, float]] = []
+        for item in raw_segments:
+            if not isinstance(item, dict):
+                continue
+            try:
+                moved.append(
+                    {
+                        "start_time": max(
+                            0.0, float(item.get("start_time") or 0) + shift
+                        ),
+                        "end_time": max(0.0, float(item.get("end_time") or 0) + shift),
+                    }
+                )
+            except (TypeError, ValueError):
+                continue
+        if moved:
+            staged["segments"] = moved
+
+    logger.info("export: canlı zaman çizgisi %.1f sn kaydırıldı", shift)
+    return (
+        staged,
+        [(start + shift, end + shift) for start, end in segments],
+        shift,
+        playlist,
+    )
+
+
 async def _run_segmented_export(
     payload: dict[str, Any],
     output_path: Path,
@@ -1058,6 +1163,15 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         if len(segments) > 1 and output_format != "mp4":
             raise ExportError(t("error.multiSegmentMp4Only"))
 
+        # Canlı/DVR kaynakta istemci zaman çizelgesi güncel pencereden geride
+        # kalır; klip sınırları indirme öncesinde pencereye taşınır.
+        timeline_start, timeline_end = segments[0][0], segments[-1][1]
+        payload, segments, timeline_shift, live_playlist = await align_live_timeline(
+            payload, segments, client
+        )
+        if not segments:
+            raise ExportError(t("error.invalidRange"))
+
         # Pencere = ilk parçanın başı → son parçanın sonu; süre = kalan parçalar.
         start = segments[0][0]
         end = segments[-1][1]
@@ -1081,8 +1195,12 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         job["output_filename"] = output_path.name
         job["clip_duration"] = round(clip_duration, 3)
         #: Arayüzde paralel iş kartlarını ayırt etmek için kısa bilgiler.
-        job["clip_start"] = round(start, 3)
-        job["clip_end"] = round(end, 3)
+        #: Canlı kaynakta kart, kullanıcının gördüğü zaman çizelgesi değerlerini
+        #: gösterir (indirme için pencereye kaydırılan değerler değil).
+        job["clip_start"] = round(timeline_start, 3)
+        job["clip_end"] = round(timeline_end, 3)
+        if timeline_shift:
+            job["timeline_shift"] = round(timeline_shift, 3)
         if len(segments) > 1:
             job["segment_count"] = len(segments)
         job["output_format"] = output_format
@@ -1097,16 +1215,24 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         if client is not None:
             job["stage"] = "staging"
             try:
-                payload, downloads = await stage_hls_sources(payload, client, start, end)
+                payload, downloads = await stage_hls_sources(
+                    payload, client, start, end, playlist=live_playlist
+                )
             except Exception as exc:  # yerelleştirme başarısızsa eski yola dön
                 logger.warning("export: HLS yerelleştirme hatası: %s", exc)
-                payload = job["payload"]
+                # Canlı kaynakta payload zaten pencereye hizalanmıştı; özgün
+                # (hizasız) kopyaya dönmek klibi yanlış konuma taşır.
                 for media in downloads:
                     media.cleanup()
                 downloads = []
             finally:
                 job.pop("stage", None)
             job["localized"] = bool(downloads)
+            if live_playlist is not None and not downloads:
+                # Canlı playlist'te FFmpeg'in `-ss` değeri yok sayılır ve her
+                # zaman canlı uçtan okunur. Aralık yerelleştirilemiyorsa yanlış
+                # klip üretmek yerine açık bir hata verilir.
+                raise ExportError(t("error.liveRangeUnavailable"))
             if job["status"] == CANCELLED:
                 return
 

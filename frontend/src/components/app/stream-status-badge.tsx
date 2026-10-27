@@ -25,6 +25,10 @@ export function StreamStatusBadge({ className }: { className?: string }) {
   const sourceLoading = useSourceStore((s) => s.sourceLoading)
   const hasSource = useSourceStore((s) => s.streamUrl !== null)
   const isLive = useSourceStore((s) => s.isLive)
+  const playerLive = usePlayerStore((s) => s.live)
+  /** Resolver doğrudan HLS akışlarını "canlı" işaretlemez; oynatıcı canlı
+   * playlist gördüğünde de rozet LIVE göstermelidir (kayıt düğmesiyle aynı). */
+  const liveNow = isLive || playerLive
   const playing = usePlayerStore((s) => s.playing)
   const buffering = usePlayerStore((s) => s.buffering)
   const note = usePlayerStore((s) => s.statusNote)
@@ -48,7 +52,7 @@ export function StreamStatusBadge({ className }: { className?: string }) {
     label = t("status.buffering")
   } else {
     tone = "ready"
-    label = isLive
+    label = liveNow
       ? t("status.live")
       : playing
         ? t("status.playing")

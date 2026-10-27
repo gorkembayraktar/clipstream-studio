@@ -104,7 +104,7 @@ function cancelAction() {
 }
 
 /** Hazır kaynağı stüdyoya bağlar (her iki yol için ortak). */
-function applyLocalSource(result: LocalFileResponse, sourcePath: string | null): void {
+export function applyLocalSource(result: LocalFileResponse, sourcePath: string | null): void {
   const source = useSourceStore.getState()
   source.setUseProxy(false)
   source.setSource({

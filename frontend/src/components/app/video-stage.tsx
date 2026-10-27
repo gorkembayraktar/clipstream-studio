@@ -1,7 +1,7 @@
 /** Sahne: video elementi + olay bağlama + overlay'ler. */
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
-import { Clapperboard, Loader2 } from "lucide-react"
+import { Clapperboard, Loader2, TvIcon } from "lucide-react"
 import type HlsJs from "hls.js"
 import { toast } from "sonner"
 
@@ -15,6 +15,7 @@ import { Timeline } from "@/components/app/timeline"
 import { TimelineToolbar } from "@/components/app/timeline-toolbar"
 import { TrimBar } from "@/components/app/trim-bar"
 import { WaveformProvider } from "@/components/app/waveform-provider"
+import { Button } from "@/components/ui/button"
 import { useHlsSource } from "@/hooks/use-hls-source"
 import { useSubtitleVtt } from "@/hooks/use-subtitles"
 import { useFullscreen } from "@/hooks/use-fullscreen"
@@ -25,6 +26,7 @@ import { cn } from "cn"
 import { gapsOf, useEditStore } from "@/stores/edit-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
+import { useRecorderStore } from "@/stores/recorder-store"
 import { useSourceStore } from "@/stores/source-store"
 
 /** "Kare Yüklendi" bildiriminin ekranda kalma süresi (ms). */
@@ -34,6 +36,10 @@ const SEEK_NOTE_MS = 1200
  *
  * Kısa duraklamalarda (önbellekteki bölge, hızlı CDN) gösterge yanıp sönmesin. */
 const AUDIO_BUFFER_HINT_MS = 450
+
+/** Proje akışı (EVENT playlist) sonunda `ended` gelmez; uçta tıkanma bu süre
+ * sonra "bitti" sayılır (yoksa arabellek göstergesi sonsuza dek kalır). */
+const END_STALL_MS = 500
 
 export function VideoStage() {
   const { t } = useI18n()
@@ -59,7 +65,28 @@ export function VideoStage() {
   const headerToken = useSourceStore((s) => s.headerToken)
   const previewHeight = useSourceStore((s) => s.previewHeight)
   const cropEnabled = useEditStore((s) => s.crop.enabled)
+  const isStreamSource = useSourceStore((s) => Boolean(s.streamId))
+  const sourceIsLive = useSourceStore((s) => s.isLive)
+  const playerIsLive = usePlayerStore((s) => s.live)
+  const liveUrl = useSourceStore((s) => s.liveUrl)
+  const previewLiveFlag = useSourceStore((s) => s.previewLive)
+  const setPreviewLive = useSourceStore((s) => s.setPreviewLive)
+  /**
+   * Kayıt alındıktan sonra sahne proje akışını gösterir. "Canlı" düğmesi
+   * `previewLive` ile görüntüyü canlı yayına alır; kaynak/kimlik değişmez,
+   * yalnızca oynatılan adres değişir.
+   */
+  const livePreview = previewLiveFlag && Boolean(liveUrl)
+  /**
+   * Canlı yayın izleniyor ama henüz kaydedilmiş akış yok: düzenleme şeridi
+   * (zaman çizelgesi/kırpma) gösterilmez. Canlıda akış kayan bir penceredir;
+   * çizelge yalnızca oynatıcı imlecini takip eder, düzenlenecek bir şey yoktur.
+   */
+  const liveOnly =
+    livePreview || (!isStreamSource && (sourceIsLive || playerIsLive))
   const setMeta = useSourceStore((s) => s.setMeta)
+  const setTimelineAnchor = useSourceStore((s) => s.setTimelineAnchor)
+  const markLive = usePlayerStore((s) => s.markLive)
 
   // Önizleme kalitesi: seçili varyant (seçim yoksa kaynağın en yükseği).
   // Dışa aktarma, dalga formu ve analiz her zaman kaynağın en yüksek kalitesini
@@ -87,10 +114,12 @@ export function VideoStage() {
   // curl ile başlık verildiyse tarayıcı bunları gönderemez → proxy zorunlu.
   const needsProxy =
     useProxy || (platform !== "direct" && platform !== "local") || Boolean(headerToken)
-  const playerSrc = previewStreamUrl
+  /** Canlı önizlemede sahne yayını, aksi hâlde kaydedilmiş akışı oynatır. */
+  const basePlayerSrc = livePreview ? liveUrl : previewStreamUrl
+  const playerSrc = basePlayerSrc
     ? needsProxy
-      ? proxiedUrl(previewStreamUrl, headerToken)
-      : previewStreamUrl
+      ? proxiedUrl(basePlayerSrc, headerToken)
+      : basePlayerSrc
     : null
   const audioSrc = previewAudioUrl
     ? needsProxy
@@ -104,7 +133,42 @@ export function VideoStage() {
         (previewVariant?.audio_hls ?? false) ||
         isHlsUrl(audioSrc)),
   )
-  useHlsSource(videoRef, playerSrc, playerIsHls)
+  /**
+   * Canlı uç bildirimi.
+   *
+   * Proje akışı her zaman VOD'dur: hls.js `details.live` görse bile canlı mod
+   * açılmaz (yoksa zaman çizelgesi düzenlenemez hâle gelir). Kaynak canlıdan
+   * akışa geçtiğinde `null` bildirimi yine geçirilir ki eski canlı mod kapansın.
+   */
+  const handleLiveEdge = useCallback(
+    (edge: number | null) => {
+      const source = useSourceStore.getState()
+      if (edge !== null && source.streamId && !source.previewLive) return
+      markLive(edge)
+    },
+    [markLive],
+  )
+
+  /** Canlı/DVR hizalama haritası; proje akışı canlı olmadığı için bildirilmez. */
+  const handleTimelineAnchor = useCallback(
+    (anchor: Parameters<typeof setTimelineAnchor>[0]) => {
+      const source = useSourceStore.getState()
+      if (source.streamId && !source.previewLive) return
+      setTimelineAnchor(anchor)
+    },
+    [setTimelineAnchor],
+  )
+
+  useHlsSource(
+    videoRef,
+    playerSrc,
+    playerIsHls,
+    handleTimelineAnchor,
+    handleLiveEdge,
+    // Proje akışı büyüyen EVENT listesidir: canlı uca atlamadan baştan başla.
+    // Canlı önizlemede ise oynatma canlı uçtan başlar.
+    isStreamSource && !livePreview,
+  )
 
   // Önizleme varyantında aynı altyazı grubu varsa onu, yoksa kaynağın
   // varsayılan varyantındaki rendition'ı kullan.
@@ -730,8 +794,21 @@ export function VideoStage() {
     const onLoadedMetadata = () => {
       // Canlı HLS'te tarayıcı yalnızca kayar pencere süresini bildirir; bunu
       // toplam süre sanıp zaman çizelgesine/rozetlere yazma.
-      const live = useSourceStore.getState().isLive
-      const duration = live ? 0 : Number.isFinite(el.duration) ? el.duration : 0
+      const source = useSourceStore.getState()
+      // Canlı önizlemede sahne yayını gösterir: süre bilinmez (kayan pencere).
+      const live = source.isLive || source.previewLive
+      // Proje akışı büyüyen bir EVENT playlist'idir: tarayıcı süreyi
+      // `Infinity`/o ana kadarki uç olarak bildirebilir. Süre her zaman
+      // backend özetinden (segment toplamı) gelir.
+      const streamDuration =
+        source.streamId && !source.previewLive ? (source.meta?.duration ?? 0) : 0
+      const duration = live
+        ? 0
+        : streamDuration > 0
+          ? streamDuration
+          : Number.isFinite(el.duration)
+            ? el.duration
+            : 0
       clearSeekNote()
       applyPlaybackRate()
       measuredForSource = false
@@ -788,24 +865,83 @@ export function VideoStage() {
         }
         usePlayerStore.getState().clearPendingSeek()
       }
+
+      // Yıkıcı değişimde (blok silme) oynatma adresi değişir ve oynatıcı
+      // yeniden bağlanır: kullanıcı izlemeye devam ediyorsa oynatma sürer.
+      if (usePlayerStore.getState().pendingPlay) {
+        usePlayerStore.getState().clearPendingPlay()
+        if (!pending?.playing) void el.play().catch(() => undefined)
+      }
     }
-    const onTimeUpdate = () => mark({ currentTime: el.currentTime })
+    let endTimer = 0
+    const clearEndWatch = () => {
+      if (endTimer) {
+        window.clearTimeout(endTimer)
+        endTimer = 0
+      }
+    }
+    /** Proje akışı büyüyen bir EVENT listesidir: son kare bittiğinde tarayıcı
+     *  `ended` olayını tetiklemez (süre, son karenin birkaç ms ötesinde biter).
+     *  Kayıt sürmüyorsa ve uçtaysak oynatma bitmiş sayılır. Kayıt sürerken
+     *  yeni segment birkaç saniyede gelir; o zaman dokunulmaz. */
+    const streamStillRecording = () => {
+      const streamId = useSourceStore.getState().streamId
+      if (!streamId) return false
+      return useRecorderStore
+        .getState()
+        .recordings.some((item) => item.stream_id === streamId)
+    }
+    const atStreamEnd = () => {
+      if (!Number.isFinite(el.duration) || el.duration <= 0) return false
+      if (el.currentTime < el.duration - 0.5) return false
+      return readBufferedEnd() >= el.duration - 0.5
+    }
+    const watchStreamEnd = () => {
+      const source = useSourceStore.getState()
+      const streaming = Boolean(source.streamId) && !source.previewLive
+      if (!streaming || streamStillRecording() || !atStreamEnd()) {
+        clearEndWatch()
+        return
+      }
+      if (endTimer) return
+      endTimer = window.setTimeout(() => {
+        endTimer = 0
+        if (el.paused || streamStillRecording() || !atStreamEnd()) return
+        // Duraklatma `pause` olayını tetikler; ayrı ses akışı da aynı yolu izler.
+        el.pause()
+        mark({
+          playing: false,
+          buffering: false,
+          currentTime: el.duration || el.currentTime,
+        })
+        stopTicking()
+      }, END_STALL_MS)
+    }
+    const onTimeUpdate = () => {
+      mark({ currentTime: el.currentTime })
+      watchStreamEnd()
+    }
     const onPlay = () => {
+      clearEndWatch()
       mark({ playing: true, buffering: false })
       startTicking()
       measureFrameRate()
     }
     const onPause = () => {
+      clearEndWatch()
       mark({ playing: false, currentTime: el.currentTime })
       stopTicking()
     }
     const onEnded = () => {
+      clearEndWatch()
       mark({ playing: false, currentTime: el.duration || 0 })
       stopTicking()
     }
+
     const onProgress = () => mark({ bufferedEnd: readBufferedEnd() })
     const onWaiting = () => {
       mark({ buffering: true })
+      watchStreamEnd()
       if (!bufferingLoggedRef.current) {
         bufferingLoggedRef.current = true
         log("info", translate("log.buffering"))
@@ -818,6 +954,7 @@ export function VideoStage() {
     }
     const onStalled = () => {
       mark({ buffering: true })
+      watchStreamEnd()
       if (!bufferingLoggedRef.current) {
         bufferingLoggedRef.current = true
         log("warn", translate("log.stalled"))
@@ -875,6 +1012,7 @@ export function VideoStage() {
     return () => {
       stopTicking()
       clearSeekNote()
+      clearEndWatch()
       el.removeEventListener("loadedmetadata", onLoadedMetadata)
       el.removeEventListener("timeupdate", onTimeUpdate)
       el.removeEventListener("play", onPlay)
@@ -956,22 +1094,55 @@ export function VideoStage() {
         {!streamUrl && <EmptyStage />}
       </div>
 
-      <div
-        inert={!streamUrl}
-        className={cn(
-          "stage-strip min-w-0 space-y-2 px-3 py-3",
-          !streamUrl && "pointer-events-none opacity-60",
-        )}
-      >
-        <TimelineToolbar />
-        <WaveformProvider>
-          <StoryboardProvider>
-            <Timeline />
-            <SourceTimeline />
-          </StoryboardProvider>
-        </WaveformProvider>
-        <TrimBar />
-      </div>
+      {liveOnly ? (
+        <div
+          data-slot="live-strip"
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-4 text-xs text-muted-foreground"
+        >
+          <span className="relative flex size-2">
+            <span className="absolute inset-0 animate-ping rounded-full bg-red-500/60" />
+            <span className="relative size-2 rounded-full bg-red-500" />
+          </span>
+          <span className="font-medium text-foreground">
+            {t("stage.liveOnly")}
+          </span>
+          <span aria-hidden>·</span>
+          <span>
+            {/* Kayıtlar varken canlı önizleme: düzenlemeye dönüş yolu gösterilir. */}
+            {isStreamSource
+              ? t("stage.livePreviewHint")
+              : t("stage.liveOnlyHint")}
+          </span>
+          {isStreamSource && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewLive(false)}
+              className="h-7 px-2 text-xs"
+            >
+              <TvIcon className="size-3.5" />
+              {t("player.backToRecording")}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div
+          inert={!streamUrl}
+          className={cn(
+            "stage-strip min-w-0 space-y-2 px-3 py-3",
+            !streamUrl && "pointer-events-none opacity-60",
+          )}
+        >
+          <TimelineToolbar />
+          <WaveformProvider>
+            <StoryboardProvider>
+              <Timeline />
+              <SourceTimeline />
+            </StoryboardProvider>
+          </WaveformProvider>
+          <TrimBar />
+        </div>
+      )}
     </div>
   )
 }

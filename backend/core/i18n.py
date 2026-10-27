@@ -22,6 +22,14 @@ _MESSAGES: dict[str, tuple[str, str]] = {
     "error.sourceRequired": ("Source URL is required.", "Kaynak adresi zorunludur."),
     "error.sourceEmpty": ("Source URL is empty.", "Kaynak adresi boş."),
     "error.invalidRange": ("Invalid time range.", "Geçersiz zaman aralığı."),
+    "error.liveWindowExpired": (
+        "The selected range has fallen out of the live stream's time window. Pick the clip again on the timeline.",
+        "Seçilen aralık canlı yayının zaman penceresinin dışına çıktı. Klibi zaman çizelgesinde yeniden seçin.",
+    ),
+    "error.liveRangeUnavailable": (
+        "The clip range could not be downloaded from the live stream. Try again or pick a shorter range.",
+        "Klip aralığı canlı yayından indirilemedi. Yeniden deneyin veya daha kısa bir aralık seçin.",
+    ),
     "error.endAfterStart": (
         "End time must be greater than start time.",
         "Bitiş zamanı, başlangıç zamanından büyük olmalıdır.",
@@ -356,6 +364,46 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Could not prepare the timeline storyboard.",
         "Zaman çizelgesi storyboard'u hazırlanamadı.",
     ),
+    # --------------------------------------------------------- canlı kayıt
+    "error.recordUnsupported": (
+        "This stream cannot be recorded: its playlist is not a supported HLS stream.",
+        "Bu yayın kaydedilemiyor: playlist desteklenen bir HLS akışı değil.",
+    ),
+    "error.recordNotLive": (
+        "This source is not a live stream; only live broadcasts can be recorded.",
+        "Bu kaynak canlı yayın değil; yalnızca canlı yayınlar kaydedilebilir.",
+    ),
+    "error.recordingNotFound": (
+        "Recording not found.",
+        "Kayıt bulunamadı.",
+    ),
+    "error.recordBusy": (
+        "A recording is already running in this project; stop it first.",
+        "Bu projede süren bir kayıt var; önce onu durdurun.",
+    ),
+    "error.recordProjectMissing": (
+        "The recording could not be linked to a project.",
+        "Kayıt bir projeye bağlanamadı.",
+    ),
+    "error.streamNotFound": (
+        "This stream has no recordings yet.",
+        "Bu akışta henüz kayıt yok.",
+    ),
+    "error.recordPlaylistLost": (
+        "The live playlist could not be reached; recording was paused.",
+        "Canlı playlist'e ulaşılamadı; kayıt duraklatıldı.",
+    ),
+    "error.recordWriteFailed": (
+        "Recording could not be written to disk: {detail}",
+        "Kayıt diske yazılamadı: {detail}",
+    ),
+    "error.recordFailed": (
+        "Recording stopped because of an unexpected error: {detail}",
+        "Beklenmedik bir hata nedeniyle kayıt durdu: {detail}",
+    ),
+    "record.defaultTitle": ("Live recording", "Canlı kayıt"),
+    # ------------------------------------------------------------- proje akışı
+    "stream.defaultTitle": ("Project stream", "Proje akışı"),
     "error.storyboardNotFound": (
         "Storyboard image was not found.",
         "Storyboard görseli bulunamadı.",

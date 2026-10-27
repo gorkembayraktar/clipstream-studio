@@ -94,6 +94,11 @@ export function useKeyboardShortcuts() {
         case "L":
           edit.setLoop(!edit.loop)
           break
+        // Makas: imleçten böler (içerik atılmaz).
+        case "s":
+        case "S":
+          edit.splitAt(currentTime)
+          break
         // Sil: seçili aralığı segmentlerden çıkarır (böl + at).
         case "Delete":
         case "Backspace":

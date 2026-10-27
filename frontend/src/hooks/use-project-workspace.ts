@@ -20,14 +20,21 @@ import {
   removeProjectWorkspace,
   writeProjectWorkspace,
   PROJECT_SCHEMA_VERSION,
+  type ProjectEditSnapshot,
+  type ProjectSourceSnapshot,
+  type ProjectTimelineSnapshot,
   type ProjectWorkspace,
 } from "@/lib/project-workspace"
+import type { StreamSummary } from "@/lib/types"
 import { useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
+import { useProjectStore } from "@/stores/project-store"
 import { useProjectUiStore } from "@/stores/project-ui-store"
+import { useRecorderStore } from "@/stores/recorder-store"
 import { useSourceStore } from "@/stores/source-store"
+import { useStreamStore } from "@/stores/stream-store"
 import { useTimelineStore } from "@/stores/timeline-store"
 
 /** Ayarların uygulandığı görülsün diye kısa bir alt sınır. */
@@ -84,8 +91,19 @@ function applyProjectSettings(record: ProjectWorkspace): void {
   editStore.setCropEnabled(record.edit.crop.enabled)
 }
 
-function applySourceSelections(record: ProjectWorkspace): void {
-  const snapshot = record.source
+/** Kaynak + düzenleme + oynatma konumu taşıyan en küçük görünüm.
+ *
+ * Hem tam proje kaydı hem de dizi görünümünden dönüşte saklanan ana görünüm
+ * bu biçime uyar; geri yükleme yardımcıları ikisini de kabul eder.
+ */
+type ProjectView = {
+  source: ProjectSourceSnapshot | null
+  edit: ProjectEditSnapshot
+  timeline: ProjectTimelineSnapshot
+}
+
+function applySourceSelections(view: { source: ProjectSourceSnapshot | null }): void {
+  const snapshot = view.source
   if (!snapshot) return
 
   const source = useSourceStore.getState()
@@ -100,34 +118,39 @@ function applySourceSelections(record: ProjectWorkspace): void {
   if (snapshot.subtitleTrackId) source.setSubtitleTrackId(snapshot.subtitleTrackId)
 }
 
-function applyEditSnapshot(record: ProjectWorkspace): void {
+function applyEditSnapshot(view: { edit: ProjectEditSnapshot }): void {
+  const snapshot = view.edit
   const editStore = useEditStore.getState()
-  editStore.setLoop(record.edit.loop)
-  editStore.setCropAspect(record.edit.crop.aspect)
-  editStore.setCropRect(record.edit.crop.rect)
-  editStore.setCropEnabled(record.edit.crop.enabled)
+  editStore.setLoop(snapshot.loop)
+  editStore.setCropAspect(snapshot.crop.aspect)
+  editStore.setCropRect(snapshot.crop.rect)
+  editStore.setCropEnabled(snapshot.crop.enabled)
   // Trim, kaynağın süresi bilindiğinde (setMeta sonrası) sınırlandırılır.
-  if (record.edit.segments.length > 0) {
-    editStore.setSegments(record.edit.segments)
+  if (snapshot.segments.length > 0) {
+    editStore.setSegments(snapshot.segments)
+  }
+  // Makasla konan bölme noktaları segmentlerden sonra geri yüklenir.
+  if (snapshot.splits.length > 0) {
+    editStore.setSplits(snapshot.splits)
   }
   // In/Out seçimi segmentlerden bağımsızdır: her durumda geri yüklenir.
-  if (record.edit.trim.end - record.edit.trim.start > 0) {
-    editStore.setTrim(record.edit.trim)
+  if (snapshot.trim.end - snapshot.trim.start > 0) {
+    editStore.setTrim(snapshot.trim)
   }
 }
 
-function requestRestoredPlayhead(record: ProjectWorkspace): void {
+function requestRestoredPlayhead(view: { timeline: ProjectTimelineSnapshot }): void {
   const player = usePlayerStore.getState()
-  if (record.timeline.playhead > 0.05) {
-    player.mark({ currentTime: record.timeline.playhead })
-    player.requestSeek(record.timeline.playhead)
+  if (view.timeline.playhead > 0.05) {
+    player.mark({ currentTime: view.timeline.playhead })
+    player.requestSeek(view.timeline.playhead)
   } else {
     player.clearPendingSeek()
   }
 }
 
-function restoreLocalSource(record: ProjectWorkspace): boolean {
-  const snapshot = record.source
+function restoreLocalSource(view: ProjectView): boolean {
+  const snapshot = view.source
   if (!snapshot?.streamUrl) return false
 
   const source = useSourceStore.getState()
@@ -152,20 +175,20 @@ function restoreLocalSource(record: ProjectWorkspace): boolean {
   })
   if (snapshot.meta) source.setMeta(snapshot.meta)
 
-  applySourceSelections(record)
-  applyEditSnapshot(record)
-  requestRestoredPlayhead(record)
+  applySourceSelections(view)
+  applyEditSnapshot(view)
+  requestRestoredPlayhead(view)
   return true
 }
 
 async function restoreRemoteSource(
-  record: ProjectWorkspace,
+  view: ProjectView,
   options: {
     signal: AbortSignal
     onProgress: (event: ResolveProgressEvent) => void
   },
 ): Promise<void> {
-  const snapshot = record.source
+  const snapshot = view.source
   if (!snapshot) return
 
   const url = snapshot.originUrl || snapshot.inputUrl
@@ -207,9 +230,9 @@ async function restoreRemoteSource(
   })
   if (snapshot.meta) source.setMeta(snapshot.meta)
 
-  applySourceSelections(record)
-  applyEditSnapshot(record)
-  requestRestoredPlayhead(record)
+  applySourceSelections(view)
+  applyEditSnapshot(view)
+  requestRestoredPlayhead(view)
 }
 
 function resetStudioState(): void {
@@ -254,7 +277,11 @@ function sourceIdentity(source: {
   sourceOrigin?: string | null
   inputUrl: string
   sourcePath?: string | null
+  streamId?: string | null
 }): string | null {
+  // Akış kaynağının adresi her kayıtta değişir (sürüm sorgusu); kimlik akışa
+  // bağlı kalır ki proje bölünmesin ve kayıtlar doğru projeye yazılsın.
+  if (source.streamId) return `stream:${source.streamId}`
   if (!source.streamUrl) return null
   if (source.platform === "local") {
     return `local:${source.sourcePath ?? source.streamUrl}`
@@ -272,15 +299,72 @@ function snapshotSourceIdentity(
     sourceOrigin: snapshot.originUrl,
     inputUrl: snapshot.inputUrl,
     sourcePath: snapshot.sourcePath,
+    streamId: snapshot.streamId,
   })
 }
 
+/** Kaynak store'undan kalıcı kaynak anlık görüntüsü. */
+function sourceSnapshotOf(
+  source: ReturnType<typeof useSourceStore.getState>,
+): ProjectSourceSnapshot | null {
+  if (!source.streamUrl) return null
+  return {
+    inputUrl: source.inputUrl,
+    originUrl: source.sourceOrigin,
+    streamUrl: source.streamUrl,
+    title: source.title,
+    resolution: source.resolution,
+    platform: source.platform,
+    useProxy: source.useProxy,
+    previewHeight: source.previewHeight,
+    audioTrackId: source.audioTrackId,
+    subtitleTrackId: source.subtitleTrackId,
+    headers: source.headers ? { ...source.headers } : null,
+    headerToken: source.headerToken,
+    sourcePath: source.sourcePath,
+    previewCopy: source.previewCopy,
+    isHls: source.isHls,
+    isLive: source.isLive,
+    meta: source.meta ? { ...source.meta } : null,
+    streamId: source.streamId,
+    liveUrl: source.liveUrl,
+  }
+}
+
+/** Düzenleme store'undan kalıcı kesim anlık görüntüsü. */
+function editSnapshotOf(
+  edit: ReturnType<typeof useEditStore.getState>,
+): ProjectEditSnapshot {
+  return {
+    trim: { ...edit.trim },
+    segments: edit.segments.map((segment) => ({
+      start: segment.start,
+      end: segment.end,
+    })),
+    splits: [...edit.splits],
+    loop: edit.loop,
+    crop: {
+      enabled: edit.crop.enabled,
+      rect: edit.crop.rect ? { ...edit.crop.rect } : null,
+      aspect: edit.crop.aspect,
+    },
+  }
+}
+
+/** Zaman çizelgesi store'undan yakınlaştırma + imleç anlık görüntüsü. */
+function timelineSnapshotOf(
+  timeline: ReturnType<typeof useTimelineStore.getState>,
+  playhead: number,
+): ProjectTimelineSnapshot {
+  return { zoom: timeline.zoom, playhead }
+}
+
+/** Store'lardan tam proje kaydı üretir (kayıt = tek doğru kaynak). */
 function snapshotFromStores(
   projectId: string,
   createdDate: number,
 ): ProjectWorkspace {
   const source = useSourceStore.getState()
-  const edit = useEditStore.getState()
   const exportStore = useExportStore.getState()
   const timeline = useTimelineStore.getState()
   const player = usePlayerStore.getState()
@@ -291,40 +375,8 @@ function snapshotFromStores(
     id: projectId,
     created_date: createdDate,
     updated_date: Date.now(),
-    source: source.streamUrl
-      ? {
-          inputUrl: source.inputUrl,
-          originUrl: source.sourceOrigin,
-          streamUrl: source.streamUrl,
-          title: source.title,
-          resolution: source.resolution,
-          platform: source.platform,
-          useProxy: source.useProxy,
-          previewHeight: source.previewHeight,
-          audioTrackId: source.audioTrackId,
-          subtitleTrackId: source.subtitleTrackId,
-          headers: source.headers ? { ...source.headers } : null,
-          headerToken: source.headerToken,
-          sourcePath: source.sourcePath,
-          previewCopy: source.previewCopy,
-          isHls: source.isHls,
-          isLive: source.isLive,
-          meta: source.meta ? { ...source.meta } : null,
-        }
-      : null,
-    edit: {
-      trim: { ...edit.trim },
-      segments: edit.segments.map((segment) => ({
-        start: segment.start,
-        end: segment.end,
-      })),
-      loop: edit.loop,
-      crop: {
-        enabled: edit.crop.enabled,
-        rect: edit.crop.rect ? { ...edit.crop.rect } : null,
-        aspect: edit.crop.aspect,
-      },
-    },
+    source: sourceSnapshotOf(source),
+    edit: editSnapshotOf(useEditStore.getState()),
     export: {
       cutMode: exportStore.cutMode,
       outputFormat: exportStore.outputFormat,
@@ -334,11 +386,7 @@ function snapshotFromStores(
       filename: exportStore.filename,
       gpuEnabled: exportStore.gpuEnabled,
     },
-    timeline: {
-      zoom: timeline.zoom,
-      // Henüz video elementine uygulanmamış geri yükleme konumu kaybolmasın.
-      playhead: player.pendingSeek ?? player.currentTime,
-    },
+    timeline: timelineSnapshotOf(timeline, player.pendingSeek ?? player.currentTime),
     ui: { panelTab: ui.panelTab },
   }
 }
@@ -424,6 +472,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
       projectIdRef.current = record.id
       projectSourceRef.current = snapshotSourceIdentity(record.source)
       setProjectId(record.id)
+      useProjectStore.getState().setProjectId(record.id)
       setTitle(record.source?.title ?? null)
       applyProjectSettings(record)
 
@@ -435,11 +484,36 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
         setProgress(0)
         setStage("resolving")
         try {
-          if (record.source.platform === "local") {
+          // Akış kimliği = proje kimliğidir: önce projenin kendi akışı denenir.
+          // Eski/bozuk snapshot başka bir akışı gösteriyorsa (ya da akışı hiç
+          // bilmiyorsa) bu, kayıtların yeni/boş bir projeye kaymasını önler.
+          const streamIds = [record.id]
+          if (record.source.streamId && record.source.streamId !== record.id) {
+            streamIds.push(record.source.streamId)
+          }
+          let summary: StreamSummary | null = null
+          for (const candidate of streamIds) {
+            summary = await useStreamStore.getState().load(candidate)
+            if (summary) break
+          }
+
+          if (summary) {
+            // Proje akışı: kayıtların biriktiği tek timeline. Canlı adres
+            // yeniden çözülmez; yalnızca kayıt başlatılırken (gerekirse) çözülür.
+            const source = useSourceStore.getState()
+            source.setInputUrl(record.source.inputUrl || record.source.liveUrl || "")
+            source.setLiveUrl(record.source.liveUrl ?? null)
+            source.setStreamSource(summary)
+            applySourceSelections(record)
+            applyEditSnapshot(record)
+            requestRestoredPlayhead(record)
+          } else if (record.source.platform === "local") {
             if (!restoreLocalSource(record)) {
               throw new Error(translate("project.sourceMissing"))
             }
           } else {
+            // Akış diskte yok (temizlik): canlı kaynağa düş, kayıt yeniden
+            // başlatılabilir. Proje kimliği korunur.
             await restoreRemoteSource(record, {
               signal: controller.signal,
               onProgress: (event) => {
@@ -467,6 +541,8 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
       }
 
       if (cancelled) return
+      // Akış kaynağı kurulurken timeline yakınlaştırması sıfırlanmış olabilir.
+      useTimelineStore.getState().setZoom(record.timeline.zoom)
       setProgress(100)
       setPhase("ready")
       log(
@@ -491,8 +567,34 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     if (storageFailedRef.current) return
     if (projectSourceRef.current === sourceKey) return
 
+    // Akış kimliği = proje kimliği: kayıt bitince kaynak "canlı yayın"dan
+    // proje akışına döner. Bu, aynı projenin devamıdır (yeni kimlik üretilmez).
+    // Farklı bir akış kimliği görünse bile yeni proje **açılmaz**: yeni proje,
+    // az önce kaydedilen blokları boş bir projeye taşımak demektir.
+    if (sourceKey.startsWith("stream:")) {
+      projectSourceRef.current = sourceKey
+      if (sourceKey !== `stream:${projectIdRef.current}`) {
+        log(
+          "warn",
+          translate("project.streamMismatchLog"),
+          `${sourceKey} ≠ ${projectIdRef.current ?? "-"}`,
+        )
+      }
+      return
+    }
+
+    // Proje değişiyor: önceki projede süren kayıt kapatılır. Segmentler zaten
+    // akışa yazıldığı için veri kaybı yok; eski proje geçmişte durur.
+    const previousProject = projectIdRef.current
+    if (previousProject && useRecorderStore.getState().recordings.length > 0) {
+      void useRecorderStore.getState().stopForProject(previousProject)
+    }
+
     const id = createProjectId()
     const createdDate = Date.now()
+    // Önceki projenin akış özeti yeni projeye sızmasın: akış kimliği proje
+    // kimliğidir, yeni projede akış ancak ilk kayıtla doğar.
+    useStreamStore.getState().reset()
     const snapshot = buildSnapshot(id, createdDate)
 
     if (!writeProjectWorkspace(snapshot)) {
@@ -506,6 +608,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     projectIdRef.current = id
     projectSourceRef.current = sourceKey
     setProjectId(id)
+    useProjectStore.getState().setProjectId(id)
     setNotice(null)
     setProjectInUrl(id)
     log(
@@ -594,6 +697,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     createdDateRef.current = null
     storageFailedRef.current = false
     setProjectId(null)
+    useProjectStore.getState().setProjectId(null)
     setPhase("ready")
     setProgress(null)
     setStage(null)

@@ -5,7 +5,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
-import { ChevronRightIcon, DownloadIcon, ScissorsIcon } from "lucide-react"
+import {
+  ChevronRightIcon,
+  DownloadIcon,
+  EraserIcon,
+  ScissorsIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 import { cn } from "cn"
 
@@ -13,6 +19,16 @@ import { PROFILE_LABEL_KEYS } from "@/components/app/export-panel-constants"
 import { useStoryboardData } from "@/components/app/storyboard-provider"
 import { PREVIEW_WIDTH, TimelinePreview } from "@/components/app/timeline-preview"
 import { WaveformLayer } from "@/components/app/waveform-layer"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -28,17 +44,30 @@ import { useSourceDuration } from "@/hooks/use-source-duration"
 import { useI18n } from "@/i18n"
 import { clamp, formatTick, tickStep } from "@/lib/format"
 import {
+  createSegment,
   layoutOf,
   outputDuration,
   outputToSourceTime,
+  pieceAt,
+  segmentAt,
   sourceToOutputTime,
   useEditStore,
 } from "@/stores/edit-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
+import { useStreamStore } from "@/stores/stream-store"
 import { useTimelineStore } from "@/stores/timeline-store"
 
 type DragTarget = "playhead" | "select" | "start" | "end"
+
+/** Zaman çizelgesindeki akış bloğu (bir kaydın ard arda segmentleri). */
+interface TimelineBlock {
+  id: string
+  name: string
+  start: number
+  end: number
+  recordingId: string
+}
 
 /** Pointer yakalama kenar durumlarda (ör. sentetik olaylar) hata verebilir; sürükleme yine de çalışır. */
 function capturePointer(element: Element | null, pointerId: number) {
@@ -62,15 +91,41 @@ export function Timeline() {
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
   const segments = useEditStore((s) => s.segments)
+  const splits = useEditStore((s) => s.splits)
   const selection = useEditStore((s) => s.selection)
   const setSelection = useEditStore((s) => s.setSelection)
   const removeSelection = useEditStore((s) => s.removeSelection)
   const isLive = useSourceStore((s) => s.isLive)
+  const playerLive = usePlayerStore((s) => s.live)
+  const liveEdge = usePlayerStore((s) => s.liveEdge)
   const sourceDuration = useSourceDuration()
 
+  // Canlı yayında düzenlenebilir segment yoktur: çizelge, oynatıcının bildirdiği
+  // canlı pencereyle [0, canlı uç] çizilir. Kayıt şeridi bu pencerede büyür;
+  // VOD kaynaklarında (segmentler dolu) bu yol hiç devreye girmez.
+  const liveMode =
+    (isLive || playerLive) && liveEdge > 0 && outputDuration(segments) <= 0
+  const view = useMemo(
+    () => (liveMode ? [createSegment(0, liveEdge)] : segments),
+    [liveEdge, liveMode, segments],
+  )
+
   /** Kesimler birleştirildiği için çizelge çıktı zamanındadır. */
-  const layout = useMemo(() => layoutOf(segments), [segments])
-  const duration = useMemo(() => outputDuration(segments), [segments])
+  const layout = useMemo(() => layoutOf(view), [view])
+  const duration = useMemo(() => outputDuration(view), [view])
+  /**
+   * Makasla konan bölme noktaları (çıktı zamanında).
+   *
+   * Yalnızca korunan bir parçanın içinde kalanlar çizilir; kesilmiş aralığa
+   * düşen bir nokta görünmez.
+   */
+  const splitMarkers = useMemo(
+    () =>
+      splits
+        .filter((point) => segmentAt(view, point))
+        .map((point) => sourceToOutputTime(view, point)),
+    [splits, view],
+  )
   /** Dalga formu için kaynak→çıktı eşlemesi (boşluklar atlanır). */
   const spans = useMemo(
     () =>
@@ -101,6 +156,8 @@ export function Timeline() {
   const selectAnchorRef = useRef<number | null>(null)
   /** Sağ tık menüsü açılırken tıklanan noktanın çıktı zamanı (sn). */
   const contextTimeRef = useRef(0)
+  /** Sağ tık menüsü hangi akış bloğunda açıldı (yoksa null). */
+  const [contextBlock, setContextBlock] = useState<TimelineBlock | null>(null)
 
   const pct = useCallback(
     (time: number) => (duration > 0 ? clamp((time / duration) * 100, 0, 100) : 0),
@@ -121,9 +178,9 @@ export function Timeline() {
   /** Çıktı zamanındaki bir noktaya sar (kaynak zamanına çevirir). */
   const seekToOutput = useCallback(
     (outputTime: number) => {
-      seek(outputToSourceTime(segments, clamp(outputTime, 0, duration)))
+      seek(outputToSourceTime(view, clamp(outputTime, 0, duration)))
     },
-    [segments, duration, seek],
+    [view, duration, seek],
   )
 
   const ticks = useMemo(() => {
@@ -140,27 +197,28 @@ export function Timeline() {
     () =>
       selection
         ? {
-            start: sourceToOutputTime(segments, selection.start),
-            end: sourceToOutputTime(segments, selection.end),
+            start: sourceToOutputTime(view, selection.start),
+            end: sourceToOutputTime(view, selection.end),
           }
         : null,
-    [selection, segments],
+    [selection, view],
   )
 
   /** In/Out seçiminin çıktı zamanındaki yeri (işaretçiler ve bant). */
   const trimSpan = useMemo(
     () => ({
-      start: sourceToOutputTime(segments, trim.start),
-      end: sourceToOutputTime(segments, trim.end),
+      start: sourceToOutputTime(view, trim.start),
+      end: sourceToOutputTime(view, trim.end),
     }),
-    [segments, trim.start, trim.end],
+    [view, trim.start, trim.end],
   )
 
   const handleTrackPointerDown = (event: React.PointerEvent) => {
     if (duration <= 0 || event.button !== 0) return
     capturePointer(event.currentTarget, event.pointerId)
     // Shift+sürükle ya da seçim modu: kesim oluşturmak için aralık seç.
-    if (event.shiftKey || selectMode) {
+    // Canlı yayında kesim yoktur; her tıklama imleci taşır.
+    if (!liveMode && (event.shiftKey || selectMode)) {
       dragRef.current = "select"
       selectAnchorRef.current = timeAt(event.clientX)
       setSelection(null)
@@ -190,7 +248,7 @@ export function Timeline() {
 
     // Giriş/çıkış seçimi: işaretçi çizelgede nereye giderse In/Out oraya taşınır.
     if (target === "start" || target === "end") {
-      const source = outputToSourceTime(segments, timeAt(event.clientX))
+      const source = outputToSourceTime(view, timeAt(event.clientX))
       if (target === "start") setTrim({ start: source })
       else setTrim({ end: source })
       return
@@ -202,8 +260,8 @@ export function Timeline() {
       if (anchor === null) return
       const other = timeAt(event.clientX)
       setSelection({
-        start: outputToSourceTime(segments, Math.min(anchor, other)),
-        end: outputToSourceTime(segments, Math.max(anchor, other)),
+        start: outputToSourceTime(view, Math.min(anchor, other)),
+        end: outputToSourceTime(view, Math.max(anchor, other)),
       })
       return
     }
@@ -224,7 +282,8 @@ export function Timeline() {
 
   /** Giriş/çıkış seçimi: işaretçi çizelgede serbestçe sürüklenir (kırpma yok). */
   const beginTrimDrag = (edge: "start" | "end") => (event: React.PointerEvent) => {
-    if (duration <= 0) return
+    // Canlı yayında In/Out yoktur: kaynak henüz bitmemiştir.
+    if (duration <= 0 || liveMode) return
     event.preventDefault()
     event.stopPropagation()
     capturePointer(trackRef.current, event.pointerId)
@@ -233,9 +292,9 @@ export function Timeline() {
 
   /** Sağ tık menüsü: In/Out tıklanan noktaya taşınır (timeline kırpılmaz). */
   const setInAtPointer = () =>
-    setTrim({ start: outputToSourceTime(segments, contextTimeRef.current) })
+    setTrim({ start: outputToSourceTime(view, contextTimeRef.current) })
   const setOutAtPointer = () =>
-    setTrim({ end: outputToSourceTime(segments, contextTimeRef.current) })
+    setTrim({ end: outputToSourceTime(view, contextTimeRef.current) })
 
   /** Seçili aralığı keser ve imleci kesim noktasında bırakır. */
   const cutSelection = () => {
@@ -245,19 +304,73 @@ export function Timeline() {
     seek(range.start)
   }
 
+  /** Tıklanan noktadan böler (makas): içerik atılmaz, parça ikiye ayrılır. */
+  const splitAtPointer = () => {
+    const at = outputToSourceTime(view, contextTimeRef.current)
+    useEditStore.getState().splitAt(at)
+  }
+
+  /** Tıklanan noktadaki parçayı siler (boşluk bırakır, geri alınabilir). */
+  const deletePieceAtPointer = () => {
+    const at = outputToSourceTime(view, contextTimeRef.current)
+    const piece = pieceAt(
+      useEditStore.getState().segments,
+      useEditStore.getState().splits,
+      at,
+    )
+    if (!piece) return
+    if (useEditStore.getState().removePieceAt(at)) seek(piece.start)
+  }
+
   /** Fare çizelge üzerindeyken gösterilen kare önizleme balonu. */
   const streamUrl = useSourceStore((s) => s.streamUrl)
+  const streamId = useSourceStore((s) => s.streamId)
+  const blocks = useStreamStore((s) => s.summary?.blocks)
+  const removeRecording = useStreamStore((s) => s.removeRecording)
+  /** Silinmesi onaylanan blok (kayıt). */
+  const [pendingDelete, setPendingDelete] = useState<TimelineBlock | null>(null)
   const [hover, setHover] = useState<{ left: number; time: number } | null>(null)
   const { meta: storyboard, failed: storyboardFailed } = useStoryboardData()
 
+  /**
+   * Akış blokları: her kayıt zaman çizelgesinde ard arda bir bloktur.
+   *
+   * Blok sınırları akışın kendi zamanındadır; kesimler varsa çıktı zamanına
+   * çevrilerek çizilir. Yalnızca akış kaynağı açıkken gösterilir (canlı yayın
+   * penceresinde yanıltıcı olmasın).
+   */
+  const blockSpans = useMemo<TimelineBlock[]>(() => {
+    if (!streamId || liveMode || !blocks || blocks.length === 0) return []
+    return blocks
+      .filter((block) => block.end > block.start)
+      .map((block) => ({
+        id: block.recording_id,
+        name: block.title,
+        start: block.start,
+        end: block.end,
+        recordingId: block.recording_id,
+      }))
+  }, [blocks, liveMode, streamId])
+
   // Kaynak değişince yeni çizelge tam görünümle açılır. İlk açılışta
   // projeden geri yüklenen yakınlaştırma korunur (StrictMode dahil).
+  // Akışa yeni kayıt eklemek oynatma adresini tazeler (sürüm sorgusu); aynı
+  // akışta yakınlaştırma korunur (yalnızca yeni akış/kaynakta sıfırlanır).
   const initialStreamUrlRef = useRef(streamUrl)
+  const initialStreamIdRef = useRef(streamId)
   useEffect(() => {
+    if (streamId) {
+      if (initialStreamIdRef.current === streamId) return
+      initialStreamIdRef.current = streamId
+      initialStreamUrlRef.current = streamUrl
+      resetZoom()
+      return
+    }
+    initialStreamIdRef.current = null
     if (initialStreamUrlRef.current === streamUrl) return
     initialStreamUrlRef.current = streamUrl
     resetZoom()
-  }, [streamUrl, resetZoom])
+  }, [streamUrl, streamId, resetZoom])
 
   const handlePointerLeave = () => {
     if (dragRef.current) return
@@ -271,10 +384,10 @@ export function Timeline() {
   }, [duration])
 
   /** En güncel segmentler (imleç konumunu çıktı zamanına çevirmek için). */
-  const segmentsRef = useRef(segments)
+  const viewRef = useRef(view)
   useEffect(() => {
-    segmentsRef.current = segments
-  }, [segments])
+    viewRef.current = view
+  }, [view])
 
   /**
    * Yatay kaydırmayı imlece göre günceller.
@@ -296,7 +409,7 @@ export function Timeline() {
     const trackBounds = track.getBoundingClientRect()
     const scrollerBounds = scroller.getBoundingClientRect()
     const fraction = clamp(
-      sourceToOutputTime(segmentsRef.current, usePlayerStore.getState().currentTime) / total,
+      sourceToOutputTime(viewRef.current, usePlayerStore.getState().currentTime) / total,
       0,
       1,
     )
@@ -391,7 +504,7 @@ export function Timeline() {
   }, [zoom, scheduleRecenter])
 
   /** İmlecin çıktı zamanındaki yeri (kesimler atlandığı için kaynak zamanından farklı). */
-  const playheadTime = sourceToOutputTime(segments, currentTime)
+  const playheadTime = sourceToOutputTime(view, currentTime)
 
   return (
     <div ref={wrapperRef} className="relative min-w-0 select-none">
@@ -405,8 +518,21 @@ export function Timeline() {
             <div
               ref={trackRef}
               onContextMenu={(event) => {
+                // Canlı yayında kesim/kırpma yok: menü açılmaz.
+                if (liveMode) {
+                  event.preventDefault()
+                  return
+                }
                 // Menü açılırken tıklanan noktayı çıktı zamanı olarak sakla.
                 contextTimeRef.current = timeAt(event.clientX)
+                // Bloğun üzerinde miyiz? "Bu kaydı sil" yalnızca o zaman çıkar.
+                const sourceTime = outputToSourceTime(view, contextTimeRef.current)
+                setContextBlock(
+                  blockSpans.find(
+                    (block) =>
+                      sourceTime >= block.start && sourceTime < block.end,
+                  ) ?? null,
+                )
               }}
               onPointerDown={handleTrackPointerDown}
               onPointerMove={handlePointerMove}
@@ -419,17 +545,20 @@ export function Timeline() {
                 duration > 0 ? "cursor-crosshair" : "opacity-60",
               )}
             >
-              {/* Ses dalga formu — kesimler atlanarak bitişik çizilir */}
-              {duration > 0 && <WaveformLayer duration={duration} zoom={zoom} spans={spans} />}
+              {/* Ses dalga formu — kesimler atlanarak bitişik çizilir.
+                  Canlı yayında dalga formu çıkarılmaz (kaynak henüz bitmedi). */}
+              {!liveMode && duration > 0 && (
+                <WaveformLayer duration={duration} zoom={zoom} spans={spans} />
+              )}
 
               {/* Tampon belleği (kaynak zamanı → çıktı zamanı) */}
               <div
                 className="absolute inset-y-0 left-0 bg-foreground/10"
-                style={{ width: `${pct(sourceToOutputTime(segments, bufferedEnd))}%` }}
+                style={{ width: `${pct(sourceToOutputTime(view, bufferedEnd))}%` }}
               />
 
               {/* In/Out seçimi: çizelgeyi kırpmaz, yalnızca clip alanını belirler */}
-              {duration > 0 && (
+              {!liveMode && duration > 0 && (
                 <div
                   aria-hidden="true"
                   data-slot="timeline-trim"
@@ -453,8 +582,59 @@ export function Timeline() {
                   />
                 ))}
 
+              {/* Proje akışı: her kayıt ard arda bir blok (sınır + ad) */}
+              {duration > 0 &&
+                blockSpans.map((block, index) => {
+                  const start = sourceToOutputTime(view, block.start)
+                  const end = sourceToOutputTime(view, block.end)
+                  if (index > 0 && end - start < 0.001) return null
+                  return (
+                    <div
+                      key={`block-${block.id}`}
+                      aria-hidden="true"
+                      data-slot="timeline-clip"
+                      className={cn(
+                        "pointer-events-none absolute inset-y-0",
+                        index % 2 === 1 && "bg-foreground/[0.045]",
+                      )}
+                      style={{
+                        left: `${pct(start)}%`,
+                        width: `${Math.max(0, pct(end) - pct(start))}%`,
+                      }}
+                    >
+                      {blockSpans.length > 1 ? (
+                        <span className="absolute top-0.5 left-1 max-w-[calc(100%-0.5rem)] truncate rounded-sm bg-background/70 px-1 text-[9px] leading-4 text-muted-foreground">
+                          {block.name}
+                        </span>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              {duration > 0 &&
+                blockSpans.slice(1).map((block) => (
+                  <div
+                    key={`block-edge-${block.id}`}
+                    aria-hidden="true"
+                    data-slot="timeline-clip-edge"
+                    className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-sky-400/70"
+                    style={{ left: `${pct(sourceToOutputTime(view, block.start))}%` }}
+                  />
+                ))}
+
+              {/* Makas izleri: imleçten bölünen noktalar (içerik atılmaz) */}
+              {duration > 0 &&
+                splitMarkers.map((marker) => (
+                  <div
+                    key={`split-${marker}`}
+                    aria-hidden="true"
+                    data-slot="timeline-split"
+                    className="pointer-events-none absolute inset-y-0 z-20 -translate-x-1/2 border-l-2 border-dashed border-amber-400/80"
+                    style={{ left: `${pct(marker)}%` }}
+                  />
+                ))}
+
               {/* Kesim için seçim (Shift + sürükle) */}
-              {duration > 0 && selectionSpan && (
+              {!liveMode && duration > 0 && selectionSpan && (
                 <div
                   data-slot="timeline-selection"
                   className="pointer-events-none absolute inset-y-0 z-10 border-x border-sky-400 bg-sky-400/25"
@@ -482,7 +662,7 @@ export function Timeline() {
               ))}
 
               {/* Giriş / Çıkış işaretçileri — seçim çizelgenin içinde serbest durur */}
-              {duration > 0 && (
+              {!liveMode && duration > 0 && (
                 <>
                   <div
                     role="slider"
@@ -577,13 +757,77 @@ export function Timeline() {
               </ContextMenuSubContent>
             </ContextMenuSub>
             <ContextMenuSeparator />
-            <ContextMenuItem disabled={!selection} onSelect={cutSelection}>
+            <ContextMenuItem onSelect={splitAtPointer}>
               <ScissorsIcon />
-              {t("trim.cutSelection")}
+              {t("timeline.splitHere")}
             </ContextMenuItem>
+            <ContextMenuItem
+              disabled={splits.length === 0}
+              onSelect={deletePieceAtPointer}
+            >
+              <Trash2Icon />
+              {t("timeline.deletePiece")}
+            </ContextMenuItem>
+            <ContextMenuItem disabled={!selection} onSelect={cutSelection}>
+              <EraserIcon />
+              {t("trim.removeSelection")}
+            </ContextMenuItem>
+            {contextBlock ? (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  variant="destructive"
+                  onSelect={() => {
+                    // Menü açıkken akış özeti değişmiş olabilir (başka sekmede
+                    // kayıt bitti/silindi): hedefi seçim anında yeniden doğrula.
+                    const at = outputToSourceTime(view, contextTimeRef.current)
+                    const block =
+                      blockSpans.find(
+                        (item) => at >= item.start && at < item.end,
+                      ) ?? contextBlock
+                    if (block) setPendingDelete(block)
+                  }}
+                >
+                  <Trash2Icon />
+                  {t("timeline.deleteBlock")}
+                </ContextMenuItem>
+              </>
+            ) : null}
           </ContextMenuContent>
         </ContextMenu>
       </div>
+
+      {/* Kayıt silme: blok akıştan (dosyalarıyla) çıkarılır, geri alınamaz. */}
+      <AlertDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("timeline.deleteBlockTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("timeline.deleteBlockDesc", {
+                name: pendingDelete?.name ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("timeline.deleteBlockCancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const block = pendingDelete
+                setPendingDelete(null)
+                if (block) void removeRecording(block.recordingId)
+              }}
+            >
+              {t("timeline.deleteBlockConfirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Kare önizleme balonu — çizelgenin üstünde görünür */}
       {hover && duration > 0 && (

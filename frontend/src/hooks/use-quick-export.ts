@@ -19,7 +19,7 @@ import type {
 import { clippedSegments, useEditStore } from "@/stores/edit-store"
 import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
-import { useSourceStore } from "@/stores/source-store"
+import { anchorAtTime, useSourceStore } from "@/stores/source-store"
 
 /** Menüdeki MP4 profilleri (orijinal = yeniden kodlamasız kopya). */
 export const QUICK_EXPORT_PROFILES: ExportProfile[] = [
@@ -117,6 +117,9 @@ export function useQuickExport() {
           : "cpu"
       const first = exportSegments[0]
       const last = exportSegments[exportSegments.length - 1]
+      // Canlı/DVR: klibin başladığı segmenti bildir (pencere kayması için).
+      const timelineMap = useSourceStore.getState().timelineAnchor
+      const anchor = timelineMap ? anchorAtTime(timelineMap, first.start) : null
 
       startExport.mutate({
         url: streamUrl,
@@ -144,6 +147,7 @@ export function useQuickExport() {
         audio_url: separateAudio,
         headers: headers ?? undefined,
         header_token: headerToken ?? undefined,
+        anchor: anchor ?? undefined,
       })
 
       log(

@@ -1,14 +1,14 @@
 /** Giriş/Çıkış değerlerinin hassas düzenlenmesi, çoklu kesim yönetimi ve seçim özeti. */
 import { useEffect, useState } from "react"
 
-import { PlusIcon, RotateCcwIcon, ScissorsIcon } from "lucide-react"
+import { PlusIcon, RotateCcwIcon, ScissorsIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
 import { compactDuration, formatTime, parseTimeInput } from "@/lib/format"
-import { gapsOf, useEditStore } from "@/stores/edit-store"
+import { gapsOf, pieceAt, useEditStore } from "@/stores/edit-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useSourceStore } from "@/stores/source-store"
 
@@ -53,20 +53,37 @@ export function TrimBar() {
   const trim = useEditStore((s) => s.trim)
   const setTrim = useEditStore((s) => s.setTrim)
   const segments = useEditStore((s) => s.segments)
+  const splits = useEditStore((s) => s.splits)
+  const splitAt = useEditStore((s) => s.splitAt)
   const selection = useEditStore((s) => s.selection)
   const removeSelection = useEditStore((s) => s.removeSelection)
   const restoreRange = useEditStore((s) => s.restoreRange)
   const resetSegments = useEditStore((s) => s.resetSegments)
   const seek = usePlayerStore((s) => s.seek)
+  const currentTime = usePlayerStore((s) => s.currentTime)
   const isLive = useSourceStore((s) => s.isLive)
 
-  /** Seçimi keser ve imleci kesim noktasında bırakır (akan düzenleme). */
+  /** Seçimi siler ve imleci kesim noktasında bırakır (akan düzenleme). */
   const cutSelection = () => {
     if (!selection) return
     const at = selection.start
     removeSelection()
     seek(at)
   }
+
+  /** İmleçten böler: içerik atılmaz, parça ikiye ayrılır (makas). */
+  const splitAtPlayhead = () => {
+    splitAt(currentTime)
+  }
+
+  /** İmleç bir parçanın tam ortasında mı? (kenarda bölme anlamsız) */
+  const splittable = (() => {
+    const piece = pieceAt(segments, splits, currentTime)
+    if (!piece) return false
+    return (
+      currentTime > piece.start + 0.06 && currentTime < piece.end - 0.06
+    )
+  })()
 
   // Segmentler arasındaki boşluklar = çıkarılmış aralıklar.
   const gaps = gapsOf(segments, trim)
@@ -125,16 +142,34 @@ export function TrimBar() {
           type="button"
           size="xs"
           variant="secondary"
-          data-slot="cut-selection"
-          disabled={isLive || !selection}
-          onClick={cutSelection}
-          title={selection ? t("trim.cutSelectionTitle") : t("trim.cutHint")}
+          data-slot="split-at-playhead"
+          disabled={isLive || !splittable}
+          onClick={splitAtPlayhead}
+          title={t("trim.splitTitle")}
         >
           <ScissorsIcon />
-          {t("trim.cutSelection")}
+          {t("trim.split")}
         </Button>
-        {!selection && gaps.length === 0 && !isLive && (
-          <span className="text-[11px] text-muted-foreground">{t("trim.cutHint")}</span>
+        {selection ? (
+          <Button
+            type="button"
+            size="xs"
+            variant="secondary"
+            data-slot="cut-selection"
+            disabled={isLive}
+            onClick={cutSelection}
+            title={t("trim.removeSelectionTitle")}
+          >
+            <Trash2Icon />
+            {t("trim.removeSelection")}
+          </Button>
+        ) : (
+          !isLive &&
+          gaps.length === 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              {t("trim.splitHint")}
+            </span>
+          )
         )}
       </div>
 
@@ -196,6 +231,11 @@ export function TrimBar() {
         {!isLive && pieces.length > 1 && (
           <span className="font-sans text-muted-foreground/80">
             · {t("trim.pieceCount", { count: pieces.length })}
+          </span>
+        )}
+        {!isLive && splits.length > 0 && (
+          <span className="font-sans text-muted-foreground/80">
+            · {t("trim.splitCount", { count: splits.length })}
           </span>
         )}
         {invalid && <span className="font-sans">· {t("trim.invalidWindow")}</span>}

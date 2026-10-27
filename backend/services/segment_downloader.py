@@ -24,6 +24,7 @@ from typing import Any, AsyncIterator, Optional
 from urllib.parse import urljoin, urlparse
 
 from config import WAVEFORM_TEMP_DIR
+from core.i18n import t
 from services.hls import (
     ATTRIBUTE,
     MAX_PLAYLIST_BYTES,
@@ -47,12 +48,18 @@ HLS_DETECT_TIMEOUT_SECONDS = 12.0
 EXTINF = re.compile(r"#EXTINF:(?P<duration>[0-9.]+)")
 MAP_TAG = re.compile(r"#EXT-X-MAP:(?P<attrs>.+)")
 KEY_TAG = re.compile(r"#EXT-X-KEY:(?P<attrs>.+)")
+MEDIA_SEQUENCE = re.compile(r"#EXT-X-MEDIA-SEQUENCE:(?P<value>\d+)")
+TARGET_DURATION = re.compile(r"#EXT-X-TARGETDURATION:(?P<value>[0-9.]+)")
 
 
 @dataclass
 class MediaSegment:
     url: str
     duration: float = 0.0
+    #: Medya sırası (`EXT-X-MEDIA-SEQUENCE` + index). Canlı/DVR penceresinde
+    #: segmentin kayar pencere içindeki kararlı kimliğidir; zaman eşlemesi
+    #: duvar saati yerine bu numaraya dayanır.
+    sequence: Optional[int] = None
 
 
 @dataclass
@@ -65,6 +72,12 @@ class MediaPlaylist:
     endlist: bool = False
     #: Segmentler arasında PTS sıfırlanması/init değişimi varsa true.
     discontinuity: bool = False
+    #: İlk segmentin medya sırası (`EXT-X-MEDIA-SEQUENCE`, yoksa 0).
+    media_sequence: int = 0
+    target_duration: float = 0.0
+    #: Playlist'in (yönlendirmelerden sonraki) adresi. Kayıt/yeniden kullanım
+    #: için master çözümlemesini tekrar yapmamak adına saklanır.
+    url: str = ""
 
 
 @dataclass
@@ -136,6 +149,8 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
     byterange = False
     endlist = False
     discontinuity = False
+    media_sequence = 0
+    target_duration = 0.0
     pending_duration = 0.0
 
     for raw_line in text.splitlines():
@@ -149,6 +164,19 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
                     pending_duration = float(match.group("duration"))
                 except ValueError:
                     pending_duration = 0.0
+            continue
+        if line.startswith("#EXT-X-MEDIA-SEQUENCE:"):
+            match = MEDIA_SEQUENCE.match(line)
+            if match:
+                media_sequence = int(match.group("value"))
+            continue
+        if line.startswith("#EXT-X-TARGETDURATION:"):
+            match = TARGET_DURATION.match(line)
+            if match:
+                try:
+                    target_duration = float(match.group("value"))
+                except ValueError:
+                    target_duration = 0.0
             continue
         if line.startswith("#EXT-X-MAP:"):
             attrs = _attributes(line)
@@ -183,7 +211,11 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
             continue
 
         segments.append(
-            MediaSegment(url=urljoin(base_url, line), duration=pending_duration)
+            MediaSegment(
+                url=urljoin(base_url, line),
+                duration=pending_duration,
+                sequence=media_sequence + len(segments),
+            )
         )
         pending_duration = 0.0
 
@@ -198,6 +230,9 @@ def parse_media_playlist(text: str, base_url: str) -> Optional[MediaPlaylist]:
         byterange=byterange,
         endlist=endlist,
         discontinuity=discontinuity,
+        media_sequence=media_sequence,
+        target_duration=target_duration,
+        url=base_url,
     )
 
 
@@ -226,11 +261,19 @@ async def load_hls_playlist(
     client: Any,
     playlist_url: str,
     headers: Optional[dict[str, str]] = None,
+    *,
+    allow_live: bool = False,
 ) -> Optional[MediaPlaylist]:
     """Playlist'i indirir; yalnızca güvenle indirilebilir VOD ise döner.
 
     Doğrudan video URL'si verilirse tüm dosya belleğe alınmaz; playlist
     olup olmadığını anlamaya yetecek kadar (en fazla 1 MB) okunur.
+
+    `allow_live=True` yalnızca sınırlı bir zaman aralığını indiren dışa
+    aktarma yolunda kullanılır: 24 saatlik DVR penceresi gibi `ENDLIST`
+    taşımayan playlist'lerde de segment listesi geçerlidir. Dalga formu /
+    storyboard gibi tüm playlist'i indiren çağıranlar varsayılan (VOD only)
+    davranışı korumalıdır.
     """
     if client is None or _probably_media_file(playlist_url):
         return None
@@ -255,7 +298,7 @@ async def load_hls_playlist(
     if playlist is None:
         logger.info("hls: medya playlist değil, doğrudan FFmpeg kullanılacak")
         return None
-    if not playlist.endlist:
+    if not playlist.endlist and not allow_live:
         logger.info("hls: canlı playlist, doğrudan FFmpeg kullanılacak")
         return None
     if playlist.encrypted:
@@ -265,6 +308,108 @@ async def load_hls_playlist(
         logger.info("hls: byte-range playlist, doğrudan FFmpeg kullanılacak")
         return None
     return playlist
+
+
+async def load_export_playlist(
+    client: Any,
+    playlist_url: str,
+    headers: Optional[dict[str, str]] = None,
+) -> Optional[MediaPlaylist]:
+    """Dışa aktarma için medya playlist'i (canlı/DVR penceresi dahil).
+
+    Master playlist verilirse en iyi varyantın medya playlist'ine inilir.
+    """
+    playlist = await load_hls_playlist(
+        client, playlist_url, headers, allow_live=True
+    )
+    if playlist is None:
+        variant = await select_best_variant(client, playlist_url, headers)
+        variant_url = str((variant or {}).get("url") or "").strip()
+        if variant_url and variant_url != playlist_url:
+            playlist = await load_hls_playlist(
+                client, variant_url, headers, allow_live=True
+            )
+    return playlist
+
+
+class LiveTimelineError(RuntimeError):
+    """İstemci zaman çizelgesi güncel canlı pencereyle eşleştirilemedi."""
+
+
+def segment_offset(playlist: MediaPlaylist, sequence: int) -> Optional[float]:
+    """Verilen medya sırasının pencere içindeki başlangıcı (sn).
+
+    Segment hâlâ penceredeyse başlangıç, yoksa `None` döner.
+    """
+    cursor = 0.0
+    for segment in playlist.segments:
+        if segment.sequence is None:
+            continue
+        if segment.sequence == sequence:
+            return cursor
+        cursor += max(0.0, segment.duration)
+    return None
+
+
+def _parse_anchor(anchor: Any) -> tuple[Optional[int], Optional[float]]:
+    """İstemcinin bildirdiği `{sequence, time}` bağlantı noktasını okur."""
+    if not isinstance(anchor, dict):
+        return None, None
+    try:
+        sequence = int(anchor.get("sequence"))
+        time = float(anchor.get("time"))
+    except (TypeError, ValueError):
+        return None, None
+    if sequence < 0 or not time == time:  # NaN kontrolü
+        return None, None
+    return sequence, max(0.0, time)
+
+
+async def live_timeline_shift(
+    client: Any,
+    playlist_url: str,
+    anchor: Any,
+    headers: Optional[dict[str, str]] = None,
+    *,
+    start: Optional[float] = None,
+    end: Optional[float] = None,
+) -> tuple[float, Optional[MediaPlaylist]]:
+    """Dışa aktarma anında uygulanacak zaman kaymasını (sn) hesaplar.
+
+    Oynatıcı (hls.js) zaman çizelgesini ilk okuduğu playlist'te sıfırlar ve
+    pencere kaydıkça bu çizgiyi büyütmeye devam eder. Dışa aktarma ise
+    playlist'i yeniden okur; bu yüzden FFmpeg'in `-ss` değeri ve segment
+    eşlemesi **güncel** pencere başına göre yapılır.
+
+    `anchor`, istemci zaman çizelgesinde bilinen bir noktadır:
+    `{"sequence": <medya sırası>, "time": <o segmentin başladığı çizelge sn>}`.
+    Kayma = segmentin güncel penceredeki başlangıcı - `time`. Bağlantı noktası
+    klibin kendisinden seçildiği için pencere kayması onu geçersiz kılmaz;
+    yalnızca klip pencereden tamamen çıktıysa hata verilir.
+
+    Dönüş: `(kayma, playlist_anlık_görüntüsü)`. VOD kaynaklarda ya da bağlantı
+    noktası yoksa `(0.0, None)` döner. Dönen playlist indirme adımına
+    geçirilmelidir: pencere her birkaç saniyede kaydığı için kaymanın
+    hesaplandığı anlık görüntü ile indirilen segmentler aynı olmalıdır.
+    """
+    sequence, anchor_time = _parse_anchor(anchor)
+    if client is None or sequence is None or anchor_time is None:
+        return 0.0, None
+
+    playlist = await load_export_playlist(client, playlist_url, headers)
+    if playlist is None or playlist.endlist:
+        return 0.0, None
+
+    offset = segment_offset(playlist, sequence)
+    if offset is None:
+        raise LiveTimelineError(t("error.liveWindowExpired"))
+
+    shift = offset - anchor_time
+    if start is not None and start + shift < 0:
+        raise LiveTimelineError(t("error.liveWindowExpired"))
+    if end is not None and end + shift > playlist.duration + 0.001:
+        raise LiveTimelineError(t("error.liveWindowExpired"))
+    return shift, playlist
 
 
 def locate_segment(
@@ -748,6 +893,7 @@ async def download_hls_range(
     end: float,
     headers: Optional[dict[str, str]] = None,
     *,
+    playlist: Optional[MediaPlaylist] = None,
     concurrency: int = SEGMENT_CONCURRENCY,
     temp_root: Path = WAVEFORM_TEMP_DIR,
 ) -> Optional[DownloadedMedia]:
@@ -755,37 +901,38 @@ async def download_hls_range(
 
     Dışa aktarmada FFmpeg'in AV1/fMP4 HLS seek sorununu aşmak için kullanılır:
     FFmpeg uzak playlist yerine, istenen aralığı içeren yerel bir dosyayı okur.
+    Canlı/DVR playlist'lerinde de çalışır; çağıran taraf `start`/`end` değerlerini
+    o anki pencereye göre vermelidir.
+
+    `playlist` verilirse playlist yeniden indirilmez. Zaman hizalaması yapan
+    çağıran (bkz. `exporter.align_live_timeline`) kaymanın hesaplandığı
+    anlık görüntüyü buradan geçirir; aksi halde pencere iki okuma arasında
+    kayabilir ve klip bir segment kaymış olur.
+
     Uygun olmayan playlist'te `None` döner ve çağıran eski yola devam eder.
     """
     if client is None:
         return None
-    if _probably_media_file(playlist_url):
+    if playlist is None and _probably_media_file(playlist_url):
         return None
 
-    # İmzalı/uzantısız doğrudan medya URL'lerinde (ör. 4 saatlik MP4) playlist
-    # aramak için 1 MB okumak, yavaş CDN'lerde işi dakikalarca %0'da tutabilir.
-    # Önce ucuz bir HLS tespiti yap; HLS değilse doğrudan FFmpeg'e bırak.
-    try:
-        is_hls = await asyncio.wait_for(
-            detect_hls(client, playlist_url, headers),
-            timeout=HLS_DETECT_TIMEOUT_SECONDS,
-        )
-    except asyncio.TimeoutError:
-        logger.info("hls: tespit zaman aşımı, doğrudan FFmpeg kullanılacak")
-        return None
-    if not is_hls:
-        logger.info("hls: kaynak HLS değil, doğrudan FFmpeg kullanılacak")
-        return None
-
-    playlist = await load_hls_playlist(client, playlist_url, headers)
     if playlist is None:
-        # Master playlist ise en iyi varyantın medya playlist'ine in.
-        # Aksi halde uzun HLS akışlarında FFmpeg uzak playlist üzerinde
-        # seek ediyor ve klip başında donmuş kareler oluşabiliyor.
-        variant = await select_best_variant(client, playlist_url, headers)
-        variant_url = str((variant or {}).get("url") or "").strip()
-        if variant_url and variant_url != playlist_url:
-            playlist = await load_hls_playlist(client, variant_url, headers)
+        # İmzalı/uzantısız doğrudan medya URL'lerinde (ör. 4 saatlik MP4) playlist
+        # aramak için 1 MB okumak, yavaş CDN'lerde işi dakikalarca %0'da tutabilir.
+        # Önce ucuz bir HLS tespiti yap; HLS değilse doğrudan FFmpeg'e bırak.
+        try:
+            is_hls = await asyncio.wait_for(
+                detect_hls(client, playlist_url, headers),
+                timeout=HLS_DETECT_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.info("hls: tespit zaman aşımı, doğrudan FFmpeg kullanılacak")
+            return None
+        if not is_hls:
+            logger.info("hls: kaynak HLS değil, doğrudan FFmpeg kullanılacak")
+            return None
+
+        playlist = await load_export_playlist(client, playlist_url, headers)
     if playlist is None:
         return None
     if playlist.discontinuity:
