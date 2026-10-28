@@ -49,10 +49,6 @@ export const en = {
   "menu.showPanel": "Show side panel",
   "menu.hidePanel": "Hide side panel",
 
-  "home.title": "Start a new project",
-  "home.subtitle":
-    "Paste a live stream link, drop a file or pick a recent project. Every recording lands in the same editable timeline.",
-  "home.eyebrow": "ClipStream Studio",
   "home.commandLabel": "Paste a link to begin",
   "home.localNote": "Runs locally · files never leave this machine",
   "home.sourceTitle": "Source",

@@ -105,7 +105,17 @@ export function AppHeader() {
           aria-label={inProject ? t("menu.homeTitle") : t("app.name")}
           className="flex shrink-0 items-center rounded-lg p-0.5 transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <img src="/favicon.svg" alt="" className="size-7 rounded-[7px]" />
+          {/* Sekme ikonu kare kalır; başlıkta arka plansız, renkli marka. */}
+          <img
+            src="/clipstream-mark-light.svg"
+            alt=""
+            className="h-7 w-auto dark:hidden"
+          />
+          <img
+            src="/clipstream-mark-dark.svg"
+            alt=""
+            className="hidden h-7 w-auto dark:block"
+          />
         </button>
 
         <DropdownMenu onOpenChange={handleMenuOpenChange}>

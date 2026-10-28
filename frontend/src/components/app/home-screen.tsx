@@ -3,7 +3,6 @@ import { FileVideo2Icon, LinkIcon, ShieldCheckIcon } from "lucide-react"
 
 import { RecentProjects } from "@/components/app/recent-projects"
 import { UrlSourceBar } from "@/components/app/url-source-bar"
-import { Badge } from "@/components/ui/badge"
 import { useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 
@@ -13,29 +12,28 @@ export function HomeScreen() {
 
   return (
     <div data-slot="home-screen" className="min-h-0 flex-1 overflow-y-auto">
-      <div className="relative isolate mx-auto w-full max-w-[1080px] px-5 pt-10 pb-12 sm:px-8 lg:pt-16">
+      <div className="relative isolate mx-auto w-full max-w-[1080px] px-5 pt-8 pb-12 sm:px-8 lg:pt-10">
         <div
           aria-hidden
           className="pointer-events-none absolute -top-28 left-1/2 -z-10 h-64 w-[34rem] max-w-full -translate-x-1/2 rounded-full bg-primary/10 blur-[110px]"
         />
 
         <header className="mx-auto max-w-2xl text-center">
-          <Badge
-            variant="outline"
-            className="h-6 gap-1.5 rounded-full border-primary/20 bg-primary/5 px-2.5 text-[10px] font-semibold tracking-wide text-primary"
-          >
-            <span className="size-1.5 rounded-full bg-primary" aria-hidden />
-            {t("home.eyebrow")}
-          </Badge>
-          <h1 className="mt-4 text-balance text-[1.7rem] leading-tight font-semibold tracking-tight sm:text-4xl">
-            {t("home.title")}
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
-            {t("home.subtitle")}
-          </p>
+          <div className="flex justify-center">
+            <img
+              src="/clipstream-logo-light.svg"
+              alt={t("app.name")}
+              className="h-8 w-auto dark:hidden"
+            />
+            <img
+              src="/clipstream-logo-dark.svg"
+              alt={t("app.name")}
+              className="hidden h-8 w-auto dark:block"
+            />
+          </div>
         </header>
 
-        <section className="mx-auto mt-8 w-full max-w-3xl">
+        <section className="mx-auto mt-6 w-full max-w-3xl">
           <div className="rounded-2xl border border-border/70 bg-card/70 p-2 shadow-xl shadow-black/5 ring-1 ring-foreground/5 backdrop-blur-md">
             <div className="flex items-center gap-1.5 px-2 pt-1 pb-2 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
               <LinkIcon className="size-3" aria-hidden />

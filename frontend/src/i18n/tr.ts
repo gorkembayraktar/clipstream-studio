@@ -46,10 +46,6 @@ export const tr: Record<TranslationKey, string> = {
   "menu.showPanel": "Sağ paneli aç",
   "menu.hidePanel": "Sağ paneli kapat",
 
-  "home.title": "Yeni proje başlat",
-  "home.subtitle":
-    "Canlı yayın bağlantısı yapıştır, dosya bırak ya da son projelerden birini aç. Her kayıt aynı düzenlenebilir zaman çizelgesine eklenir.",
-  "home.eyebrow": "ClipStream Studio",
   "home.commandLabel": "Başlamak için bağlantı yapıştır",
   "home.localNote": "Yerel çalışır · dosyalar bu makineden çıkmaz",
   "home.sourceTitle": "Kaynak",
