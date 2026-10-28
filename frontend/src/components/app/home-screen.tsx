@@ -21,28 +21,9 @@ export function HomeScreen() {
 
         <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
           <section className="min-w-0">
-            <div className="flex items-center gap-3">
-              <img
-                src="/clipstream-logo-light.svg"
-                alt={t("app.name")}
-                className="h-8 w-auto dark:hidden"
-              />
-              <img
-                src="/clipstream-logo-dark.svg"
-                alt={t("app.name")}
-                className="hidden h-8 w-auto dark:block"
-              />
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold tracking-tight">
-                  {t("project.newProject")}
-                </h1>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {t("home.sourceBadge")}
-                </p>
-              </div>
-            </div>
+            <h1 className="sr-only">{t("project.newProject")}</h1>
 
-            <div className="mt-5 rounded-2xl border border-border/70 bg-card/70 p-2 shadow-xl shadow-black/5 ring-1 ring-primary/10 backdrop-blur-md sm:p-3">
+            <div className="rounded-2xl border border-border/70 bg-card/70 p-2 shadow-xl shadow-black/5 ring-1 ring-primary/10 backdrop-blur-md sm:p-3">
               <UrlSourceBar />
             </div>
 

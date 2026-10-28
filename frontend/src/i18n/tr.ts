@@ -48,7 +48,6 @@ export const tr: Record<TranslationKey, string> = {
 
   "home.localNote": "Yerel çalışır · dosyalar bu makineden çıkmaz",
   "home.sourceTitle": "Kaynak",
-  "home.sourceBadge": "URL · dosya · canlı",
   "home.dropHint": "Dosyayı buraya bırak veya seçmek için tıkla",
   "home.chipUrl": "Bağlantı",
   "home.chipFile": "Yerel dosya",

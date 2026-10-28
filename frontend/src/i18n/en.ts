@@ -51,7 +51,6 @@ export const en = {
 
   "home.localNote": "Runs locally · files never leave this machine",
   "home.sourceTitle": "Source",
-  "home.sourceBadge": "URL · file · live",
   "home.dropHint": "Drop a file here or click to browse",
   "home.chipUrl": "Link",
   "home.chipFile": "Local file",
