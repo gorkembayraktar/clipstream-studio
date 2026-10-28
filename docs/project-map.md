@@ -144,6 +144,7 @@
 | `timeline-toolbar.tsx`          | TimelineToolbar |
 | `timeline.tsx`                  | Timeline |
 | `trim-bar.tsx`                  | TrimBar |
+| `typewriter-placeholder.tsx`    | TypewriterPlaceholder |
 | `url-source-bar.tsx`            | UrlSourceBar |
 | `video-stage.tsx`               | VideoStage |
 | `waveform-layer.tsx`            | WaveformLayer |

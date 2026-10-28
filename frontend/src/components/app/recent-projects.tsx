@@ -317,7 +317,7 @@ export function RecentProjects({
       <div
         data-slot="recent-projects-empty"
         className={cn(
-          "flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/40 text-center",
+          "flex flex-col items-center justify-center gap-2 rounded-2xl bg-card/40 text-center",
           layout === "row" ? "px-6 py-12" : "px-4 py-8",
         )}
       >

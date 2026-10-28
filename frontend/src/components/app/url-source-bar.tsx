@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner"
 
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
+import { TypewriterPlaceholder } from "@/components/app/typewriter-placeholder"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,8 +44,18 @@ import { useLocalImportStore } from "@/stores/local-import-store"
 import { log } from "@/stores/log-store"
 import { useProjectUiStore } from "@/stores/project-ui-store"
 import { useSourceStore } from "@/stores/source-store"
+import { cn } from "cn"
 
 const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
+
+const TYPEWRITER_PHRASES = [
+  "YouTube Clip",
+  "X Clip",
+  "Instagram Clip",
+  "TikTok Clip",
+  "Twitch Clip",
+  "Facebook Clip",
+]
 
 function CircleProgress({ percent }: { percent: number }) {
   const radius = 14
@@ -82,7 +93,11 @@ function CircleProgress({ percent }: { percent: number }) {
   )
 }
 
-export function UrlSourceBar() {
+export function UrlSourceBar({
+  variant = "default",
+}: {
+  variant?: "default" | "hero"
+}) {
   const { t } = useI18n()
   const project = useProjectWorkspaceController()
   const inputUrl = useSourceStore((s) => s.inputUrl)
@@ -107,6 +122,7 @@ export function UrlSourceBar() {
   const clearSource = useSourceStore((s) => s.clearSource)
 
   const [resolving, setResolving] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
   const [resolveProgress, setResolveProgress] = useState<number | null>(null)
   const [resolveStage, setResolveStage] = useState<string | null>(null)
   const [resolveDetail, setResolveDetail] = useState<string>("")
@@ -377,100 +393,180 @@ export function UrlSourceBar() {
     }
   }
 
+  const sourceMenuContent = (
+    <DropdownMenuContent align="end" className="min-w-[11rem]">
+      <DropdownMenuItem
+        onSelect={() => void pickFile()}
+        title={t("source.pickFileNativeTitle")}
+      >
+        <FolderOpen />
+        {t("source.pickFile")}
+      </DropdownMenuItem>
+      {nativeUnavailable && (
+        <DropdownMenuItem
+          onSelect={() => fileInputRef.current?.click()}
+          title={t("source.pickFileBrowserTitle")}
+        >
+          <FilePlus2 />
+          <span className="min-w-0 truncate">{t("source.pickFileBrowser")}</span>
+        </DropdownMenuItem>
+      )}
+      <DropdownMenuSeparator />
+      <DropdownMenuItem
+        onSelect={() => setAdvancedOpen(true)}
+        title={t("source.curlTitle")}
+      >
+        <Terminal />
+        <span className="min-w-0 truncate">{t("source.curl")}</span>
+        {appliedHeaderNames.length > 0 && (
+          <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[9px] leading-4 font-semibold text-primary">
+            {appliedHeaderNames.length}
+          </span>
+        )}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  )
+
   return (
     <>
-      <div className="space-y-3">
+      <div className={cn("space-y-3", variant === "hero" && "space-y-4")}>
         {/* Bağlantı girişi */}
-        <div className="flex items-center gap-1.5">
-          <div className="relative min-w-0 flex-1">
-            <Input
-              ref={urlInputRef}
-              type="search"
-              className="h-10 pr-14 text-sm"
-              placeholder={t("source.urlPlaceholder")}
-              aria-label={t("source.urlAria")}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              value={inputUrl}
-              onChange={(event) => setInputUrl(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void handleLoad()
-              }}
-              disabled={resolving}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="absolute top-1/2 right-6 -translate-y-1/2 text-muted-foreground"
-              onClick={() => void handlePasteFromClipboard()}
-              disabled={resolving}
-              title={t("source.paste")}
-              aria-label={t("source.paste")}
-            >
-              <ClipboardPaste />
-            </Button>
-          </div>
-          <Button
-            className="h-10 shrink-0 px-4 text-sm"
-            onClick={() => void handleLoad()}
-            disabled={!inputUrl.trim() || resolving}
-          >
-            {resolving ? <Loader2 className="animate-spin" /> : <Download />}
-            {resolving ? t("source.resolving") : t("source.load")}
-          </Button>
+        {variant === "hero" ? (
+          <>
+            <div className="relative">
+              <Input
+                ref={urlInputRef}
+                type="search"
+                className={cn(
+                  "h-16 border-0 bg-transparent px-0 text-2xl font-medium shadow-none focus-visible:border-0 focus-visible:ring-0 sm:h-20 sm:text-4xl dark:bg-transparent",
+                  inputUrl || inputFocused ? "text-left" : "text-center",
+                )}
+                placeholder=""
+                aria-label={t("source.urlAria")}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                value={inputUrl}
+                onChange={(event) => setInputUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void handleLoad()
+                }}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                disabled={resolving}
+              />
+              {!inputUrl && !inputFocused && !resolving && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
+                >
+                  <TypewriterPlaceholder
+                    phrases={TYPEWRITER_PHRASES}
+                    className="max-w-full truncate text-2xl font-medium text-muted-foreground/70 sm:text-4xl"
+                  />
+                </div>
+              )}
+            </div>
 
-          {/* Yerel dosya ve curl/başlık işlemleri yer kaplamasın diye menüde. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                className="h-11 shrink-0 rounded-full px-6 text-sm"
+                onClick={() => void handleLoad()}
+                disabled={!inputUrl.trim() || resolving}
+              >
+                {resolving ? <Loader2 className="animate-spin" /> : <Download />}
+                {resolving ? t("source.resolving") : t("source.load")}
+              </Button>
               <Button
                 type="button"
-                variant="outline"
-                size="icon"
-                className="size-10 shrink-0"
+                variant="ghost"
+                className="h-11 rounded-full px-4 text-sm text-muted-foreground"
+                onClick={() => void handlePasteFromClipboard()}
                 disabled={resolving}
-                title={t("source.actions")}
-                aria-label={t("source.actions")}
+                title={t("source.paste")}
+                aria-label={t("source.paste")}
               >
-                <EllipsisVertical />
+                <ClipboardPaste />
+                {t("source.paste")}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[11rem]">
-              <DropdownMenuItem
-                onSelect={() => void pickFile()}
-                title={t("source.pickFileNativeTitle")}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-11 shrink-0 rounded-full text-muted-foreground"
+                    disabled={resolving}
+                    title={t("source.actions")}
+                    aria-label={t("source.actions")}
+                  >
+                    <EllipsisVertical />
+                  </Button>
+                </DropdownMenuTrigger>
+                {sourceMenuContent}
+              </DropdownMenu>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <div className="relative min-w-0 flex-1">
+              <Input
+                ref={urlInputRef}
+                type="search"
+                className="h-10 pr-14 text-sm"
+                placeholder={t("source.urlPlaceholder")}
+                aria-label={t("source.urlAria")}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                value={inputUrl}
+                onChange={(event) => setInputUrl(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void handleLoad()
+                }}
+                disabled={resolving}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="absolute top-1/2 right-6 -translate-y-1/2 text-muted-foreground"
+                onClick={() => void handlePasteFromClipboard()}
+                disabled={resolving}
+                title={t("source.paste")}
+                aria-label={t("source.paste")}
               >
-                <FolderOpen />
-                {t("source.pickFile")}
-              </DropdownMenuItem>
-              {nativeUnavailable && (
-                <DropdownMenuItem
-                  onSelect={() => fileInputRef.current?.click()}
-                  title={t("source.pickFileBrowserTitle")}
+                <ClipboardPaste />
+              </Button>
+            </div>
+            <Button
+              className="h-10 shrink-0 px-4 text-sm"
+              onClick={() => void handleLoad()}
+              disabled={!inputUrl.trim() || resolving}
+            >
+              {resolving ? <Loader2 className="animate-spin" /> : <Download />}
+              {resolving ? t("source.resolving") : t("source.load")}
+            </Button>
+
+            {/* Yerel dosya ve curl/başlık işlemleri yer kaplamasın diye menüde. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-10 shrink-0"
+                  disabled={resolving}
+                  title={t("source.actions")}
+                  aria-label={t("source.actions")}
                 >
-                  <FilePlus2 />
-                  <span className="min-w-0 truncate">
-                    {t("source.pickFileBrowser")}
-                  </span>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => setAdvancedOpen(true)}
-                title={t("source.curlTitle")}
-              >
-                <Terminal />
-                <span className="min-w-0 truncate">{t("source.curl")}</span>
-                {appliedHeaderNames.length > 0 && (
-                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[9px] leading-4 font-semibold text-primary">
-                    {appliedHeaderNames.length}
-                  </span>
-                )}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+                  <EllipsisVertical />
+                </Button>
+              </DropdownMenuTrigger>
+              {sourceMenuContent}
+            </DropdownMenu>
+          </div>
+        )}
 
         <input
           ref={fileInputRef}
@@ -681,7 +777,12 @@ export function UrlSourceBar() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2">
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            variant === "hero" ? "justify-center" : "justify-between",
+          )}
+        >
           <span className="truncate text-[11px] text-muted-foreground/70">
             {!streamUrl ? t("source.dragDropHint") : ""}
           </span>
