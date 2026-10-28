@@ -12,22 +12,20 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.5-8b5cf6?style=flat-square" alt="Version 0.2.5">
-  <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
-  <img src="https://img.shields.io/badge/Localhost-127.0.0.1-8b5cf6?style=flat-square" alt="Localhost">
+  <img src="https://img.shields.io/badge/version-0.2.6-8b5cf6?style=flat-square" alt="Version 0.2.6">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
   <img src="https://img.shields.io/badge/yt--dlp-optional-111827?style=flat-square" alt="yt-dlp optional">
   <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">
 </p>
 
 <p align="center">
-  <a href="docs/demo-v2.mp4">
-    <img src="docs/demo-v2.gif" alt="ClipStream Studio demo" width="860">
+  <a href="docs/demo-v3.mp4">
+    <img src="docs/demo-v3.gif" alt="ClipStream Studio demo" width="860">
   </a>
 </p>
 
 <p align="center">
-  <sub>Demo source: Mux HLS test stream · <a href="docs/demo-v2.mp4">Watch the MP4</a></sub>
+  <sub>Demo source: Mux HLS test stream · <a href="docs/demo-v3.mp4">Watch the MP4</a></sub>
 </p>
 
 ---
@@ -144,7 +142,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.2.5`.
+and the version badge above in sync. Current version: `0.2.6`.
 
 ## Troubleshooting
 
