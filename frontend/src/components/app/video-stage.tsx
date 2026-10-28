@@ -1,7 +1,7 @@
 /** Sahne: video elementi + olay bağlama + overlay'ler. */
 import { useCallback, useEffect, useRef } from "react"
 
-import { Clapperboard, Loader2, TvIcon } from "lucide-react"
+import { Clapperboard, Loader2 } from "lucide-react"
 import type HlsJs from "hls.js"
 import { toast } from "sonner"
 
@@ -9,20 +9,12 @@ import { CropMenu } from "@/components/app/crop-menu"
 import { CropOverlay } from "@/components/app/crop-overlay"
 import { StageControls } from "@/components/app/stage-controls"
 import { StreamStatusBadge } from "@/components/app/stream-status-badge"
-import { SourceTimeline } from "@/components/app/source-timeline"
-import { StoryboardProvider } from "@/components/app/storyboard-provider"
-import { Timeline } from "@/components/app/timeline"
-import { TimelineToolbar } from "@/components/app/timeline-toolbar"
-import { TrimBar } from "@/components/app/trim-bar"
-import { WaveformProvider } from "@/components/app/waveform-provider"
-import { Button } from "@/components/ui/button"
 import { useHlsSource } from "@/hooks/use-hls-source"
 import { useSubtitleVtt } from "@/hooks/use-subtitles"
 import { useFullscreen } from "@/hooks/use-fullscreen"
 import { translate, useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import { isHlsUrl, proxiedUrl } from "@/lib/media"
-import { cn } from "cn"
 import { gapsOf, useEditStore } from "@/stores/edit-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
@@ -66,24 +58,14 @@ export function VideoStage() {
   const previewHeight = useSourceStore((s) => s.previewHeight)
   const cropEnabled = useEditStore((s) => s.crop.enabled)
   const isStreamSource = useSourceStore((s) => Boolean(s.streamId))
-  const sourceIsLive = useSourceStore((s) => s.isLive)
-  const playerIsLive = usePlayerStore((s) => s.live)
   const liveUrl = useSourceStore((s) => s.liveUrl)
   const previewLiveFlag = useSourceStore((s) => s.previewLive)
-  const setPreviewLive = useSourceStore((s) => s.setPreviewLive)
   /**
    * Kayıt alındıktan sonra sahne proje akışını gösterir. "Canlı" düğmesi
    * `previewLive` ile görüntüyü canlı yayına alır; kaynak/kimlik değişmez,
    * yalnızca oynatılan adres değişir.
    */
   const livePreview = previewLiveFlag && Boolean(liveUrl)
-  /**
-   * Canlı yayın izleniyor ama henüz kaydedilmiş akış yok: düzenleme şeridi
-   * (zaman çizelgesi/kırpma) gösterilmez. Canlıda akış kayan bir penceredir;
-   * çizelge yalnızca oynatıcı imlecini takip eder, düzenlenecek bir şey yoktur.
-   */
-  const liveOnly =
-    livePreview || (!isStreamSource && (sourceIsLive || playerIsLive))
   const setMeta = useSourceStore((s) => s.setMeta)
   const setTimelineAnchor = useSourceStore((s) => s.setTimelineAnchor)
   const markLive = usePlayerStore((s) => s.markLive)
@@ -1037,16 +1019,16 @@ export function VideoStage() {
   return (
     <div
       data-slot="video-stage"
-      className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
     >
       <div
-        className="stage-frame relative flex min-h-60 items-center justify-center bg-black"
+        className="stage-frame relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black"
         onDoubleClick={toggleFullscreen}
         title={t("video.doubleClickFullscreen")}
       >
         <video
           ref={videoRef}
-          className="stage-video max-h-[58vh] w-full object-contain"
+          className="stage-video max-h-full w-full object-contain"
           playsInline
         >
           {subtitleSrc && previewSubtitleTrack && (
@@ -1093,56 +1075,6 @@ export function VideoStage() {
         {streamUrl && <StageControls />}
         {!streamUrl && <EmptyStage />}
       </div>
-
-      {liveOnly ? (
-        <div
-          data-slot="live-strip"
-          className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-4 text-xs text-muted-foreground"
-        >
-          <span className="relative flex size-2">
-            <span className="absolute inset-0 animate-ping rounded-full bg-red-500/60" />
-            <span className="relative size-2 rounded-full bg-red-500" />
-          </span>
-          <span className="font-medium text-foreground">
-            {t("stage.liveOnly")}
-          </span>
-          <span aria-hidden>·</span>
-          <span>
-            {/* Kayıtlar varken canlı önizleme: düzenlemeye dönüş yolu gösterilir. */}
-            {isStreamSource
-              ? t("stage.livePreviewHint")
-              : t("stage.liveOnlyHint")}
-          </span>
-          {isStreamSource && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPreviewLive(false)}
-              className="h-7 px-2 text-xs"
-            >
-              <TvIcon className="size-3.5" />
-              {t("player.backToRecording")}
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div
-          inert={!streamUrl}
-          className={cn(
-            "stage-strip min-w-0 space-y-2 px-3 py-3",
-            !streamUrl && "pointer-events-none opacity-60",
-          )}
-        >
-          <TimelineToolbar />
-          <WaveformProvider>
-            <StoryboardProvider>
-              <Timeline />
-              <SourceTimeline />
-            </StoryboardProvider>
-          </WaveformProvider>
-          <TrimBar />
-        </div>
-      )}
     </div>
   )
 }

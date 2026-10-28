@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { ChevronRightIcon } from "lucide-react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "cn"
@@ -66,6 +67,22 @@ function DropdownMenuItem({
   )
 }
 
+function DropdownMenuLabel({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
+  return (
+    <DropdownMenuPrimitive.Label
+      data-slot="dropdown-menu-label"
+      className={cn(
+        "px-2 py-1.5 text-[0.7rem] font-medium text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 function DropdownMenuSeparator({
   className,
   ...props
@@ -79,10 +96,60 @@ function DropdownMenuSeparator({
   )
 }
 
+function DropdownMenuSub({
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
+  return <DropdownMenuPrimitive.Sub data-slot="dropdown-menu-sub" {...props} />
+}
+
+function DropdownMenuSubTrigger({
+  className,
+  inset,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.SubTrigger> & {
+  inset?: boolean
+}) {
+  return (
+    <DropdownMenuPrimitive.SubTrigger
+      data-slot="dropdown-menu-sub-trigger"
+      data-inset={inset}
+      className={cn(
+        "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-xs outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-[inset]:pl-8 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <ChevronRightIcon className="ml-auto size-3.5" />
+    </DropdownMenuPrimitive.SubTrigger>
+  )
+}
+
+function DropdownMenuSubContent({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.SubContent>) {
+  return (
+    <DropdownMenuPrimitive.SubContent
+      data-slot="dropdown-menu-sub-content"
+      className={cn(
+        "z-50 min-w-[10rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
 export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 }

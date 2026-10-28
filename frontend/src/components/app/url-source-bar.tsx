@@ -1,5 +1,5 @@
 /** Kaynak sekmesi: URL çözümleme (yt-dlp + HLS varyantı), yerel dosya ve ffprobe analizi. */
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import {
   ClipboardPaste,
@@ -14,7 +14,6 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { ProjectHistory } from "@/components/app/project-history"
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,6 +48,7 @@ import { extractPastedUrl, withScheme } from "@/lib/media"
 import { useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 import { log } from "@/stores/log-store"
+import { useProjectUiStore } from "@/stores/project-ui-store"
 import { useSourceStore } from "@/stores/source-store"
 
 const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
@@ -160,6 +160,16 @@ export function UrlSourceBar() {
   const importFile = useLocalImportStore((s) => s.importFile)
   const pickFile = useLocalImportStore((s) => s.pickFile)
   const cancelImport = useLocalImportStore((s) => s.cancel)
+
+  // Üst menüdeki "Yeni proje" kaynak alanına odaklanır (ana sayfa yeni açıldıysa da).
+  const sourceFocusNonce = useProjectUiStore((s) => s.sourceFocusNonce)
+  useEffect(() => {
+    if (sourceFocusNonce === 0) return
+    const input = urlInputRef.current
+    if (!input) return
+    input.focus()
+    input.select()
+  }, [sourceFocusNonce])
 
   const platformLabel =
     platform === "youtube"
@@ -877,10 +887,7 @@ export function UrlSourceBar() {
             </Button>
           </div>
         </div>
-
-        <ProjectHistory />
       </div>
-
       {/* Gelişmiş: korumalı kaynaklar için curl (cookie / header) yapıştırma */}
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <DialogContent className="grid-cols-1 sm:max-w-lg">

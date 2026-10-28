@@ -31,7 +31,7 @@ import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
 import { usePlayerStore } from "@/stores/player-store"
 import { useProjectStore } from "@/stores/project-store"
-import { useProjectUiStore } from "@/stores/project-ui-store"
+import { toPanelTab, useProjectUiStore } from "@/stores/project-ui-store"
 import { useRecorderStore } from "@/stores/recorder-store"
 import { useSourceStore } from "@/stores/source-store"
 import { useStreamStore } from "@/stores/stream-store"
@@ -56,6 +56,8 @@ export interface ProjectWorkspaceController {
   notice: ProjectNotice
   retry: () => void
   startFresh: () => void
+  /** Projeden ana sayfaya döner; proje kaydı ve kayıtlar korunur. */
+  goHome: () => void
   dismissNotice: () => void
 }
 
@@ -82,7 +84,7 @@ function applyProjectSettings(record: ProjectWorkspace): void {
   exportStore.setGpuEnabled(record.export.gpuEnabled)
 
   useTimelineStore.getState().setZoom(record.timeline.zoom)
-  useProjectUiStore.getState().setPanelTab(record.ui.panelTab)
+  useProjectUiStore.getState().setPanelTab(toPanelTab(record.ui.panelTab))
 
   const editStore = useEditStore.getState()
   editStore.setLoop(record.edit.loop)
@@ -258,7 +260,7 @@ function resetStudioState(): void {
 
   useEditStore.getState().resetEdit()
   useTimelineStore.getState().resetZoom()
-  useProjectUiStore.getState().setPanelTab("source")
+  useProjectUiStore.getState().setPanelTab("export")
 
   const exportStore = useExportStore.getState()
   exportStore.setCutMode("exact")
@@ -709,6 +711,37 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
 
   const dismissNotice = useCallback(() => setNotice(null), [])
 
+  /** Ana sayfaya dön: proje geçmişte kalır, sahne temizlenir. */
+  const goHome = useCallback(() => {
+    const id = projectIdRef.current
+    const createdDate = createdDateRef.current
+    // Son düzenlemeler (ve oynatma konumu) kaybolmasın: hemen yazılır.
+    if (id && createdDate && !storageFailedRef.current) {
+      writeProjectWorkspace(buildSnapshot(id, createdDate))
+    }
+    // Süren kayıt varsa proje akışına yazılsın (veri kaybı yok).
+    if (id) void useRecorderStore.getState().stopForProject(id)
+
+    useStreamStore.getState().reset()
+    resetStudioState()
+
+    projectIdRef.current = null
+    projectSourceRef.current = null
+    createdDateRef.current = null
+    storageFailedRef.current = false
+    clearProjectFromUrl()
+
+    setProjectId(null)
+    useProjectStore.getState().setProjectId(null)
+    setPhase("ready")
+    setProgress(null)
+    setStage(null)
+    setDetail("")
+    setError(null)
+    setNotice(null)
+    setTitle(null)
+  }, [buildSnapshot])
+
   return {
     phase,
     projectId,
@@ -720,6 +753,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     notice,
     retry,
     startFresh,
+    goHome,
     dismissNotice,
   }
 }

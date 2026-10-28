@@ -218,7 +218,7 @@ const OUTPUT_FORMATS: readonly OutputFormat[] = ["mp4", "gif", "mp3"]
 const QUALITIES: readonly ExportQuality[] = ["high", "balanced", "compact"]
 const CODECS: readonly ExportCodec[] = ["h264", "hevc"]
 const ASPECTS: readonly AspectPreset[] = ["free", "16:9", "9:16", "1:1", "4:5"]
-const PANEL_TABS: readonly PanelTab[] = ["source", "export", "gallery", "settings"]
+const PANEL_TABS: readonly PanelTab[] = ["export", "gallery"]
 
 function oneOf<T extends string>(value: unknown, values: readonly T[], fallback: T): T {
   return typeof value === "string" && (values as readonly string[]).includes(value)
@@ -313,7 +313,7 @@ function parseTimeline(value: unknown): ProjectTimelineSnapshot {
 
 function parseUi(value: unknown): ProjectUiSnapshot {
   const ui = isRecord(value) ? value : {}
-  return { panelTab: oneOf(ui.panelTab, PANEL_TABS, "source") }
+  return { panelTab: oneOf(ui.panelTab, PANEL_TABS, "export") }
 }
 
 function parseWorkspace(value: unknown, id: string): ProjectWorkspace | null {

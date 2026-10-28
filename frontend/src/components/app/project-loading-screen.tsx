@@ -35,7 +35,7 @@ export function ProjectLoadingScreen({
     progress === null ? null : Math.max(0, Math.min(100, Math.round(progress)))
 
   return (
-    <div className="flex min-h-svh items-center justify-center overflow-y-auto bg-background px-4 py-6 text-foreground">
+    <div className="flex h-full min-h-0 w-full items-center justify-center overflow-y-auto px-4 py-6 text-foreground">
       <div
         className="w-full min-w-0 max-w-md space-y-5 rounded-2xl border bg-card p-6 text-center shadow-2xl sm:p-8"
         role="status"

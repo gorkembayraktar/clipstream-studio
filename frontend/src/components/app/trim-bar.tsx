@@ -43,7 +43,7 @@ function TimeInput({ value, onCommit, label, disabled }: TimeInputProps) {
         if (event.key === "Enter") (event.target as HTMLInputElement).blur()
       }}
       disabled={disabled}
-      className="h-7 w-[110px] font-mono text-xs"
+      className="h-7 w-[124px] font-mono text-xs tabular-nums"
     />
   )
 }

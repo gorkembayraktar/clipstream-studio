@@ -44,13 +44,14 @@ export function readProjectIdFromUrl(): string | null {
   return isProjectId(value) ? value : null
 }
 
-/** `#project/?id=...&v=...` biçimindeki kanonik hash'i üretir. */
+/** Kanonik hash: proje varsa `#project/?id=...&v=...`, yoksa ana sayfa `#/`. */
 export function projectHash(
   projectId?: string | null,
   version: string = APP_VERSION,
 ): string {
+  if (!projectId) return "#/"
   const params = new URLSearchParams()
-  if (projectId) params.set("id", projectId)
+  params.set("id", projectId)
   params.set("v", version)
   return `${HASH_PREFIX}?${params.toString()}`
 }

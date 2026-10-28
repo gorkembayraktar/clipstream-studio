@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.173-8b5cf6?style=flat-square" alt="Version 0.1.173">
+  <img src="https://img.shields.io/badge/version-0.2.0-8b5cf6?style=flat-square" alt="Version 0.2.0">
   <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Localhost-127.0.0.1-8b5cf6?style=flat-square" alt="Localhost">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">

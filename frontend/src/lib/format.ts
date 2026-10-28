@@ -5,6 +5,24 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+/** Kaynak için kısa görünen ad: başlık → dosya adı → ana makine. */
+export function sourceDisplayName(
+  title: string | null | undefined,
+  inputUrl: string | null | undefined,
+): string | null {
+  if (title && title.trim()) return title.trim()
+  if (!inputUrl) return null
+  try {
+    const url = new URL(inputUrl)
+    const parts = url.pathname.split("/").filter(Boolean)
+    const last = parts.length > 0 ? decodeURIComponent(parts[parts.length - 1]) : ""
+    return last || url.hostname
+  } catch {
+    const parts = inputUrl.split(/[\\/]/).filter(Boolean)
+    return parts.length > 0 ? parts[parts.length - 1] : inputUrl
+  }
+}
+
 function localeTag(): string {
   return getLocale() === "tr" ? "tr-TR" : "en-US"
 }

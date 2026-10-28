@@ -1,13 +1,14 @@
-/** Ayarlar sekmesi: başlığın altında açılan dikey bölümler, dil/tema, log ve kısayollar. */
-import { useEffect, useState } from "react"
+/** Ayarlar penceresinin bölüm içerikleri: tercihler, oynatma, günlük, kısayollar, hakkında. */
+import { useMemo, useState, type ReactElement, type ReactNode } from "react"
 
 import {
   AudioWaveformIcon,
-  ChevronDownIcon,
+  ClapperboardIcon,
+  EraserIcon,
   KeyboardIcon,
   LanguagesIcon,
   MoonIcon,
-  SlidersHorizontalIcon,
+  SearchIcon,
   SunIcon,
   TerminalIcon,
   type LucideIcon,
@@ -15,7 +16,9 @@ import {
 
 import { cn } from "cn"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -24,294 +27,368 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { LOCALE_OPTIONS, useI18n, type Locale, type TranslationKey } from "@/i18n"
+import { LOCALE_OPTIONS, useI18n, type Locale } from "@/i18n"
+import { APP_VERSION } from "@/lib/app-version"
 import { KEYBOARD_SHORTCUTS } from "@/lib/keyboard-shortcuts"
 import { useLogStore } from "@/stores/log-store"
 import { usePreferencesStore } from "@/stores/preferences-store"
+import type { SettingsSection } from "@/stores/project-ui-store"
 import { useThemeStore } from "@/stores/theme-store"
 
-type SettingsTabId = "preferences" | "logs" | "shortcuts"
-type OpenSettingsTabs = Record<SettingsTabId, boolean>
-
-const SETTINGS_TABS_STORAGE_KEY = "clip2:settings-open-tabs"
-
-const DEFAULT_OPEN_TABS: OpenSettingsTabs = {
-  preferences: true,
-  logs: false,
-  shortcuts: false,
-}
-
-const SETTINGS_TABS: Array<{
-  id: SettingsTabId
-  labelKey: TranslationKey
-  icon: LucideIcon
-}> = [
-  { id: "preferences", labelKey: "settings.preferences", icon: SlidersHorizontalIcon },
-  { id: "logs", labelKey: "settings.logs", icon: TerminalIcon },
-  { id: "shortcuts", labelKey: "settings.shortcuts", icon: KeyboardIcon },
-]
-
-/** İlk açılışta yalnızca ilk bölüm açıktır; sonrasında her bölümün durumu saklanır. */
-function readOpenSettingsTabs(): OpenSettingsTabs {
-  if (typeof window === "undefined") return DEFAULT_OPEN_TABS
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_TABS_STORAGE_KEY)
-    if (!raw) return DEFAULT_OPEN_TABS
-    const parsed = JSON.parse(raw) as Partial<Record<SettingsTabId, unknown>>
-    return {
-      preferences: parsed.preferences === true,
-      logs: parsed.logs === true,
-      shortcuts: parsed.shortcuts === true,
-    }
-  } catch {
-    return DEFAULT_OPEN_TABS
-  }
-}
-
-function persistOpenSettingsTabs(tabs: OpenSettingsTabs) {
-  try {
-    window.localStorage.setItem(SETTINGS_TABS_STORAGE_KEY, JSON.stringify(tabs))
-  } catch {
-    /* gizli sekme vb. durumlarda sessizce yok sayılır */
-  }
-}
-
-export function SettingsPanel() {
-  const { locale, setLocale, t } = useI18n()
-  const theme = useThemeStore((s) => s.theme)
-  const setTheme = useThemeStore((s) => s.setTheme)
-  const showLogs = useLogStore((s) => s.showLogs)
-  const setShowLogs = useLogStore((s) => s.setShowLogs)
-  const waveformEnabled = usePreferencesStore((s) => s.waveformEnabled)
-  const setWaveformEnabled = usePreferencesStore((s) => s.setWaveformEnabled)
-  const [openTabs, setOpenTabs] = useState<OpenSettingsTabs>(readOpenSettingsTabs)
-
-  useEffect(() => {
-    persistOpenSettingsTabs(openTabs)
-  }, [openTabs])
-
-  const toggleTab = (tab: SettingsTabId) => {
-    setOpenTabs((current) => ({ ...current, [tab]: !current[tab] }))
-  }
-
-  const renderTabContent = (id: SettingsTabId) => {
-    if (id === "preferences") {
-      return (
-        <div className="divide-y rounded-md border bg-background/40">
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <div className="flex items-center gap-2 text-sm">
-              <LanguagesIcon className="size-4 text-muted-foreground" aria-hidden />
-              <span>{t("settings.language")}</span>
-            </div>
-            <Select value={locale} onValueChange={(value) => setLocale(value as Locale)}>
-              <SelectTrigger
-                size="sm"
-                className="h-8 w-[132px] text-xs"
-                aria-label={t("language.switch")}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent position="popper" align="end" className="min-w-[132px]">
-                {LOCALE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-xs">
-                    {t(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <div className="flex items-center gap-2 text-sm">
-              {theme === "dark" ? (
-                <MoonIcon className="size-4 text-muted-foreground" aria-hidden />
-              ) : (
-                <SunIcon className="size-4 text-muted-foreground" aria-hidden />
-              )}
-              <span>{t("settings.theme")}</span>
-            </div>
-            <div className="inline-flex rounded-md border bg-muted/30 p-0.5">
-              <Button
-                type="button"
-                variant={theme === "light" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-[11px]"
-                onClick={() => setTheme("light")}
-                aria-pressed={theme === "light"}
-              >
-                <SunIcon className="size-3.5" aria-hidden />
-                {t("settings.themeLight")}
-              </Button>
-              <Button
-                type="button"
-                variant={theme === "dark" ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-[11px]"
-                onClick={() => setTheme("dark")}
-                aria-pressed={theme === "dark"}
-              >
-                <MoonIcon className="size-3.5" aria-hidden />
-                {t("settings.themeDark")}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <div className="flex min-w-0 items-start gap-2">
-              <AudioWaveformIcon
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="text-sm">{t("settings.waveformEnabled")}</div>
-                <p className="text-[10px] text-muted-foreground">
-                  {t("settings.waveformEnabledHint")}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">
-                {waveformEnabled ? t("settings.yes") : t("settings.no")}
-              </span>
-              <Switch
-                checked={waveformEnabled}
-                onCheckedChange={setWaveformEnabled}
-                aria-label={t("settings.waveformEnabled")}
-              />
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    if (id === "logs") {
-      return (
-        <div className="flex items-center justify-between gap-3 rounded-md border bg-background/40 px-3 py-2.5">
-          <div className="flex min-w-0 items-start gap-2">
-            <TerminalIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <div className="min-w-0">
-              <div className="text-sm">{t("settings.showErrorLog")}</div>
-              <p className="text-[10px] text-muted-foreground">
-                {t("settings.showErrorLogHint")}
-              </p>
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">
-              {showLogs ? t("settings.yes") : t("settings.no")}
-            </span>
-            <Switch
-              checked={showLogs}
-              onCheckedChange={setShowLogs}
-              aria-label={t("settings.showErrorLog")}
-            />
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <div className="space-y-2">
-        <p className="text-right text-[10px] text-muted-foreground">
-          {t("settings.shortcutsHint")}
-        </p>
-
-        <div className="overflow-hidden rounded-md border">
-          <table className="w-full table-fixed text-xs">
-            <thead className="bg-muted/40 text-[10px] tracking-wide text-muted-foreground uppercase">
-              <tr>
-                <th className="w-[58%] px-3 py-2 text-left font-medium">
-                  {t("settings.shortcutAction")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium">
-                  {t("settings.shortcutKeys")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {KEYBOARD_SHORTCUTS.map((shortcut) => (
-                <tr key={shortcut.id}>
-                  <td className="px-3 py-1.5 text-muted-foreground">
-                    {t(shortcut.labelKey)}
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <div className="flex flex-wrap items-center justify-end gap-1">
-                      {shortcut.keys.map((key) => (
-                        <kbd
-                          key={`${shortcut.id}-${key}`}
-                          className="rounded border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] leading-none text-foreground"
-                        >
-                          {key}
-                        </kbd>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  }
-
+/** Satır: solda simge + başlık/açıklama, sağda denetim. */
+function SettingRow({
+  icon: Icon,
+  title,
+  hint,
+  children,
+  className,
+}: {
+  icon?: LucideIcon
+  title: string
+  hint?: string
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div
-      data-slot="settings-accordion"
-      className="divide-y overflow-hidden rounded-lg border bg-card"
+      data-slot="settings-row"
+      className={cn(
+        "flex items-center justify-between gap-4 px-3 py-3 transition-colors hover:bg-muted/20",
+        className,
+      )}
     >
-      {SETTINGS_TABS.map(({ id, labelKey, icon: Icon }) => {
-        const open = openTabs[id]
-        return (
-          <div
-            key={id}
-            data-slot="settings-section"
-            data-state={open ? "open" : "closed"}
-            className={cn("transition-colors", open && "bg-muted/10")}
-          >
-            <button
-              type="button"
-              id={`settings-tab-${id}`}
-              aria-controls={`settings-panel-${id}`}
-              aria-expanded={open}
-              onClick={() => toggleTab(id)}
-              className={cn(
-                "flex w-full items-center gap-2 px-3 py-2.5 text-left text-[11px] font-semibold tracking-wide uppercase transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset",
-                open
-                  ? "bg-muted/20 text-foreground"
-                  : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-              )}
-            >
-              <Icon
-                className={cn(
-                  "size-3.5 shrink-0 transition-colors",
-                  open ? "text-foreground" : "text-muted-foreground",
-                )}
-                aria-hidden
-              />
-              <span className="min-w-0 flex-1 truncate">{t(labelKey)}</span>
-              <ChevronDownIcon
-                className={cn(
-                  "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-                  open && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
+      <div className="flex min-w-0 items-start gap-2.5">
+        {Icon && (
+          <Icon
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+        )}
+        <div className="min-w-0 space-y-0.5">
+          <div className="text-xs font-medium text-foreground">{title}</div>
+          {hint && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {hint}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">{children}</div>
+    </div>
+  )
+}
 
-            {open && (
-              <div
-                id={`settings-panel-${id}`}
-                role="region"
-                aria-labelledby={`settings-tab-${id}`}
-                className="animate-in border-t border-border/70 bg-background/30 px-3 py-3 fade-in-0 slide-in-from-top-1 duration-150"
+function SectionCard({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "divide-y divide-border/60 overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function GeneralSection() {
+  const { t, locale, setLocale } = useI18n()
+  const theme = useThemeStore((s) => s.theme)
+  const setTheme = useThemeStore((s) => s.setTheme)
+
+  return (
+    <SectionCard>
+      <SettingRow
+        icon={LanguagesIcon}
+        title={t("settings.language")}
+        hint={t("settings.languageHint")}
+      >
+        <Select
+          value={locale}
+          onValueChange={(value) => setLocale(value as Locale)}
+        >
+          <SelectTrigger
+            size="sm"
+            className="h-8 w-[148px] text-xs"
+            aria-label={t("language.switch")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="end" className="min-w-[148px]">
+            {LOCALE_OPTIONS.map((option) => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                className="text-xs"
               >
-                {renderTabContent(id)}
-              </div>
-            )}
+                {t(option.labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+
+      <SettingRow
+        icon={theme === "dark" ? MoonIcon : SunIcon}
+        title={t("settings.theme")}
+        hint={t("settings.themeHint")}
+      >
+        <div className="inline-flex rounded-lg border bg-muted/30 p-0.5">
+          <Button
+            type="button"
+            variant={theme === "light" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 gap-1.5 px-2.5 text-[11px]"
+            onClick={() => setTheme("light")}
+            aria-pressed={theme === "light"}
+          >
+            <SunIcon className="size-3.5" aria-hidden />
+            {t("settings.themeLight")}
+          </Button>
+          <Button
+            type="button"
+            variant={theme === "dark" ? "secondary" : "ghost"}
+            size="sm"
+            className="h-7 gap-1.5 px-2.5 text-[11px]"
+            onClick={() => setTheme("dark")}
+            aria-pressed={theme === "dark"}
+          >
+            <MoonIcon className="size-3.5" aria-hidden />
+            {t("settings.themeDark")}
+          </Button>
+        </div>
+      </SettingRow>
+    </SectionCard>
+  )
+}
+
+function PlaybackSection() {
+  const { t } = useI18n()
+  const waveformEnabled = usePreferencesStore((s) => s.waveformEnabled)
+  const setWaveformEnabled = usePreferencesStore((s) => s.setWaveformEnabled)
+
+  return (
+    <SectionCard>
+      <SettingRow
+        icon={AudioWaveformIcon}
+        title={t("settings.waveformEnabled")}
+        hint={t("settings.waveformEnabledHint")}
+      >
+        <Switch
+          checked={waveformEnabled}
+          onCheckedChange={setWaveformEnabled}
+          aria-label={t("settings.waveformEnabled")}
+        />
+      </SettingRow>
+    </SectionCard>
+  )
+}
+
+function LogsSection() {
+  const { t } = useI18n()
+  const showLogs = useLogStore((s) => s.showLogs)
+  const setShowLogs = useLogStore((s) => s.setShowLogs)
+  const setOpen = useLogStore((s) => s.setOpen)
+  const clear = useLogStore((s) => s.clear)
+  const total = useLogStore((s) => s.entries.length)
+  const errors = useLogStore((s) => s.errorCount)
+
+  return (
+    <div className="space-y-3">
+      <SectionCard>
+        <SettingRow
+          icon={TerminalIcon}
+          title={t("settings.showErrorLog")}
+          hint={t("settings.showErrorLogHint")}
+        >
+          <Switch
+            checked={showLogs}
+            onCheckedChange={setShowLogs}
+            aria-label={t("settings.showErrorLog")}
+          />
+        </SettingRow>
+      </SectionCard>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <TerminalIcon className="size-3.5" aria-hidden />
+          {t("settings.openLog")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clear}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <EraserIcon className="size-3.5" aria-hidden />
+          {t("settings.clearLog")}
+        </Button>
+        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Badge variant="secondary" className="h-5 px-1.5 font-mono text-[10px]">
+            {total}
+          </Badge>
+          <span>{t("settings.logEntries")}</span>
+          {errors > 0 && (
+            <Badge
+              variant="destructive"
+              className="h-5 px-1.5 font-mono text-[10px]"
+            >
+              {errors}
+            </Badge>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ShortcutsSection() {
+  const { t } = useI18n()
+  const [query, setQuery] = useState("")
+
+  const shortcuts = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase()
+    if (!needle) return KEYBOARD_SHORTCUTS
+    return KEYBOARD_SHORTCUTS.filter((shortcut) =>
+      t(shortcut.labelKey).toLocaleLowerCase().includes(needle),
+    )
+  }, [query, t])
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <SearchIcon
+            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("settings.shortcutsSearch")}
+            aria-label={t("settings.shortcutsSearch")}
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+          {shortcuts.length}/{KEYBOARD_SHORTCUTS.length}
+        </span>
+      </div>
+
+      <SectionCard className="max-h-[46vh] overflow-y-auto">
+        {shortcuts.length === 0 ? (
+          <p className="px-3 py-8 text-center text-xs text-muted-foreground">
+            {t("settings.shortcutsEmpty")}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60">
+            {shortcuts.map((shortcut) => (
+              <li
+                key={shortcut.id}
+                className="flex items-center justify-between gap-3 px-3 py-2"
+              >
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  {t(shortcut.labelKey)}
+                </span>
+                <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                  {shortcut.keys.map((key) => (
+                    <kbd
+                      key={`${shortcut.id}-${key}`}
+                      className="rounded-md border bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] leading-none text-foreground shadow-xs"
+                    >
+                      {key}
+                    </kbd>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </SectionCard>
+
+      <p className="text-[11px] text-muted-foreground">
+        {t("settings.shortcutsHint")}
+      </p>
+    </div>
+  )
+}
+
+function AboutSection() {
+  const { t } = useI18n()
+
+  return (
+    <div className="space-y-3">
+      <SectionCard>
+        <div className="flex items-start gap-3 px-3 py-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+            <ClapperboardIcon className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold tracking-tight">
+                ClipStream Studio
+              </h3>
+              <Badge variant="secondary" className="h-5 px-1.5 font-mono text-[10px]">
+                v{APP_VERSION}
+              </Badge>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {t("settings.aboutDescription")}
+            </p>
           </div>
-        )
-      })}
+        </div>
+      </SectionCard>
+
+      <SectionCard>
+        <div className="grid grid-cols-2 gap-px bg-border/60">
+          {[
+            { label: t("settings.aboutRuntime"), value: "Local · 127.0.0.1" },
+            { label: t("settings.aboutEngine"), value: "FFmpeg · yt-dlp" },
+            { label: t("settings.aboutStorage"), value: "localStorage" },
+            { label: t("settings.aboutLicense"), value: "Private" },
+          ].map((item) => (
+            <div key={item.label} className="bg-card px-3 py-2.5">
+              <div className="text-[10px] tracking-wide text-muted-foreground uppercase">
+                {item.label}
+              </div>
+              <div className="mt-0.5 text-xs font-medium">{item.value}</div>
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        <KeyboardIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        {t("settings.aboutLocal")}
+      </p>
+    </div>
+  )
+}
+
+const SECTIONS: Record<SettingsSection, () => ReactElement> = {
+  general: GeneralSection,
+  playback: PlaybackSection,
+  logs: LogsSection,
+  shortcuts: ShortcutsSection,
+  about: AboutSection,
+}
+
+export function SettingsPanel({ section }: { section: SettingsSection }) {
+  const Content = SECTIONS[section] ?? GeneralSection
+  return (
+    <div data-slot="settings-section-content" className="animate-in fade-in-0 duration-150">
+      <Content />
     </div>
   )
 }

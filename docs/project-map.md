@@ -100,6 +100,7 @@
 
 | Dosya                           | Açıklama / semboller |
 |---------------------------------|------------------------|
+| `app-header.tsx`                | AppHeader |
 | `crop-menu.tsx`                 | CropMenu |
 | `crop-overlay.tsx`              | CropOverlay |
 | `delete-file-dialog.tsx`        | DeleteFileDialog, DeleteFilesDialog |
@@ -115,17 +116,19 @@
 | `file-icon.tsx`                 | FileIcon |
 | `gallery-preview-dialog.tsx`    | GalleryPreviewDialog |
 | `gallery.tsx`                   | Gallery |
+| `home-screen.tsx`               | HomeScreen |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |
 | `job-preview-dialog.tsx`        | JobPreviewDialog |
 | `job-progress.tsx`              | JobProgress |
 | `jobs-dock.tsx`                 | JobsDock |
 | `log-drawer.tsx`                | LogDrawer |
-| `project-banner.tsx`            | ProjectBanner |
-| `project-history.tsx`           | ProjectHistory |
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
 | `project-recovery-screen.tsx`   | ProjectRecoveryScreen |
+| `project-screen.tsx`            | ProjectScreen |
 | `project-workspace-context.tsx` | ProjectWorkspaceProvider, useProjectWorkspaceController |
+| `recent-projects.tsx`           | RecentProjects |
 | `recorder-controls.tsx`         | RecorderControls |
+| `settings-dialog.tsx`           | SettingsDialog |
 | `settings-panel.tsx`            | SettingsPanel |
 | `side-panel.tsx`                | SidePanel |
 | `source-timeline.tsx`           | SourceTimeline |
@@ -133,6 +136,7 @@
 | `storyboard-provider.tsx`       | StoryboardProvider, useStoryboardData |
 | `stream-status-badge.tsx`       | StreamStatusBadge |
 | `timeline-preview.tsx`          | PREVIEW_WIDTH, PREVIEW_HEIGHT, TimelinePreview |
+| `timeline-section.tsx`          | TimelineSection |
 | `timeline-toolbar.tsx`          | TimelineToolbar |
 | `timeline.tsx`                  | Timeline |
 | `trim-bar.tsx`                  | TrimBar |
@@ -196,7 +200,7 @@
 | `api.ts`                | ApiError, api |
 | `app-version.ts`        | APP_VERSION |
 | `curl.ts`               | parseCurl |
-| `format.ts`             | clamp, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, tickStep, formatTick, compactDuration, formatRemaining, formatRelativeTime |
+| `format.ts`             | clamp, sourceDisplayName, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, tickStep, formatTick, compactDuration, formatRemaining |
 | `keyboard-shortcuts.ts` | KEYBOARD_SHORTCUTS |
 | `media.ts`              | isHlsUrl, proxiedUrl, withScheme, extractPastedUrl |
 | `project-handoff.ts`    | projectKey, writeProjectHandoff, readProjectHandoff, removeProjectHandoff |
@@ -217,7 +221,7 @@
 | `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, LIVE_EDGE_MARGIN, LIVE_BUTTON_THRESHOLD, LIVE_BUTTON_PLAYING_THRESHOLD, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
 | `preferences-store.ts`  | usePreferencesStore |
 | `project-store.ts`      | useProjectStore |
-| `project-ui-store.ts`   | useProjectUiStore |
+| `project-ui-store.ts`   | toPanelTab, useProjectUiStore |
 | `recorder-store.ts`     | useRecorderStore |
 | `source-store.ts`       | anchorAtTime, onExternalSource, streamPlaylistUrl, useSourceStore |
 | `stream-store.ts`       | useStreamStore |
