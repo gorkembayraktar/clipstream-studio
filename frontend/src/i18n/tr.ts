@@ -46,10 +46,9 @@ export const tr: Record<TranslationKey, string> = {
   "menu.showPanel": "Sağ paneli aç",
   "menu.hidePanel": "Sağ paneli kapat",
 
-  "home.commandLabel": "Başlamak için bağlantı yapıştır",
   "home.localNote": "Yerel çalışır · dosyalar bu makineden çıkmaz",
   "home.sourceTitle": "Kaynak",
-  "home.sourceBadge": "URL · dosya · curl",
+  "home.sourceBadge": "URL · dosya · canlı",
   "home.dropHint": "Dosyayı buraya bırak veya seçmek için tıkla",
   "home.chipUrl": "Bağlantı",
   "home.chipFile": "Yerel dosya",
@@ -57,7 +56,7 @@ export const tr: Record<TranslationKey, string> = {
   "home.recentBadge": "Bu tarayıcı",
   "home.recentEmpty": "Henüz proje yok",
   "home.recentEmptyHint":
-    "Yukarıdan bir kaynak yükle; proje otomatik olarak kaydedilir.",
+    "Bir bağlantı yapıştır veya dosya seç; proje otomatik olarak kaydedilir.",
   "home.recentPrev": "Geri kaydır",
   "home.recentNext": "İleri kaydır",
 

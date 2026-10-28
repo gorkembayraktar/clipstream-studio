@@ -1,8 +1,9 @@
 /** Ana sayfa: tek odaklı yeni proje yüzeyi ve son projeler. */
-import { FileVideo2Icon, LinkIcon, ShieldCheckIcon } from "lucide-react"
+import { FileVideo2Icon, ShieldCheckIcon } from "lucide-react"
 
 import { RecentProjects } from "@/components/app/recent-projects"
 import { UrlSourceBar } from "@/components/app/url-source-bar"
+import { Button } from "@/components/ui/button"
 import { useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"
 
@@ -12,66 +13,67 @@ export function HomeScreen() {
 
   return (
     <div data-slot="home-screen" className="min-h-0 flex-1 overflow-y-auto">
-      <div className="relative isolate mx-auto w-full max-w-[1080px] px-5 pt-8 pb-12 sm:px-8 lg:pt-10">
+      <div className="relative isolate mx-auto w-full max-w-[1120px] px-5 pt-8 pb-12 sm:px-8 lg:pt-12">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-28 left-1/2 -z-10 h-64 w-[34rem] max-w-full -translate-x-1/2 rounded-full bg-primary/10 blur-[110px]"
+          className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-64 w-[36rem] max-w-full -translate-x-1/2 rounded-full bg-primary/10 blur-[110px]"
         />
 
-        <header className="mx-auto max-w-2xl text-center">
-          <div className="flex justify-center">
-            <img
-              src="/clipstream-logo-light.svg"
-              alt={t("app.name")}
-              className="h-8 w-auto dark:hidden"
-            />
-            <img
-              src="/clipstream-logo-dark.svg"
-              alt={t("app.name")}
-              className="hidden h-8 w-auto dark:block"
-            />
-          </div>
-        </header>
-
-        <section className="mx-auto mt-6 w-full max-w-3xl">
-          <div className="rounded-2xl border border-border/70 bg-card/70 p-2 shadow-xl shadow-black/5 ring-1 ring-foreground/5 backdrop-blur-md">
-            <div className="flex items-center gap-1.5 px-2 pt-1 pb-2 text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
-              <LinkIcon className="size-3" aria-hidden />
-              {t("home.commandLabel")}
-              <kbd className="ml-auto rounded border border-border/70 bg-muted/50 px-1.5 py-0.5 font-mono text-[9px] tracking-normal normal-case">
-                Enter
-              </kbd>
+        <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
+          <section className="min-w-0">
+            <div className="flex items-center gap-3">
+              <img
+                src="/clipstream-logo-light.svg"
+                alt={t("app.name")}
+                className="h-8 w-auto dark:hidden"
+              />
+              <img
+                src="/clipstream-logo-dark.svg"
+                alt={t("app.name")}
+                className="hidden h-8 w-auto dark:block"
+              />
+              <div className="min-w-0">
+                <h1 className="text-lg font-semibold tracking-tight">
+                  {t("project.newProject")}
+                </h1>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {t("home.sourceBadge")}
+                </p>
+              </div>
             </div>
-            <div className="rounded-xl border border-border/50 bg-background/60 p-2">
+
+            <div className="mt-5 rounded-2xl border border-border/70 bg-card/70 p-2 shadow-xl shadow-black/5 ring-1 ring-primary/10 backdrop-blur-md sm:p-3">
               <UrlSourceBar />
             </div>
-          </div>
 
-          <div className="mt-3 flex justify-center">
-            <button
-              type="button"
-              onClick={() => void pickFile()}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/40 px-3 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <FileVideo2Icon className="size-3.5" aria-hidden />
-              {t("source.pickFile")}
-            </button>
-          </div>
-        </section>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="rounded-full"
+                onClick={() => void pickFile()}
+              >
+                <FileVideo2Icon />
+                {t("source.pickFile")}
+              </Button>
+            </div>
+          </section>
 
-        <section className="mx-auto mt-12 w-full max-w-3xl">
-          <div className="mb-3 space-y-0.5">
-            <h2 className="text-sm font-semibold tracking-tight">
-              {t("project.historyTitle")}
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              {t("home.recentBadge")}
-            </p>
-          </div>
-          <RecentProjects limit={6} />
-        </section>
+          <aside className="min-w-0">
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold tracking-tight">
+                {t("project.historyTitle")}
+              </h2>
+              <span className="text-[10px] text-muted-foreground">
+                {t("home.recentBadge")}
+              </span>
+            </div>
+            <RecentProjects limit={5} layout="list" />
+          </aside>
+        </div>
 
-        <p className="mx-auto mt-10 flex max-w-xl items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground/70">
+        <p className="mx-auto mt-10 flex max-w-5xl items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground/70">
           <ShieldCheckIcon className="size-3 shrink-0" aria-hidden />
           {t("home.localNote")}
         </p>

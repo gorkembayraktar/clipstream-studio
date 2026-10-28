@@ -49,10 +49,9 @@ export const en = {
   "menu.showPanel": "Show side panel",
   "menu.hidePanel": "Hide side panel",
 
-  "home.commandLabel": "Paste a link to begin",
   "home.localNote": "Runs locally · files never leave this machine",
   "home.sourceTitle": "Source",
-  "home.sourceBadge": "URL · file · curl",
+  "home.sourceBadge": "URL · file · live",
   "home.dropHint": "Drop a file here or click to browse",
   "home.chipUrl": "Link",
   "home.chipFile": "Local file",
@@ -60,7 +59,7 @@ export const en = {
   "home.recentBadge": "This browser",
   "home.recentEmpty": "No projects yet",
   "home.recentEmptyHint":
-    "Load a source above; the project is saved automatically.",
+    "Paste a link or choose a file; the project is saved automatically.",
   "home.recentPrev": "Scroll back",
   "home.recentNext": "Scroll forward",
 

@@ -62,6 +62,75 @@ function openProject(id: string) {
   window.location.assign(projectUrl(id))
 }
 
+function ProjectCard({
+  item,
+  layout,
+  onDelete,
+}: {
+  item: ProjectWorkspace
+  layout: "row" | "list"
+  onDelete: (item: ProjectWorkspace) => void
+}) {
+  const { t, locale } = useI18n()
+
+  return (
+    <li
+      className={cn(
+        "group relative flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30",
+        layout === "row"
+          ? "w-64 shrink-0 snap-start p-2.5 sm:w-72"
+          : "w-full p-3",
+      )}
+    >
+      <button
+        type="button"
+        onClick={() => openProject(item.id)}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        title={projectTitle(item, item.id)}
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/10">
+          <FilmIcon className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1 space-y-0.5">
+          <span className="block truncate text-xs font-medium">
+            {projectTitle(item, t("menu.untitledProject"))}
+          </span>
+          <span className="block truncate text-[10px] text-muted-foreground">
+            {formatUpdated(item.updated_date, locale)}
+            {item.source?.isLive ? ` · ${t("stage.liveOnly")}` : ""}
+          </span>
+        </span>
+      </button>
+
+      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="text-muted-foreground"
+          onClick={() =>
+            window.open(projectUrl(item.id), "_blank", "noopener,noreferrer")
+          }
+          title={t("project.historyOpenNewTab")}
+          aria-label={`${t("project.historyOpenNewTab")}: ${projectTitle(item, item.id)}`}
+        >
+          <ExternalLinkIcon />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className={cn("text-muted-foreground hover:text-destructive")}
+          onClick={() => onDelete(item)}
+          title={t("project.historyDelete")}
+          aria-label={`${t("project.historyDelete")}: ${projectTitle(item, item.id)}`}
+        >
+          <Trash2Icon />
+        </Button>
+      </div>
+    </li>
+  )
+}
+
 /**
  * Yatay kaydırma şeridi: dokunmatikte native swipe, masaüstünde fare ile
  * sürükleme, kenar oklarında yumuşak kaydırma ve kartlara snap.
@@ -228,8 +297,14 @@ function GlideButton({
   )
 }
 
-export function RecentProjects({ limit = 12 }: { limit?: number }) {
-  const { t, locale } = useI18n()
+export function RecentProjects({
+  limit = 12,
+  layout = "row",
+}: {
+  limit?: number
+  layout?: "row" | "list"
+}) {
+  const { t } = useI18n()
   const [deleting, setDeleting] = useState<ProjectWorkspace | null>(null)
   const [version, setVersion] = useState(0)
 
@@ -241,7 +316,10 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
     return (
       <div
         data-slot="recent-projects-empty"
-        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/40 px-6 py-12 text-center"
+        className={cn(
+          "flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/40 text-center",
+          layout === "row" ? "px-6 py-12" : "px-4 py-8",
+        )}
       >
         <span className="flex size-10 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground/70">
           <FilmIcon className="size-5" />
@@ -258,60 +336,33 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
 
   return (
     <>
-      <GlideRow>
-        {projects.map((item) => (
-          <li
-            key={item.id}
-            className="group relative flex w-64 shrink-0 snap-start items-center gap-2 rounded-xl border border-border/60 bg-card/60 p-2.5 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30 sm:w-72"
-          >
-            <button
-              type="button"
-              onClick={() => openProject(item.id)}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              title={projectTitle(item, item.id)}
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/10">
-                <FilmIcon className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-xs font-medium">
-                  {projectTitle(item, t("menu.untitledProject"))}
-                </span>
-                <span className="block truncate text-[10px] text-muted-foreground">
-                  {formatUpdated(item.updated_date, locale)}
-                  {item.source?.isLive ? ` · ${t("stage.liveOnly")}` : ""}
-                </span>
-              </span>
-            </button>
-
-            <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground"
-                onClick={() =>
-                  window.open(projectUrl(item.id), "_blank", "noopener,noreferrer")
-                }
-                title={t("project.historyOpenNewTab")}
-                aria-label={`${t("project.historyOpenNewTab")}: ${projectTitle(item, item.id)}`}
-              >
-                <ExternalLinkIcon />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className={cn("text-muted-foreground hover:text-destructive")}
-                onClick={() => setDeleting(item)}
-                title={t("project.historyDelete")}
-                aria-label={`${t("project.historyDelete")}: ${projectTitle(item, item.id)}`}
-              >
-                <Trash2Icon />
-              </Button>
-            </div>
-          </li>
-        ))}
-      </GlideRow>
+      {layout === "row" ? (
+        <GlideRow>
+          {projects.map((item) => (
+            <ProjectCard
+              key={item.id}
+              item={item}
+              layout="row"
+              onDelete={setDeleting}
+            />
+          ))}
+        </GlideRow>
+      ) : (
+        <ul
+          data-slot="recent-projects"
+          aria-label={t("project.historyTitle")}
+          className="space-y-2"
+        >
+          {projects.map((item) => (
+            <ProjectCard
+              key={item.id}
+              item={item}
+              layout="list"
+              onDelete={setDeleting}
+            />
+          ))}
+        </ul>
+      )}
 
       <AlertDialog
         open={deleting !== null}
