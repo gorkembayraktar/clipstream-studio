@@ -326,6 +326,7 @@ export const tr: Record<TranslationKey, string> = {
 
   "jobsDock.title": "Dışa aktarma işleri",
   "jobsDock.running": "{count} çalışıyor",
+  "jobsDock.queued": "{count} sırada",
   "jobsDock.ready": "{count} hazır",
   "jobsDock.finished": "{count} tamamlandı",
   "jobsDock.clearFinished": "Tamamlanan işleri temizle",
@@ -419,6 +420,9 @@ export const tr: Record<TranslationKey, string> = {
   "job.preparing": "İş hazırlanıyor…",
   "job.starting": "Başlatılıyor…",
   "job.processing": "İşleniyor…",
+  "job.queued": "Sırada · {position}. sıra",
+  "job.laneGpu": "GPU sırası",
+  "job.laneCpu": "CPU sırası",
   "job.speed": "hız {speed}",
   "job.remaining": "~{time} kaldı",
   "job.remainingTitle": "Tahmini kalan süre",

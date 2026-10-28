@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import {
   BanIcon,
   CircleCheckIcon,
+  ClockIcon,
   DownloadIcon,
   EllipsisVerticalIcon,
   FolderOpenIcon,
@@ -41,10 +42,12 @@ const notifiedStates = new Set<string>()
 
 function JobCard({
   status,
+  queued = false,
   children,
   thumbnail,
 }: {
   status: JobStatus
+  queued?: boolean
   children: ReactNode
   thumbnail?: { name: string; version?: string | number }
 }) {
@@ -89,7 +92,10 @@ function JobCard({
               status === "cancelled" && "bg-muted text-muted-foreground",
             )}
           >
-            {active && <Loader2Icon className="size-3.5 animate-spin" aria-hidden />}
+            {active && !queued && (
+              <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
+            )}
+            {active && queued && <ClockIcon className="size-3.5" aria-hidden />}
             {status === "done" && <CircleCheckIcon className="size-3.5" aria-hidden />}
             {status === "error" && <TriangleAlertIcon className="size-3.5" aria-hidden />}
             {status === "cancelled" && <BanIcon className="size-3.5" aria-hidden />}
@@ -150,6 +156,7 @@ export function JobProgress({ jobId }: { jobId: string }) {
   }
 
   const canCancel = job.status === "pending" || job.status === "running"
+  const queued = job.status === "pending" && (job.queue_position ?? 0) > 0
   const range =
     job.clip_start != null && job.clip_end != null
       ? `${formatTime(job.clip_start, true)} → ${formatTime(job.clip_end, true)}`
@@ -170,9 +177,9 @@ export function JobProgress({ jobId }: { jobId: string }) {
       <div className="min-w-0">
         <p
           className="truncate text-xs leading-5 font-semibold"
-          title={job.output_filename ?? undefined}
+          title={job.output_filename ?? job.requested_filename ?? undefined}
         >
-          {job.output_filename || t("job.preparing")}
+          {job.output_filename || job.requested_filename || t("job.preparing")}
         </p>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-muted-foreground">
           {range && (
@@ -182,6 +189,11 @@ export function JobProgress({ jobId }: { jobId: string }) {
           <span className="rounded bg-muted px-1 py-px text-[9px] font-semibold tracking-wide text-foreground/75">
             {FORMAT_LABELS[job.output_format ?? "mp4"] ?? "MP4"}
           </span>
+          {job.status === "pending" && job.lane && (
+            <span className="rounded bg-primary/10 px-1 py-px text-[9px] font-semibold tracking-wide text-primary">
+              {job.lane === "gpu" ? t("job.laneGpu") : t("job.laneCpu")}
+            </span>
+          )}
           <span>
             {job.mode === "fast" ? t("export.modeFast") : t("export.modeExact")}
           </span>
@@ -225,12 +237,16 @@ export function JobProgress({ jobId }: { jobId: string }) {
   if (job.status === "pending" || job.status === "running") {
     const progress = Math.max(0, Math.min(100, job.progress ?? 0))
     return (
-      <JobCard status={job.status}>
+      <JobCard status={job.status} queued={queued}>
         {header}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-[11px]">
             <span className="text-muted-foreground">
-              {job.status === "pending" ? t("job.starting") : t("job.processing")}
+              {queued
+                ? t("job.queued", { position: job.queue_position ?? 1 })
+                : job.status === "pending"
+                  ? t("job.starting")
+                  : t("job.processing")}
             </span>
             <span className="flex shrink-0 items-center gap-2">
               {job.eta_sec != null && job.eta_sec > 0 && (

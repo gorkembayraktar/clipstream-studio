@@ -5,6 +5,7 @@ import type {
   ExportFile,
   ExportJob,
   ExportRequest,
+  JobsResponse,
   LibraryFileMeta,
   LocalPickResponse,
   LocalUploadResponse,
@@ -389,6 +390,13 @@ export const api = {
   createExportJob: (payload: ExportRequest) =>
     post<{ success: boolean; job_id: string }>("/api/jobs", payload),
   getExportCapabilities: () => request<ExportCapabilities>("/api/export/capabilities"),
+  /** Sayfa yenilendiğinde süren işleri geri yüklemek için. */
+  listJobs: (activeOnly = false) =>
+    request<JobsResponse>(
+      `/api/jobs${activeOnly ? "?active=true" : ""}`,
+      undefined,
+      { silent: true },
+    ),
   getJob: (jobId: string) => request<ExportJob>(`/api/jobs/${jobId}`),
   cancelJob: (jobId: string) =>
     post<{ success: boolean; message?: string }>(`/api/jobs/${jobId}/cancel`),

@@ -12,12 +12,14 @@ import { JobProgress } from "@/components/app/job-progress"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "cn"
-import { useJobs } from "@/hooks/use-export-job"
+import { useActiveJobsHydration, useJobs } from "@/hooks/use-export-job"
 import { useI18n } from "@/i18n"
 import { clamp } from "@/lib/format"
 import { useExportStore } from "@/stores/export-store"
 
 export function JobsDock() {
+  // Tam sayfa yenilemesinde backend'de süren işleri geri yükle.
+  useActiveJobsHydration()
   const activeJobIds = useExportStore((s) => s.activeJobIds)
 
   if (activeJobIds.length === 0) return null
@@ -38,40 +40,67 @@ function JobsDockPanel({ activeJobIds }: { activeJobIds: string[] }) {
       jobId,
       status: job?.status,
       progress: job?.progress ?? 0,
+      queuePosition: job?.queue_position,
     }
   })
 
   const isFinished = (status: (typeof items)[number]["status"]) =>
     status === "done" || status === "error" || status === "cancelled"
 
-  // Çalışan işler daima üstte kalır; tamamlananlar aşağıda birikir.
-  const activeItems = items.filter((item) => !isFinished(item.status))
+  // Çalışan işler daima üstte; kuyruk FIFO sırasıyla hemen altında; bitenler
+  // en altta birikir. Durumu henüz gelmemiş kartlar da görünür kalır.
+  const loadingItems = items.filter((item) => item.status === undefined)
+  const runningItems = items.filter((item) => item.status === "running")
+  const queuedItems = items
+    .filter((item) => item.status === "pending")
+    .sort(
+      (a, b) =>
+        (a.queuePosition ?? Number.MAX_SAFE_INTEGER) -
+        (b.queuePosition ?? Number.MAX_SAFE_INTEGER),
+    )
   const finishedItems = items.filter((item) => isFinished(item.status))
-  const orderedIds = [...activeItems, ...finishedItems].map((item) => item.jobId)
+  const activeItems = [...loadingItems, ...runningItems, ...queuedItems]
+  const orderedIds = [
+    ...loadingItems,
+    ...runningItems,
+    ...queuedItems,
+    ...finishedItems,
+  ].map((item) => item.jobId)
 
   const activeCount = activeItems.length
+  const runningCount = runningItems.length
+  const queuedCount = queuedItems.length
   const readyCount = finishedItems.filter((item) => item.status === "done").length
   const finishedCount = finishedItems.length
-  const overall = activeCount
+  // Genel ilerleme yalnızca çalışan işlerden hesaplanır; kuyruktakiler 0%
+  // yüzünden ilerlemeyi aşağı çekmemeli.
+  const overall = runningCount
     ? Math.round(
-        activeItems.reduce(
+        runningItems.reduce(
           (total, item) => total + clamp(item.progress, 0, 100),
           0,
-        ) / activeCount,
+        ) / runningCount,
       )
     : 0
 
   const summaryParts: string[] = []
-  if (activeCount > 0) {
+  if (runningCount > 0) {
     summaryParts.push(
-      `${overall}% · ${t("jobsDock.running", { count: activeCount })}`,
+      `${overall}% · ${t("jobsDock.running", { count: runningCount })}`,
     )
+  }
+  if (queuedCount > 0) {
+    summaryParts.push(t("jobsDock.queued", { count: queuedCount }))
   }
   if (readyCount > 0) {
     summaryParts.push(t("jobsDock.ready", { count: readyCount }))
   }
   if (summaryParts.length === 0) {
-    summaryParts.push(t("jobsDock.finished", { count: finishedCount }))
+    summaryParts.push(
+      activeCount > 0
+        ? t("job.preparing")
+        : t("jobsDock.finished", { count: finishedCount }),
+    )
   }
 
   const summary = summaryParts.join(" · ")
@@ -145,7 +174,7 @@ function JobsDockPanel({ activeJobIds }: { activeJobIds: string[] }) {
         </button>
       </div>
 
-      {activeCount > 0 && (
+      {runningCount > 0 && (
         <Progress
           value={overall}
           aria-label={`${title} ${overall}%`}

@@ -328,6 +328,7 @@ export const en = {
 
   "jobsDock.title": "Export jobs",
   "jobsDock.running": "{count} running",
+  "jobsDock.queued": "{count} queued",
   "jobsDock.ready": "{count} ready",
   "jobsDock.finished": "{count} finished",
   "jobsDock.clearFinished": "Clear finished jobs",
@@ -421,6 +422,9 @@ export const en = {
   "job.preparing": "Preparing job…",
   "job.starting": "Starting…",
   "job.processing": "Processing…",
+  "job.queued": "Queued · position {position}",
+  "job.laneGpu": "GPU queue",
+  "job.laneCpu": "CPU queue",
   "job.speed": "speed {speed}",
   "job.remaining": "~{time} left",
   "job.remainingTitle": "Estimated remaining time",

@@ -75,6 +75,7 @@
 |------------------------------|------------------------|
 | `test_exporter.py`           | Dışa aktarma komutu ve GPU kodlayıcı seçimi için birim testleri. |
 | `test_hls_detection.py`      | Uzantısız HLS playlist'lerinin tespiti ve doğrudan kaynak çözümlemesi. |
+| `test_jobs.py`               | İş merkezinin listeleme ve genel görünüm davranışı için birim testleri. |
 | `test_library.py`            | Galeri metadata uç noktası: güvenli çözümleme, ffprobe ve önbellek. |
 | `test_proxy.py`              | CORS proxy'sinin uzantısız/`.txt` HLS playlist'lerini ve sıkıştırılmış yanıtları aktarımı. |
 | `test_recorder.py`           | Canlı kayıt yöneticisi: segment yakalama sırası, dayanıklılık, akışa yazma. |
@@ -180,7 +181,7 @@
 
 | Dosya                       | Açıklama / semboller |
 |-----------------------------|------------------------|
-| `use-export-job.ts`         | jobKeys, useStartExport, useJob, useJobs, useCancelJob |
+| `use-export-job.ts`         | jobKeys, useStartExport, useActiveJobsHydration, useJob, useJobs, useCancelJob |
 | `use-export-title.ts`       | useExportTitle |
 | `use-fullscreen.ts`         | getStageElement, toggleStageFullscreen, useFullscreen |
 | `use-gpu-capability.ts`     | capabilityKeys, useGpuCapability |

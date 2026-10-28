@@ -178,6 +178,9 @@ export type ExportCodec = "h264" | "hevc"
 export type EncoderChoice = "cpu" | "gpu"
 export type JobStatus = "pending" | "running" | "done" | "error" | "cancelled"
 
+/** GPU ve CPU render kuyrukları birbirinden bağımsızdır. */
+export type JobLane = "gpu" | "cpu"
+
 /** `GET /api/export/capabilities` — gerçek GPU kodlayıcı probe sonucu. */
 export interface GpuCapability {
   available: boolean
@@ -265,6 +268,8 @@ export interface ExportJob {
   progress: number
   created_at: number
   output_filename?: string
+  /** İş kuyrukta beklerken kartta gösterilen hedef dosya adı. */
+  requested_filename?: string | null
   clip_duration?: number
   /** Klibin kaynak üzerindeki başlangıç/bitiş saniyeleri (paralel iş kartları). */
   clip_start?: number
@@ -275,6 +280,10 @@ export interface ExportJob {
   quality?: string
   codec?: string
   output_fps?: number | null
+  /** İşin render kuyruğu: GPU ve CPU işleri ayrı kuyruklarda sırayla çalışır. */
+  lane?: JobLane
+  /** Bekleyen işin kendi kuyruğundaki 1 tabanlı sırası. */
+  queue_position?: number
   /** İstenen ve gerçekleşen render yolu. */
   encoder_requested?: EncoderChoice
   encoder_used?: EncoderChoice
@@ -292,6 +301,12 @@ export interface ExportJob {
   current_sec?: number
   error?: string
   command?: string
+}
+
+/** `GET /api/jobs` — bellek içi iş merkezindeki işler (en eski önce). */
+export interface JobsResponse {
+  success: boolean
+  jobs: ExportJob[]
 }
 
 export interface WaveformResponse {

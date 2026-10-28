@@ -1,4 +1,6 @@
 /** Dışa aktarma işi (job) sorgu ve mutasyonları. */
+import { useEffect } from "react"
+
 import {
   useMutation,
   useQueries,
@@ -32,6 +34,33 @@ export function useStartExport() {
       toast.error(translate("log.exportStartFailed"), { description: error.message })
     },
   })
+}
+
+/** Sayfa tam yenilendiğinde backend'de süren işleri panoya geri yükler.
+ *
+ * `activeJobIds` yalnızca bellekte tutulduğu için yenilemede kaybolur;
+ * işler backend'de çalışmaya devam ettiğinden liste buradan geri alınır.
+ */
+export function useActiveJobsHydration() {
+  const addActiveJobId = useExportStore((s) => s.addActiveJobId)
+
+  useEffect(() => {
+    let cancelled = false
+    void api
+      .listJobs(true)
+      .then((data) => {
+        if (cancelled) return
+        // Backend en eskiyi önce verir; addActiveJobId başa eklediği için
+        // pano en yeni işi üstte göstermeye devam eder.
+        for (const job of data.jobs) addActiveJobId(job.id)
+      })
+      .catch(() => {
+        // Pano sessiz kalsın; backend'e ulaşılamıyorsa gösterilecek iş yoktur.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [addActiveJobId])
 }
 
 /** İş durumunu yoklar; iş bitene kadar 600 ms'de bir yeniler. */

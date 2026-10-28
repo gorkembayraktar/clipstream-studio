@@ -7,6 +7,7 @@ Geliştirme modunda frontend ayrıca `npm run dev` ile (5173) çalışır ve
 Vite, /api ile /exports isteklerini bu sunucuya (8765) proxy'ler.
 Üretim modunda `npm run build` çıktısı (frontend/dist) bu sunucudan servis edilir.
 """
+import asyncio
 import os
 import sys
 import threading
@@ -153,6 +154,12 @@ def create_app() -> Starlette:
     )
 
     app.state.jobs = JobManager()
+    #: GPU ve CPU render kuyrukları bağımsızdır: her kulvarda aynı anda tek iş
+    #: çalışır, fakat bir GPU işi ile bir CPU işi paralel ilerleyebilir.
+    app.state.job_lanes = {
+        "gpu": asyncio.Semaphore(1),
+        "cpu": asyncio.Semaphore(1),
+    }
     app.state.user_agent = USER_AGENT
     app.state.http = httpx.AsyncClient(
         verify=False,

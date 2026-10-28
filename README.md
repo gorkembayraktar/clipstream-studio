@@ -2,7 +2,7 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo/dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/logo/light.svg">
-    <img alt="ClipStream Studio" src="docs/logo/light.svg" width="300">
+    <img alt="ClipStream Studio" src="docs/logo/light.svg" width="360">
   </picture>
 </p>
 
@@ -142,9 +142,9 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 ## Versioning
 
-The app version follows `0.1.x`. Increment the last number by one for every
+The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.1.170`.
+and the version badge above in sync. Current version: `0.2.0`.
 
 ## Troubleshooting
 
