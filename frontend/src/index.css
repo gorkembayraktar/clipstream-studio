@@ -194,3 +194,238 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Ana sayfa tasarım adayları (A/B/C)
+   Ortak hareket dili: yumuşak yükselme, sürüklenen ışık, ince tarama.
+   Tüm animasyonlar `prefers-reduced-motion` altında kapanır.
+--------------------------------------------------------------------------- */
+
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes home-orb-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, -6%, 0) scale(1.08);
+  }
+}
+
+@keyframes home-orb-drift-alt {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-6%, 5%, 0) scale(0.95);
+  }
+}
+
+@keyframes home-gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes home-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes home-sheen-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateX(220%) skewX(-12deg);
+  }
+}
+
+@keyframes home-scan {
+  from {
+    transform: translateY(-40vh);
+  }
+  to {
+    transform: translateY(110vh);
+  }
+}
+
+@keyframes home-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+/* Giriş: sayfa blokları alttan yükselir (inline `animation-delay` ile kademeli).
+   `backwards` dolgu: animasyon bitince hover dönüşümleri tekrar çalışır. */
+.home-rise {
+  animation: home-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Liste kartları: ilk sekiz öğe sırayla belirir. */
+.home-stagger > * {
+  animation: home-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.home-stagger > *:nth-child(1) { animation-delay: 30ms; }
+.home-stagger > *:nth-child(2) { animation-delay: 70ms; }
+.home-stagger > *:nth-child(3) { animation-delay: 110ms; }
+.home-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.home-stagger > *:nth-child(5) { animation-delay: 190ms; }
+.home-stagger > *:nth-child(6) { animation-delay: 230ms; }
+.home-stagger > *:nth-child(7) { animation-delay: 270ms; }
+.home-stagger > *:nth-child(8) { animation-delay: 310ms; }
+
+.home-gradient-pan {
+  animation: home-gradient-pan 9s ease-in-out infinite;
+}
+
+/* A — sürüklenen ışık lekeleri */
+.home-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  will-change: transform;
+}
+
+.home-orb-a {
+  top: -8rem;
+  left: 50%;
+  height: 22rem;
+  width: 42rem;
+  margin-left: -21rem;
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
+  animation: home-orb-drift 18s ease-in-out infinite;
+}
+
+.home-orb-b {
+  top: 18%;
+  left: -6rem;
+  height: 18rem;
+  width: 18rem;
+  background: color-mix(in oklab, var(--chart-2) 22%, transparent);
+  animation: home-orb-drift-alt 24s ease-in-out infinite;
+}
+
+.home-orb-c {
+  top: 34%;
+  right: -8rem;
+  height: 20rem;
+  width: 20rem;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  animation: home-orb-drift 21s ease-in-out infinite reverse;
+}
+
+.home-noise {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgb(17 19 26 / 0.045) 1px,
+    transparent 0
+  );
+  background-size: 4px 4px;
+  mask-image: radial-gradient(ellipse at 50% 20%, black, transparent 70%);
+}
+
+.dark .home-noise {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgb(246 245 242 / 0.05) 1px,
+    transparent 0
+  );
+}
+
+.home-marquee-track {
+  animation: home-marquee 26s linear infinite;
+}
+
+/* B — noktalı zemin ve kart üzerinde gezinen ışık */
+.home-dots {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in oklab, var(--foreground) 10%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 78%);
+}
+
+.home-card-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    color-mix(in oklab, var(--primary) 12%, transparent) 50%,
+    transparent 65%
+  );
+  animation: home-sheen-sweep 7s ease-in-out infinite;
+}
+
+/* C — ızgara zemin ve aşağı süzülen tarama çizgisi */
+.home-grid-lines {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 6%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at 50% 0%, black, transparent 75%);
+}
+
+.home-scan {
+  height: 22rem;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--primary) 9%, transparent),
+    transparent
+  );
+  animation: home-scan 11s linear infinite;
+  will-change: transform;
+}
+
+.home-blink {
+  animation: home-blink 1.6s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-rise,
+  .home-stagger > *,
+  .home-gradient-pan,
+  .home-orb,
+  .home-marquee-track,
+  .home-card-sheen::after,
+  .home-scan,
+  .home-blink {
+    animation: none;
+  }
+}

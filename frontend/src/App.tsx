@@ -93,7 +93,9 @@ function Workspace() {
 
   return (
     <ProjectWorkspaceProvider value={project}>
-      <div className="flex min-h-dvh flex-col bg-background pb-8 lg:h-dvh lg:overflow-hidden">
+      {/* Kabuk her genişlikte tam yükseklikte durur: gövde kaymaz, kaydırma
+          iç panellerde olur (ana sayfa, proje sahnesi). */}
+      <div className="flex h-dvh flex-col overflow-hidden bg-background pb-8">
         <AppHeader />
         {project.projectId ? (
           <ProjectGate project={project} />

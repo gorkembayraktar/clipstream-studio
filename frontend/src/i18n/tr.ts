@@ -47,17 +47,18 @@ export const tr: Record<TranslationKey, string> = {
   "menu.hidePanel": "Sağ paneli kapat",
 
   "home.localNote": "Yerel çalışır · dosyalar bu makineden çıkmaz",
-  "home.sourceTitle": "Kaynak",
-  "home.dropHint": "Dosyayı buraya bırak veya seçmek için tıkla",
-  "home.chipUrl": "Bağlantı",
-  "home.chipFile": "Yerel dosya",
-  "home.chipLive": "Canlı kayıt",
   "home.recentBadge": "Bu tarayıcı",
   "home.recentEmpty": "Henüz proje yok",
   "home.recentEmptyHint":
     "Bir bağlantı yapıştır veya dosya seç; proje otomatik olarak kaydedilir.",
   "home.recentPrev": "Geri kaydır",
   "home.recentNext": "İleri kaydır",
+
+  "home.hero.eyebrow": "Yerel klip stüdyosu",
+  "home.hero.title": "Bağlantıyı yapıştır.",
+  "home.hero.titleAccent": "Kes, kurgula, aktar.",
+  "home.hero.subtitle":
+    "YouTube, X, Instagram, TikTok — ya da diskindeki bir dosya.",
 
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",

@@ -50,17 +50,18 @@ export const en = {
   "menu.hidePanel": "Hide side panel",
 
   "home.localNote": "Runs locally · files never leave this machine",
-  "home.sourceTitle": "Source",
-  "home.dropHint": "Drop a file here or click to browse",
-  "home.chipUrl": "Link",
-  "home.chipFile": "Local file",
-  "home.chipLive": "Live record",
   "home.recentBadge": "This browser",
   "home.recentEmpty": "No projects yet",
   "home.recentEmptyHint":
     "Paste a link or choose a file; the project is saved automatically.",
   "home.recentPrev": "Scroll back",
   "home.recentNext": "Scroll forward",
+
+  "home.hero.eyebrow": "Local clip studio",
+  "home.hero.title": "Paste a link.",
+  "home.hero.titleAccent": "Cut, trim, export.",
+  "home.hero.subtitle":
+    "YouTube, X, Instagram, TikTok — or a file from your disk.",
 
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",

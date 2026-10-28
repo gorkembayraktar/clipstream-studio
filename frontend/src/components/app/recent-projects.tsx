@@ -68,7 +68,7 @@ function ProjectCard({
   onDelete,
 }: {
   item: ProjectWorkspace
-  layout: "row" | "list"
+  layout: "row" | "list" | "grid"
   onDelete: (item: ProjectWorkspace) => void
 }) {
   const { t, locale } = useI18n()
@@ -76,10 +76,12 @@ function ProjectCard({
   return (
     <li
       className={cn(
-        "group relative flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30",
+        "group relative flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 transition-all duration-300 hover:border-primary/30 hover:bg-card focus-within:border-primary/30",
         layout === "row"
           ? "w-64 shrink-0 snap-start p-2.5 sm:w-72"
-          : "w-full p-3",
+          : layout === "grid"
+            ? "w-full p-2.5 hover:-translate-y-0.5 hover:shadow-md hover:shadow-black/5"
+            : "w-full p-3",
       )}
     >
       <button
@@ -300,9 +302,18 @@ function GlideButton({
 export function RecentProjects({
   limit = 12,
   layout = "row",
+  emptyHint = true,
+  showHeader = false,
+  hideWhenEmpty = false,
 }: {
   limit?: number
-  layout?: "row" | "list"
+  layout?: "row" | "list" | "grid"
+  /** Boş durumda açıklama satırını göster. */
+  emptyHint?: boolean
+  /** "Son projeler" başlığını ve rozetini bileşen içinde çiz. */
+  showHeader?: boolean
+  /** Proje yoksa bölümü tamamen gizle (boş durum kartı yerine). */
+  hideWhenEmpty?: boolean
 }) {
   const { t } = useI18n()
   const [deleting, setDeleting] = useState<ProjectWorkspace | null>(null)
@@ -313,6 +324,8 @@ export function RecentProjects({
   void version
 
   if (projects.length === 0) {
+    if (hideWhenEmpty) return null
+
     return (
       <div
         data-slot="recent-projects-empty"
@@ -327,15 +340,28 @@ export function RecentProjects({
         <p className="text-xs font-medium text-foreground">
           {t("home.recentEmpty")}
         </p>
-        <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
-          {t("home.recentEmptyHint")}
-        </p>
+        {emptyHint && (
+          <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
+            {t("home.recentEmptyHint")}
+          </p>
+        )}
       </div>
     )
   }
 
   return (
     <>
+      {showHeader && (
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold tracking-tight">
+            {t("project.historyTitle")}
+          </h2>
+          <span className="text-[10px] text-muted-foreground">
+            {t("home.recentBadge")}
+          </span>
+        </div>
+      )}
+
       {layout === "row" ? (
         <GlideRow>
           {projects.map((item) => (
@@ -347,11 +373,26 @@ export function RecentProjects({
             />
           ))}
         </GlideRow>
+      ) : layout === "grid" ? (
+        <ul
+          data-slot="recent-projects"
+          aria-label={t("project.historyTitle")}
+          className="home-stagger grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {projects.map((item) => (
+            <ProjectCard
+              key={item.id}
+              item={item}
+              layout="grid"
+              onDelete={setDeleting}
+            />
+          ))}
+        </ul>
       ) : (
         <ul
           data-slot="recent-projects"
           aria-label={t("project.historyTitle")}
-          className="space-y-2"
+          className="home-stagger space-y-2"
         >
           {projects.map((item) => (
             <ProjectCard

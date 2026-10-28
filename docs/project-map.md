@@ -118,6 +118,7 @@
 | `gallery-preview-dialog.tsx`    | GalleryPreviewDialog |
 | `gallery.tsx`                   | Gallery |
 | `home-screen.tsx`               | HomeScreen |
+| `home-spotlight.tsx`            | HomeSpotlight |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |
 | `job-preview-dialog.tsx`        | JobPreviewDialog |
 | `job-progress.tsx`              | JobProgress |
@@ -134,6 +135,7 @@
 | `settings-dialog.tsx`           | SettingsDialog |
 | `settings-panel.tsx`            | SettingsPanel |
 | `side-panel.tsx`                | SidePanel |
+| `source-panels.tsx`             | CircleProgress, ResolveProgressCard, ImportProgressCard, SourceSummaryCard, SourceCurlDialog |
 | `source-timeline.tsx`           | SourceTimeline |
 | `stage-controls.tsx`            | StageControls |
 | `stage-track-controls.tsx`      | StageTrackControls |
@@ -145,7 +147,6 @@
 | `timeline.tsx`                  | Timeline |
 | `trim-bar.tsx`                  | TrimBar |
 | `typewriter-placeholder.tsx`    | TypewriterPlaceholder |
-| `url-source-bar.tsx`            | UrlSourceBar |
 | `video-stage.tsx`               | VideoStage |
 | `waveform-layer.tsx`            | WaveformLayer |
 | `waveform-provider.tsx`         | WaveformProvider, useWaveformData |
@@ -195,6 +196,7 @@
 | `use-quick-export.ts`       | QUICK_EXPORT_PROFILES, useQuickExport |
 | `use-recorder.ts`           | RECORDER_ACTIVE_POLL_MS, RECORDER_IDLE_POLL_MS, useRecorder |
 | `use-source-duration.ts`    | useSourceDuration |
+| `use-source-resolve.ts`     | DEMO_URL, TYPEWRITER_PHRASES, useSourceResolve |
 | `use-storyboard.ts`         | useStoryboard |
 | `use-subtitles.ts`          | useSubtitleVtt |
 | `use-waveform.ts`           | useWaveform |

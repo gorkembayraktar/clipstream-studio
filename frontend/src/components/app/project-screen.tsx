@@ -14,7 +14,7 @@ export function ProjectScreen() {
     <div className="flex min-h-0 flex-1 flex-col">
       <main
         className={cn(
-          "min-h-0 flex-1 gap-3 p-3",
+          "min-h-0 flex-1 gap-3 p-3 max-lg:overflow-y-auto",
           panelOpen
             ? "grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]"
             : "grid grid-cols-1",
