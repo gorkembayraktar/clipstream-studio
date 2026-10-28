@@ -1,0 +1,74 @@
+{
+  "name": "ClipStream Studio",
+  "concept": "Play triangle sliced by a diagonal cut (option G): top piece = clip, bottom piece = stream",
+  "themes": {
+    "light": {
+      "use_on": "light backgrounds",
+      "file_suffix": "-light",
+      "colors": {
+        "mark_top": "#EE4B28",
+        "mark_bottom": "#11131A",
+        "wordmark_clip": "#11131A",
+        "wordmark_stream": "#EE4B28",
+        "studio_label": "#5F6373",
+        "tile_background": "#F6F5F2"
+      }
+    },
+    "dark": {
+      "use_on": "dark backgrounds",
+      "file_suffix": "-dark",
+      "colors": {
+        "mark_top": "#FF5A36",
+        "mark_bottom": "#F6F5F2",
+        "wordmark_clip": "#F6F5F2",
+        "wordmark_stream": "#FF5A36",
+        "studio_label": "#A3A8BA",
+        "tile_background": "#11131A"
+      }
+    }
+  },
+  "files": {
+    "logo": {
+      "svg": ["svg/clipstream-logo-light.svg", "svg/clipstream-logo-dark.svg"],
+      "png": ["png/clipstream-logo-{theme}-1600w.png", "png/clipstream-logo-{theme}-800w.png"],
+      "description": "Horizontal logo with STUDIO label"
+    },
+    "logo_nolabel": {
+      "svg": ["svg/clipstream-logo-nolabel-light.svg", "svg/clipstream-logo-nolabel-dark.svg"],
+      "png": ["png/clipstream-logo-nolabel-{theme}-1600w.png", "png/clipstream-logo-nolabel-{theme}-800w.png"],
+      "description": "Horizontal logo without STUDIO label"
+    },
+    "mark": {
+      "svg": ["svg/clipstream-mark-light.svg", "svg/clipstream-mark-dark.svg"],
+      "png": ["png/clipstream-mark-{theme}-{256|512|1024}.png"],
+      "description": "Mark only, transparent background"
+    },
+    "icon": {
+      "svg": ["svg/clipstream-icon-dark.svg", "svg/clipstream-icon-light.svg"],
+      "png": ["png/clipstream-icon-{dark|light}-{16|32|48|64|128|180|192|256|512|1024}.png", "png/apple-touch-icon.png"],
+      "ico": ["favicon.ico"],
+      "description": "Square tile icon; prefer the dark tile, it works on light and dark surfaces"
+    }
+  },
+  "defaults": {
+    "web_header_light_page": "svg/clipstream-logo-light.svg",
+    "web_header_dark_page": "svg/clipstream-logo-dark.svg",
+    "favicon": "favicon.ico",
+    "favicon_svg": "svg/clipstream-icon-dark.svg",
+    "avatar_or_app_icon": "png/clipstream-icon-dark-512.png"
+  },
+  "rules": {
+    "clear_space": "at least 25% of logo height on every side",
+    "min_size_px": { "mark_height": 16, "logo_width": 120, "use_nolabel_below_logo_width": 200 },
+    "do_not": [
+      "recolor, add shadows or gradients, rotate, stretch or skew",
+      "redraw the mark or retype the wordmark",
+      "use the light theme on dark backgrounds or the dark theme on light backgrounds"
+    ]
+  },
+  "wordmark_font": {
+    "used": "Inter (ExtraBold for 'clip' and STUDIO, Medium for 'stream'), converted to outlines",
+    "designed_with": "Manrope",
+    "note": "Manrope could not be downloaded at build time; regenerate with build/build.py and Manrope font files for the original lettering"
+  }
+}
