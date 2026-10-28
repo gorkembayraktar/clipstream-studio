@@ -1,39 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="clipstream-icon-title">
-  <title id="clipstream-icon-title">ClipStream</title>
-  <defs>
-    <linearGradient id="cs-violet" x1="8" y1="5" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#A78BFA"/>
-      <stop offset="1" stop-color="#6D28D9"/>
-    </linearGradient>
-    <linearGradient id="cs-cyan" x1="58" y1="5" x2="10" y2="58" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#67E8F9"/>
-      <stop offset=".55" stop-color="#22D3EE"/>
-      <stop offset="1" stop-color="#2563EB"/>
-    </linearGradient>
-    <linearGradient id="cs-shine" x1="10" y1="4" x2="34" y2="34" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffffff" stop-opacity=".28"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <clipPath id="cs-tile">
-      <rect x="4" y="4" width="56" height="56" rx="13"/>
-    </clipPath>
-  </defs>
-
-  <rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="#0B0912"/>
-
-  <g clip-path="url(#cs-tile)">
-    <!-- Sol üst yarı: mor "klip" yüzeyi. -->
-    <path d="M4 4H57L4 57Z" fill="url(#cs-violet)"/>
-    <!-- Sağ alt yarı: camgöbeği "akış" yüzeyi. -->
-    <path d="M60 60H7L60 7Z" fill="url(#cs-cyan)"/>
-    <ellipse cx="21" cy="14" rx="26" ry="19" fill="url(#cs-shine)"/>
-    <!-- Kesim izi: iki yarı arasındaki koyu çapraz çizgi. -->
-    <path d="M60 4 4 60" stroke="#0B0912" stroke-width="6"/>
-  </g>
-
-  <rect x="4.5" y="4.5" width="55" height="55" rx="12.5" fill="none" stroke="#ffffff" stroke-opacity=".18"/>
-
-  <!-- Oynat üçgeni kesim izini köprüler: klibi oynat. -->
-  <path d="M26.5 22.7 46 32 26.5 41.3Z" fill="#0B0912" opacity=".3" transform="translate(0 1.1)"/>
-  <path d="M26.5 21.5 46 32 26.5 42.5Z" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ClipStream icon">
+<title>ClipStream icon</title>
+<rect x="0" y="0" width="64" height="64" rx="15" fill="#11131A"/>
+<polygon points="17.5,7 52.8,26.4 17.5,37" fill="#FF5A36" stroke="#FF5A36" stroke-width="4" stroke-linejoin="round"/>
+<polygon points="11.5,43 46.8,32.4 51.5,35 11.5,57" fill="#F6F5F2" stroke="#F6F5F2" stroke-width="4" stroke-linejoin="round"/>
 </svg>
