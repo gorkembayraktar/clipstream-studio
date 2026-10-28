@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 
 import { RecorderControls } from "@/components/app/recorder-controls"
+import { StageTrackControls } from "@/components/app/stage-track-controls"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -179,6 +180,9 @@ export function StageControls() {
           </div>
 
           <div className="flex items-center justify-end gap-1">
+            {/* Kalite, ses ve altyazı: ses düğmesinin hemen solunda. */}
+            <StageTrackControls />
+
             <div className="group/volume relative">
               <Button
                 variant="ghost"

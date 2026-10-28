@@ -17,6 +17,8 @@ import type { PanelTab } from "@/stores/project-ui-store"
 
 export const PROJECT_SCHEMA_VERSION = 1
 export const PROJECT_STORAGE_PREFIX = "clipstream.project."
+/** Kullanıcı tarafından verilen proje adının üst sınırı. */
+export const PROJECT_TITLE_MAX = 120
 
 export interface ProjectSourceSnapshot {
   inputUrl: string
@@ -84,6 +86,8 @@ export interface ProjectUiSnapshot {
 export interface ProjectWorkspace {
   schemaVersion: number
   id: string
+  /** Kullanıcının verdiği ad; boşsa kaynak başlığı gösterilir. */
+  title: string | null
   created_date: number
   updated_date: number
   source: ProjectSourceSnapshot | null
@@ -120,6 +124,13 @@ function positiveNumberOr(value: unknown, fallback: number): number {
 
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null
+}
+
+/** Proje adı: kırpılır, boşsa null döner (kaynak başlığına düşülür). */
+function parseTitle(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed.slice(0, PROJECT_TITLE_MAX) : null
 }
 
 function booleanOr(value: unknown, fallback: boolean): boolean {
@@ -325,6 +336,7 @@ function parseWorkspace(value: unknown, id: string): ProjectWorkspace | null {
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
     id,
+    title: parseTitle(value.title),
     created_date: created,
     updated_date: numberOr(value.updated_date, created),
     source: parseSource(value.source),

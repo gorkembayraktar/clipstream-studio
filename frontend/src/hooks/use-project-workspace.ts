@@ -20,6 +20,7 @@ import {
   removeProjectWorkspace,
   writeProjectWorkspace,
   PROJECT_SCHEMA_VERSION,
+  PROJECT_TITLE_MAX,
   type ProjectEditSnapshot,
   type ProjectSourceSnapshot,
   type ProjectTimelineSnapshot,
@@ -54,6 +55,8 @@ export interface ProjectWorkspaceController {
   detail: string
   error: string | null
   notice: ProjectNotice
+  /** Proje adını değiştirir; boş ad kaynak başlığına döner. */
+  rename: (title: string) => void
   retry: () => void
   startFresh: () => void
   /** Projeden ana sayfaya döner; proje kaydı ve kayıtlar korunur. */
@@ -365,6 +368,7 @@ function timelineSnapshotOf(
 function snapshotFromStores(
   projectId: string,
   createdDate: number,
+  title: string | null,
 ): ProjectWorkspace {
   const source = useSourceStore.getState()
   const exportStore = useExportStore.getState()
@@ -375,6 +379,7 @@ function snapshotFromStores(
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
     id: projectId,
+    title,
     created_date: createdDate,
     updated_date: Date.now(),
     source: sourceSnapshotOf(source),
@@ -410,6 +415,8 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
   const [retryNonce, setRetryNonce] = useState(0)
 
   const projectIdRef = useRef<string | null>(initialId)
+  /** Kullanıcının verdiği ad; anlık görüntülere buradan yazılır. */
+  const projectTitleRef = useRef<string | null>(null)
   const createdDateRef = useRef<number | null>(null)
   /** Mevcut proje kaydının kaynak kimliği; farklı kaynakta yeni ID üretilir. */
   const projectSourceRef = useRef<string | null>(null)
@@ -417,7 +424,8 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
   const sourceKey = useSourceStore((s) => sourceIdentity(s))
 
   const buildSnapshot = useCallback(
-    (id: string, createdDate: number) => snapshotFromStores(id, createdDate),
+    (id: string, createdDate: number) =>
+      snapshotFromStores(id, createdDate, projectTitleRef.current),
     [],
   )
 
@@ -458,6 +466,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
       setStage(null)
       setDetail("")
       setTitle(null)
+      projectTitleRef.current = null
 
       if (!isProjectId(raw)) {
         await showMissing()
@@ -475,7 +484,8 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
       projectSourceRef.current = snapshotSourceIdentity(record.source)
       setProjectId(record.id)
       useProjectStore.getState().setProjectId(record.id)
-      setTitle(record.source?.title ?? null)
+      projectTitleRef.current = record.title
+      setTitle(record.title ?? record.source?.title ?? null)
       applyProjectSettings(record)
 
       await waitForMinimum()
@@ -597,6 +607,8 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     // Önceki projenin akış özeti yeni projeye sızmasın: akış kimliği proje
     // kimliğidir, yeni projede akış ancak ilk kayıtla doğar.
     useStreamStore.getState().reset()
+    // Yeni proje yeni bir addır: önceki projenin adı taşınmaz.
+    projectTitleRef.current = null
     const snapshot = buildSnapshot(id, createdDate)
 
     if (!writeProjectWorkspace(snapshot)) {
@@ -611,6 +623,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     projectSourceRef.current = sourceKey
     setProjectId(id)
     useProjectStore.getState().setProjectId(id)
+    setTitle(null)
     setNotice(null)
     setProjectInUrl(id)
     log(
@@ -698,6 +711,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
 
     createdDateRef.current = null
     storageFailedRef.current = false
+    projectTitleRef.current = null
     setProjectId(null)
     useProjectStore.getState().setProjectId(null)
     setPhase("ready")
@@ -710,6 +724,32 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
   }, [])
 
   const dismissNotice = useCallback(() => setNotice(null), [])
+
+  /** Proje adını değiştirir ve hemen diske yazar (gecikmeli kaydı beklemez). */
+  const rename = useCallback(
+    (next: string) => {
+      const normalized = next.trim().slice(0, PROJECT_TITLE_MAX)
+      const value = normalized.length > 0 ? normalized : null
+      projectTitleRef.current = value
+      setTitle(value)
+
+      // Geri yükleme sürerken store'lar henüz dolmamış olabilir; bu durumda
+      // hemen yazmak kaynağı siler. Kayıt hazır olunca gecikmeli kayıt zaten
+      // yeni adı yazar.
+      if (phase !== "ready") return
+
+      const id = projectIdRef.current
+      const createdDate = createdDateRef.current
+      if (!id || createdDate === null || storageFailedRef.current) return
+
+      if (!writeProjectWorkspace(buildSnapshot(id, createdDate))) {
+        storageFailedRef.current = true
+        setNotice("storage")
+        log("error", translate("project.storageFailedLog"))
+      }
+    },
+    [buildSnapshot, phase],
+  )
 
   /** Ana sayfaya dön: proje geçmişte kalır, sahne temizlenir. */
   const goHome = useCallback(() => {
@@ -729,6 +769,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     projectSourceRef.current = null
     createdDateRef.current = null
     storageFailedRef.current = false
+    projectTitleRef.current = null
     clearProjectFromUrl()
 
     setProjectId(null)
@@ -751,6 +792,7 @@ export function useProjectWorkspace(): ProjectWorkspaceController {
     detail,
     error,
     notice,
+    rename,
     retry,
     startFresh,
     goHome,

@@ -33,13 +33,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { ApiError, api } from "@/lib/api"
 import { parseCurl } from "@/lib/curl"
@@ -100,26 +93,15 @@ export function UrlSourceBar() {
   const sourcePath = useSourceStore((s) => s.sourcePath)
   const previewCopy = useSourceStore((s) => s.previewCopy)
   const audioUrl = useSourceStore((s) => s.audioUrl)
-  const audioTracks = useSourceStore((s) => s.audioTracks)
-  const audioTrackId = useSourceStore((s) => s.audioTrackId)
-  const audioSwitching = useSourceStore((s) => s.audioSwitching)
-  const subtitleTracks = useSourceStore((s) => s.subtitleTracks)
-  const subtitleTrackId = useSourceStore((s) => s.subtitleTrackId)
   const useProxy = useSourceStore((s) => s.useProxy)
   const meta = useSourceStore((s) => s.meta)
   const isLive = useSourceStore((s) => s.isLive)
-  const variants = useSourceStore((s) => s.variants)
-  const previewHeight = useSourceStore((s) => s.previewHeight)
   const headers = useSourceStore((s) => s.headers)
   const appliedHeaderNames = headers ? Object.keys(headers) : []
   const appliedCookie = appliedHeaderNames.some((name) => name.toLowerCase() === "cookie")
-  const defaultVariant = variants.find((item) => item.default) ?? variants[0] ?? null
   const setInputUrl = useSourceStore((s) => s.setInputUrl)
   const setUseProxy = useSourceStore((s) => s.setUseProxy)
   const setSource = useSourceStore((s) => s.setSource)
-  const setAudioTrackId = useSourceStore((s) => s.setAudioTrackId)
-  const setSubtitleTrackId = useSourceStore((s) => s.setSubtitleTrackId)
-  const setPreviewHeight = useSourceStore((s) => s.setPreviewHeight)
   const setMeta = useSourceStore((s) => s.setMeta)
   const setSourceLoading = useSourceStore((s) => s.setSourceLoading)
   const clearSource = useSourceStore((s) => s.clearSource)
@@ -660,164 +642,6 @@ export function UrlSourceBar() {
                 <X />
               </Button>
             </div>
-
-            {variants.length > 1 && (
-              <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
-                <span
-                  className="text-[11px] text-muted-foreground"
-                  title={t("source.previewQualityTitle")}
-                >
-                  {t("source.previewQuality")}
-                </span>
-                <Select
-                  value={String(
-                    previewHeight ??
-                      defaultVariant?.quality_height ??
-                      defaultVariant?.height ??
-                      variants[0].quality_height ??
-                      variants[0].height,
-                  )}
-                  onValueChange={(value) => {
-                    const height = Number(value)
-                    setPreviewHeight(height)
-                    log("info", t("log.previewQuality", { height }))
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="w-[132px] text-xs tabular-nums"
-                    aria-label={t("source.previewQualityAria")}
-                    title={t("source.qualityTitle")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="end" className="min-w-[148px]">
-                    {variants.map((item) => (
-                      <SelectItem
-                        key={`${item.quality_height ?? item.height}-${item.url}`}
-                        value={String(item.quality_height ?? item.height)}
-                        className="text-xs tabular-nums"
-                      >
-                        {item.label}
-                        {item.default ? t("source.recommended") : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {audioTracks.length > 1 && (
-              <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
-                <span
-                  className="text-[11px] text-muted-foreground"
-                  title={t("source.audioTrackTitle")}
-                >
-                  {t("source.audioTrack")}
-                </span>
-                <Select
-                  value={
-                    audioTrackId ??
-                    audioTracks.find((track) => track.default)?.id ??
-                    audioTracks.find((track) => track.original)?.id ??
-                    audioTracks[0].id
-                  }
-                  onValueChange={(value) => {
-                    setAudioTrackId(value)
-                    const track = audioTracks.find((item) => item.id === value)
-                    log(
-                      "info",
-                      t("log.audioTrack", {
-                        name: track?.name ?? value,
-                      }),
-                    )
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="w-[168px] text-xs"
-                    aria-label={t("source.audioTrackAria")}
-                    title={t("source.audioTrackTitle")}
-                  >
-                    <SelectValue />
-                    {audioSwitching && (
-                      <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="end" className="min-w-[160px]">
-                    {audioTracks.map((track) => (
-                      <SelectItem
-                        key={track.id}
-                        value={track.id}
-                        className="text-xs"
-                      >
-                        {track.name}
-                        {track.language && track.language.toLowerCase() !== track.name.toLowerCase()
-                          ? ` (${track.language.toUpperCase()})`
-                          : ""}
-                        {track.original
-                          ? ` · ${t("source.audioOriginal")}`
-                          : track.default
-                            ? ` · ${t("source.audioDefault")}`
-                            : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {subtitleTracks.length > 0 && (
-              <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2.5 py-1.5">
-                <span
-                  className="text-[11px] text-muted-foreground"
-                  title={t("source.subtitlesTitle")}
-                >
-                  {t("source.subtitles")}
-                </span>
-                <Select
-                  value={subtitleTrackId ?? "__off__"}
-                  onValueChange={(value) => {
-                    const next = value === "__off__" ? null : value
-                    setSubtitleTrackId(next)
-                    const track = subtitleTracks.find((item) => item.id === next)
-                    log(
-                      "info",
-                      track
-                        ? t("log.subtitleTrack", { name: track.name })
-                        : t("log.subtitleOff"),
-                    )
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="w-[132px] text-xs"
-                    aria-label={t("source.subtitlesAria")}
-                    title={t("source.subtitlesTitle")}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent position="popper" align="end" className="min-w-[160px]">
-                    <SelectItem value="__off__" className="text-xs">
-                      {t("source.subtitlesOff")}
-                    </SelectItem>
-                    {subtitleTracks.map((track) => (
-                      <SelectItem
-                        key={track.id}
-                        value={track.id}
-                        className="text-xs"
-                      >
-                        {track.name}
-                        {track.language &&
-                        track.language.toLowerCase() !== track.name.toLowerCase()
-                          ? ` (${track.language.toUpperCase()})`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {platform === "local" ? (
               <div className="flex items-center justify-between border-t border-border/60 px-2.5 py-1.5">

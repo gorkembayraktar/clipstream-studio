@@ -1,7 +1,20 @@
-/** Ana sayfadaki son projeler listesi: localStorage'daki proje kayıtlarından. */
-import { useState } from "react"
+/** Ana sayfadaki son projeler: yatay kaydırmalı (swipe/glide) kart şeridi. */
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react"
 
-import { ExternalLinkIcon, FilmIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+  FilmIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -38,13 +51,181 @@ function formatUpdated(timestamp: number, locale: string): string {
 
 function projectTitle(project: ProjectWorkspace, fallback: string): string {
   return (
-    sourceDisplayName(project.source?.title, project.source?.inputUrl) ?? fallback
+    project.title ??
+    sourceDisplayName(project.source?.title, project.source?.inputUrl) ??
+    fallback
   )
 }
 
 /** Proje tam sayfa yüklenir: hidrasyon yalnızca açılışta çalışır. */
 function openProject(id: string) {
   window.location.assign(projectUrl(id))
+}
+
+/**
+ * Yatay kaydırma şeridi: dokunmatikte native swipe, masaüstünde fare ile
+ * sürükleme, kenar oklarında yumuşak kaydırma ve kartlara snap.
+ */
+function GlideRow({ children }: { children: ReactNode }) {
+  const { t } = useI18n()
+  const scrollerRef = useRef<HTMLUListElement>(null)
+  const dragRef = useRef<{
+    startX: number
+    startLeft: number
+    moved: boolean
+  } | null>(null)
+  const suppressClickRef = useRef(false)
+  /** Sürükleme sırasında pencere dinleyicilerini kaldırır. */
+  const cleanupRef = useRef<(() => void) | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
+
+  const sync = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    setCanPrev(el.scrollLeft > 2)
+    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 2)
+  }, [])
+
+  // Kart sayısı ya da genişlik değişince okları tazele.
+  useEffect(() => {
+    sync()
+    const el = scrollerRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(sync)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [sync, children])
+
+  const page = (direction: 1 | -1) => {
+    const el = scrollerRef.current
+    if (!el) return
+    el.scrollBy({
+      left: direction * Math.max(el.clientWidth * 0.8, 240),
+      behavior: "smooth",
+    })
+  }
+
+  /** Sürüklemeyi bitirir; kart tıklaması yalnızca gerçekten kaydırıldıysa yutulur. */
+  const endDrag = useCallback(() => {
+    cleanupRef.current?.()
+    cleanupRef.current = null
+    const drag = dragRef.current
+    dragRef.current = null
+    if (!drag) return
+    suppressClickRef.current = drag.moved
+    setDragging(false)
+    sync()
+  }, [sync])
+
+  // Bileşen kalkarken pencere dinleyicileri sızmasın.
+  useEffect(() => () => cleanupRef.current?.(), [])
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLUListElement>) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return
+    const el = scrollerRef.current
+    if (!el) return
+
+    dragRef.current = {
+      startX: event.clientX,
+      startLeft: el.scrollLeft,
+      moved: false,
+    }
+    suppressClickRef.current = false
+    setDragging(true)
+
+    // Kartın üzerinde başlayan sürükleme de çalışsın ve imleç şeritten
+    // çıksa bile kaydırma sürsün: dinleyiciler pencerede tutulur.
+    const onMove = (moveEvent: PointerEvent) => {
+      const drag = dragRef.current
+      if (!drag) return
+      const delta = moveEvent.clientX - drag.startX
+      if (Math.abs(delta) > 4) drag.moved = true
+      el.scrollLeft = drag.startLeft - delta
+    }
+    const onUp = () => endDrag()
+
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+    cleanupRef.current = () => {
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+    }
+  }
+
+  /** Sürükleme sonrası kart tıklamasını yut (yanlışlıkla proje açılmasın). */
+  const onClickCapture = (event: React.MouseEvent<HTMLUListElement>) => {
+    if (!suppressClickRef.current) return
+    suppressClickRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  return (
+    <div className="group/glide relative">
+      <ul
+        ref={scrollerRef}
+        data-slot="recent-projects"
+        aria-label={t("project.historyTitle")}
+        onScroll={sync}
+        onPointerDown={onPointerDown}
+        onClickCapture={onClickCapture}
+        className={cn(
+          "flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain pb-1",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          dragging ? "cursor-grabbing snap-none select-none" : "cursor-grab",
+        )}
+      >
+        {children}
+      </ul>
+
+      {canPrev && (
+        <GlideButton
+          side="left"
+          label={t("home.recentPrev")}
+          onClick={() => page(-1)}
+        />
+      )}
+      {canNext && (
+        <GlideButton
+          side="right"
+          label={t("home.recentNext")}
+          onClick={() => page(1)}
+        />
+      )}
+    </div>
+  )
+}
+
+function GlideButton({
+  side,
+  label,
+  onClick,
+}: {
+  side: "left" | "right"
+  label: string
+  onClick: () => void
+}) {
+  const Icon = side === "left" ? ChevronLeftIcon : ChevronRightIcon
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "absolute top-1/2 hidden size-7 -translate-y-1/2 items-center justify-center rounded-full",
+        "border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur",
+        "transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:flex",
+        side === "left" ? "-left-2" : "-right-2",
+      )}
+    >
+      <Icon className="size-3.5" />
+    </button>
+  )
 }
 
 export function RecentProjects({ limit = 12 }: { limit?: number }) {
@@ -77,11 +258,11 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
 
   return (
     <>
-      <ul data-slot="recent-projects" className="grid gap-2 sm:grid-cols-2">
+      <GlideRow>
         {projects.map((item) => (
           <li
             key={item.id}
-            className="group relative flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 p-2.5 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30"
+            className="group relative flex w-64 shrink-0 snap-start items-center gap-2 rounded-xl border border-border/60 bg-card/60 p-2.5 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30 sm:w-72"
           >
             <button
               type="button"
@@ -130,7 +311,7 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
             </div>
           </li>
         ))}
-      </ul>
+      </GlideRow>
 
       <AlertDialog
         open={deleting !== null}

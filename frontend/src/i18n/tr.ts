@@ -2,6 +2,8 @@ import type { TranslationKey } from "./en"
 
 /** Turkish messages. The shape is enforced against `en.ts`. */
 export const tr: Record<TranslationKey, string> = {
+  "app.name": "ClipStream Studio",
+
   "language.label": "Dil",
   "language.switch": "Dili değiştir",
   "language.en": "English",
@@ -60,6 +62,8 @@ export const tr: Record<TranslationKey, string> = {
   "home.recentEmpty": "Henüz proje yok",
   "home.recentEmptyHint":
     "Yukarıdan bir kaynak yükle; proje otomatik olarak kaydedilir.",
+  "home.recentPrev": "Geri kaydır",
+  "home.recentNext": "İleri kaydır",
 
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",
@@ -213,6 +217,22 @@ export const tr: Record<TranslationKey, string> = {
   "project.startFresh": "Yeni proje başlat",
   "project.newProject": "Yeni proje",
   "project.newProjectTitle": "Yeni proje başlat ve mevcut kaynağı temizle",
+  "project.rename": "Projeyi yeniden adlandır",
+  "project.infoTitle": "Video bilgileri",
+  "project.infoName": "Ad",
+  "project.infoDuration": "Süre",
+  "project.infoResolution": "Çözünürlük",
+  "project.infoFrameRate": "Kare hızı",
+  "project.infoAudio": "Ses",
+  "project.infoType": "Tür",
+  "project.infoLocation": "Konum",
+  "project.infoLive": "Canlı yayın",
+  "project.infoHls": "HLS akışı",
+  "project.infoLocal": "Yerel dosya",
+  "project.infoRemote": "Uzak akış",
+  "project.infoYes": "Var",
+  "project.infoNo": "Yok",
+  "project.infoEmpty": "Bilgileri görmek için bir kaynak yükle.",
   "project.dismiss": "Kapat",
   "project.sourceMissing": "Projede kaynak URL'si yok.",
   "project.createdLog": "Proje oluşturuldu: {title}",
@@ -326,6 +346,10 @@ export const tr: Record<TranslationKey, string> = {
   "gpu.shortReady": "{encoder} hazır.",
 
   "gallery.count": "{count} klip · exports/",
+  "gallery.view": "Galeri görünümü",
+  "gallery.viewGrid": "Izgara görünümü",
+  "gallery.viewList": "Liste görünümü",
+  "gallery.quality": "Kalite",
   "gallery.refresh": "Yenile",
   "gallery.openFolder": "Klasörü aç",
   "gallery.empty": "Henüz klip yok. Dışa Aktar sekmesinden ilk klibini oluştur.",

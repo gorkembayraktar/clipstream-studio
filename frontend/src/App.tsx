@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app/app-header"
 import { FileDropZone } from "@/components/app/file-drop-zone"
 import { HomeScreen } from "@/components/app/home-screen"
 import { IncomingProjectScreen } from "@/components/app/incoming-project-screen"
+import { JobsDock } from "@/components/app/jobs-dock"
 import { LogDrawer } from "@/components/app/log-drawer"
 import { ProjectLoadingScreen } from "@/components/app/project-loading-screen"
 import { ProjectRecoveryScreen } from "@/components/app/project-recovery-screen"
@@ -103,6 +104,8 @@ function Workspace() {
       <SettingsDialog />
       <FileDropZone />
       <LogDrawer />
+      {/* Dışa aktarma işleri globaldir: ana sayfada da görünür. */}
+      <JobsDock />
     </ProjectWorkspaceProvider>
   )
 }

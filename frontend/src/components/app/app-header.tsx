@@ -3,7 +3,6 @@ import { useRef, useState } from "react"
 
 import {
   CheckIcon,
-  Clapperboard,
   FilePlus2Icon,
   HistoryIcon,
   InfoIcon,
@@ -17,6 +16,8 @@ import {
   TerminalIcon,
 } from "lucide-react"
 
+import { ProjectInfoPopover } from "@/components/app/project-info-popover"
+import { ProjectTitleField } from "@/components/app/project-title-field"
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -50,10 +51,8 @@ export function AppHeader() {
 
   const sourceTitle = useSourceStore((s) => s.title)
   const sourceInput = useSourceStore((s) => s.inputUrl)
-  const headerTitle =
-    project.title ||
-    sourceDisplayName(sourceTitle, sourceInput) ||
-    t("menu.untitledProject")
+  const fallbackTitle =
+    sourceDisplayName(sourceTitle, sourceInput) ?? t("menu.untitledProject")
 
   const panelOpen = useProjectUiStore((s) => s.panelOpen)
   const togglePanel = useProjectUiStore((s) => s.togglePanel)
@@ -102,15 +101,11 @@ export function AppHeader() {
         <button
           type="button"
           onClick={inProject ? project.goHome : undefined}
-          title={inProject ? t("menu.homeTitle") : t("menu.title")}
-          className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          title={inProject ? t("menu.homeTitle") : t("app.name")}
+          aria-label={inProject ? t("menu.homeTitle") : t("app.name")}
+          className="flex shrink-0 items-center rounded-lg p-0.5 transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          <span className="flex size-7 items-center justify-center rounded-lg bg-primary/12 text-primary">
-            <Clapperboard className="size-4" />
-          </span>
-          <span className="hidden text-sm font-semibold tracking-tight sm:block">
-            ClipStream
-          </span>
+          <img src="/favicon.svg" alt="" className="size-7 rounded-[7px]" />
         </button>
 
         <DropdownMenu onOpenChange={handleMenuOpenChange}>
@@ -160,10 +155,12 @@ export function AppHeader() {
                 ) : (
                   recentProjects.map((item) => {
                     const name =
+                      item.title ??
                       sourceDisplayName(
                         item.source?.title,
                         item.source?.inputUrl,
-                      ) ?? t("menu.untitledProject")
+                      ) ??
+                      t("menu.untitledProject")
                     return (
                       <DropdownMenuItem
                         key={item.id}
@@ -261,12 +258,12 @@ export function AppHeader() {
               className="size-1.5 shrink-0 rounded-full bg-emerald-500"
               aria-hidden
             />
-            <span
-              className="max-w-[38vw] truncate text-xs font-medium text-foreground/90"
-              title={headerTitle}
-            >
-              {headerTitle}
-            </span>
+            <ProjectTitleField
+              title={project.title}
+              fallback={fallbackTitle}
+              onRename={project.rename}
+            />
+            <ProjectInfoPopover />
           </div>
         )}
 

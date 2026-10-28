@@ -5,6 +5,8 @@
  * also exist in `tr.ts`; TypeScript enforces that.
  */
 export const en = {
+  "app.name": "ClipStream Studio",
+
   "language.label": "Language",
   "language.switch": "Change language",
   "language.en": "English",
@@ -63,6 +65,8 @@ export const en = {
   "home.recentEmpty": "No projects yet",
   "home.recentEmptyHint":
     "Load a source above; the project is saved automatically.",
+  "home.recentPrev": "Scroll back",
+  "home.recentNext": "Scroll forward",
 
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",
@@ -215,6 +219,22 @@ export const en = {
   "project.startFresh": "Start fresh",
   "project.newProject": "New project",
   "project.newProjectTitle": "Start a fresh project and clear the current source",
+  "project.rename": "Rename project",
+  "project.infoTitle": "Video info",
+  "project.infoName": "Name",
+  "project.infoDuration": "Duration",
+  "project.infoResolution": "Resolution",
+  "project.infoFrameRate": "Frame rate",
+  "project.infoAudio": "Audio",
+  "project.infoType": "Type",
+  "project.infoLocation": "Location",
+  "project.infoLive": "Live stream",
+  "project.infoHls": "HLS stream",
+  "project.infoLocal": "Local file",
+  "project.infoRemote": "Remote stream",
+  "project.infoYes": "Yes",
+  "project.infoNo": "No",
+  "project.infoEmpty": "Load a source to see its details.",
   "project.dismiss": "Dismiss",
   "project.sourceMissing": "The project does not contain a source URL.",
   "project.createdLog": "Project created: {title}",
@@ -328,6 +348,10 @@ export const en = {
   "gpu.shortReady": "{encoder} available.",
 
   "gallery.count": "Clips: {count} · exports/",
+  "gallery.view": "Gallery view",
+  "gallery.viewGrid": "Grid view",
+  "gallery.viewList": "List view",
+  "gallery.quality": "Quality",
   "gallery.refresh": "Refresh",
   "gallery.openFolder": "Open folder",
   "gallery.empty": "No clips yet. Create your first clip from the Export tab.",

@@ -122,9 +122,11 @@
 | `job-progress.tsx`              | JobProgress |
 | `jobs-dock.tsx`                 | JobsDock |
 | `log-drawer.tsx`                | LogDrawer |
+| `project-info-popover.tsx`      | ProjectInfoPopover |
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
 | `project-recovery-screen.tsx`   | ProjectRecoveryScreen |
 | `project-screen.tsx`            | ProjectScreen |
+| `project-title-field.tsx`       | ProjectTitleField |
 | `project-workspace-context.tsx` | ProjectWorkspaceProvider, useProjectWorkspaceController |
 | `recent-projects.tsx`           | RecentProjects |
 | `recorder-controls.tsx`         | RecorderControls |
@@ -133,6 +135,7 @@
 | `side-panel.tsx`                | SidePanel |
 | `source-timeline.tsx`           | SourceTimeline |
 | `stage-controls.tsx`            | StageControls |
+| `stage-track-controls.tsx`      | StageTrackControls |
 | `storyboard-provider.tsx`       | StoryboardProvider, useStoryboardData |
 | `stream-status-badge.tsx`       | StreamStatusBadge |
 | `timeline-preview.tsx`          | PREVIEW_WIDTH, PREVIEW_HEIGHT, TimelinePreview |
@@ -159,6 +162,7 @@
 | `dropdown-menu.tsx` | — |
 | `input.tsx`         | — |
 | `label.tsx`         | — |
+| `popover.tsx`       | — |
 | `progress.tsx`      | — |
 | `scroll-area.tsx`   | — |
 | `select.tsx`        | — |
@@ -205,7 +209,7 @@
 | `media.ts`              | isHlsUrl, proxiedUrl, withScheme, extractPastedUrl |
 | `project-handoff.ts`    | projectKey, writeProjectHandoff, readProjectHandoff, removeProjectHandoff |
 | `project-route.ts`      | projectParamFromUrl, isProjectId, readProjectIdFromUrl, projectHash, ensureProjectHash, setProjectInUrl, clearProjectFromUrl, projectUrl, cleanProjectUrl |
-| `project-workspace.ts`  | PROJECT_SCHEMA_VERSION, PROJECT_STORAGE_PREFIX, createProjectId, projectStorageKey, readProjectWorkspace, writeProjectWorkspace, removeProjectWorkspace, listProjectWorkspaces |
+| `project-workspace.ts`  | PROJECT_SCHEMA_VERSION, PROJECT_STORAGE_PREFIX, PROJECT_TITLE_MAX, createProjectId, projectStorageKey, readProjectWorkspace, writeProjectWorkspace, removeProjectWorkspace, listProjectWorkspaces |
 | `types.ts`              | — |
 | `utils.ts`              | — |
 | `waveform.ts`           | BAR_WIDTH, BAR_GAP, MIN_BAR_HEIGHT, FALLBACK_WAVEFORM_COLOR, WAVEFORM_ALPHA, MAX_CANVAS_WIDTH, isDrawableColor, waveformColor |
