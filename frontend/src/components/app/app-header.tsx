@@ -62,6 +62,7 @@ export function AppHeader() {
 
   const toggleLogs = useLogStore((s) => s.toggle)
   const logsOpen = useLogStore((s) => s.open)
+  const showLogs = useLogStore((s) => s.showLogs)
   const errorCount = useLogStore((s) => s.errorCount)
 
   const theme = useThemeStore((s) => s.theme)
@@ -194,18 +195,20 @@ export function AppHeader() {
               <InfoIcon />
               {t("menu.about")}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={toggleLogs}>
-              <TerminalIcon />
-              {logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-              {errorCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="ml-auto h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
-                >
-                  {errorCount > 9 ? "9+" : errorCount}
-                </Badge>
-              )}
-            </DropdownMenuItem>
+            {showLogs && (
+              <DropdownMenuItem onSelect={toggleLogs}>
+                <TerminalIcon />
+                {logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
+                {errorCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-auto h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
+                  >
+                    {errorCount > 9 ? "9+" : errorCount}
+                  </Badge>
+                )}
+              </DropdownMenuItem>
+            )}
 
             <DropdownMenuSeparator />
 
@@ -281,24 +284,26 @@ export function AppHeader() {
             </Button>
           )}
 
-          <Button
-            variant={logsOpen ? "secondary" : "ghost"}
-            size="icon-sm"
-            onClick={toggleLogs}
-            title={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-            aria-label={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-            className="relative"
-          >
-            <TerminalIcon />
-            {errorCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
-              >
-                {errorCount > 9 ? "9+" : errorCount}
-              </Badge>
-            )}
-          </Button>
+          {showLogs && (
+            <Button
+              variant={logsOpen ? "secondary" : "ghost"}
+              size="icon-sm"
+              onClick={toggleLogs}
+              title={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
+              aria-label={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
+              className="relative"
+            >
+              <TerminalIcon />
+              {errorCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
+                >
+                  {errorCount > 9 ? "9+" : errorCount}
+                </Badge>
+              )}
+            </Button>
+          )}
 
           <Button
             variant="ghost"

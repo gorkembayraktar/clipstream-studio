@@ -404,7 +404,7 @@ export function UrlSourceBar() {
             <Input
               ref={urlInputRef}
               type="search"
-              className="h-8 pr-14 text-xs"
+              className="h-10 pr-14 text-sm"
               placeholder={t("source.urlPlaceholder")}
               aria-label={t("source.urlAria")}
               spellCheck={false}
@@ -431,7 +431,7 @@ export function UrlSourceBar() {
             </Button>
           </div>
           <Button
-            className="shrink-0 px-3"
+            className="h-10 shrink-0 px-4 text-sm"
             onClick={() => void handleLoad()}
             disabled={!inputUrl.trim() || resolving}
           >
@@ -446,7 +446,7 @@ export function UrlSourceBar() {
                 type="button"
                 variant="outline"
                 size="icon"
-                className="size-8 shrink-0"
+                className="size-10 shrink-0"
                 disabled={resolving}
                 title={t("source.actions")}
                 aria-label={t("source.actions")}

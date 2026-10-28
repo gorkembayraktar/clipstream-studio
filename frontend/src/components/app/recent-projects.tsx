@@ -60,13 +60,15 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
     return (
       <div
         data-slot="recent-projects-empty"
-        className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/70 px-4 py-10 text-center"
+        className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-card/40 px-6 py-12 text-center"
       >
-        <FilmIcon className="size-6 text-muted-foreground/60" />
+        <span className="flex size-10 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground/70">
+          <FilmIcon className="size-5" />
+        </span>
         <p className="text-xs font-medium text-foreground">
           {t("home.recentEmpty")}
         </p>
-        <p className="max-w-xs text-[11px] text-muted-foreground">
+        <p className="max-w-xs text-[11px] leading-relaxed text-muted-foreground">
           {t("home.recentEmptyHint")}
         </p>
       </div>
@@ -75,22 +77,22 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
 
   return (
     <>
-      <ul data-slot="recent-projects" className="space-y-1.5">
+      <ul data-slot="recent-projects" className="grid gap-2 sm:grid-cols-2">
         {projects.map((item) => (
           <li
             key={item.id}
-            className="group flex items-center gap-2 rounded-lg border border-transparent px-1.5 py-1.5 transition-colors hover:border-border/70 hover:bg-muted/40"
+            className="group relative flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 p-2.5 transition-colors hover:border-primary/30 hover:bg-card focus-within:border-primary/30"
           >
             <button
               type="button"
               onClick={() => openProject(item.id)}
-              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={projectTitle(item, item.id)}
             >
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                <FilmIcon className="size-3.5" />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/10">
+                <FilmIcon className="size-4" />
               </span>
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 space-y-0.5">
                 <span className="block truncate text-xs font-medium">
                   {projectTitle(item, t("menu.untitledProject"))}
                 </span>
@@ -101,31 +103,31 @@ export function RecentProjects({ limit = 12 }: { limit?: number }) {
               </span>
             </button>
 
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-              onClick={() =>
-                window.open(projectUrl(item.id), "_blank", "noopener,noreferrer")
-              }
-              title={t("project.historyOpenNewTab")}
-              aria-label={`${t("project.historyOpenNewTab")}: ${projectTitle(item, item.id)}`}
-            >
-              <ExternalLinkIcon />
-            </Button>
+            <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground"
+                onClick={() =>
+                  window.open(projectUrl(item.id), "_blank", "noopener,noreferrer")
+                }
+                title={t("project.historyOpenNewTab")}
+                aria-label={`${t("project.historyOpenNewTab")}: ${projectTitle(item, item.id)}`}
+              >
+                <ExternalLinkIcon />
+              </Button>
 
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              className={cn(
-                "shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100",
-              )}
-              onClick={() => setDeleting(item)}
-              title={t("project.historyDelete")}
-              aria-label={`${t("project.historyDelete")}: ${projectTitle(item, item.id)}`}
-            >
-              <Trash2Icon />
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className={cn("text-muted-foreground hover:text-destructive")}
+                onClick={() => setDeleting(item)}
+                title={t("project.historyDelete")}
+                aria-label={`${t("project.historyDelete")}: ${projectTitle(item, item.id)}`}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
           </li>
         ))}
       </ul>

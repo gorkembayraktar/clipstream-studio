@@ -215,40 +215,46 @@ function LogsSection() {
         </SettingRow>
       </SectionCard>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpen(true)}
-          className="h-8 gap-1.5 text-xs"
-        >
-          <TerminalIcon className="size-3.5" aria-hidden />
-          {t("settings.openLog")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={clear}
-          className="h-8 gap-1.5 text-xs"
-        >
-          <EraserIcon className="size-3.5" aria-hidden />
-          {t("settings.clearLog")}
-        </Button>
-        <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Badge variant="secondary" className="h-5 px-1.5 font-mono text-[10px]">
-            {total}
-          </Badge>
-          <span>{t("settings.logEntries")}</span>
-          {errors > 0 && (
-            <Badge
-              variant="destructive"
-              className="h-5 px-1.5 font-mono text-[10px]"
-            >
-              {errors}
+      {showLogs ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOpen(true)}
+            className="h-8 gap-1.5 text-xs"
+          >
+            <TerminalIcon className="size-3.5" aria-hidden />
+            {t("settings.openLog")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clear}
+            className="h-8 gap-1.5 text-xs"
+          >
+            <EraserIcon className="size-3.5" aria-hidden />
+            {t("settings.clearLog")}
+          </Button>
+          <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Badge variant="secondary" className="h-5 px-1.5 font-mono text-[10px]">
+              {total}
             </Badge>
-          )}
+            <span>{t("settings.logEntries")}</span>
+            {errors > 0 && (
+              <Badge
+                variant="destructive"
+                className="h-5 px-1.5 font-mono text-[10px]"
+              >
+                {errors}
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {t("settings.logsHiddenHint")}
+        </p>
+      )}
     </div>
   )
 }

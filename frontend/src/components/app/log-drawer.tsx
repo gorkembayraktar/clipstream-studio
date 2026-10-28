@@ -81,6 +81,7 @@ export function LogDrawer() {
   const entries = useLogStore((s) => s.entries)
   const errorCount = useLogStore((s) => s.errorCount)
   const open = useLogStore((s) => s.open)
+  const showLogs = useLogStore((s) => s.showLogs)
   const toggle = useLogStore((s) => s.toggle)
   const setOpen = useLogStore((s) => s.setOpen)
   const log = useLogStore((s) => s.log)
@@ -150,6 +151,9 @@ export function LogDrawer() {
     const body = bodyRef.current
     if (body) body.scrollTop = body.scrollHeight
   }, [entries, open])
+
+  // Ayarlarda kapalıysa panel hiç render edilmez (yer kaplamaz, odak çalmaz).
+  if (!showLogs) return null
 
   const copyLogs = async () => {
     const text = entries

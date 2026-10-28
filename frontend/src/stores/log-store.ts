@@ -103,8 +103,8 @@ export const useLogStore = create<LogState>((set, get) => ({
         entries,
         nextId: state.nextId + 1,
         errorCount: state.errorCount + (level === "error" ? 1 : 0),
-        // Hata kaydında çekmece kendiliğinden açılır (referans davranışı)
-        open: level === "error" ? true : state.open,
+        // Hata kaydında çekmece kendiliğinden açılır; ayarlarda kapalıysa açılmaz.
+        open: level === "error" && state.showLogs ? true : state.open,
       }
     })
   },
@@ -114,12 +114,14 @@ export const useLogStore = create<LogState>((set, get) => ({
     get().log("info", translate("log.cleared"))
   },
 
-  setOpen: (open) => set({ open }),
+  setOpen: (open) =>
+    set((state) => (open && !state.showLogs ? state : { open })),
   setShowLogs: (showLogs) => {
     persistShowLogs(showLogs)
     set(showLogs ? { showLogs, open: true } : { showLogs, open: false })
   },
-  toggle: () => set((state) => ({ open: !state.open })),
+  // Panel ayarlarda kapalıyken açma isteği yok sayılır.
+  toggle: () => set((state) => (state.showLogs ? { open: !state.open } : state)),
 }))
 
 /** React dışından (ör. api katmanı) kayıt eklemek için kısayol. */

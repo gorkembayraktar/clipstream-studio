@@ -47,6 +47,9 @@ export const tr: Record<TranslationKey, string> = {
   "home.title": "Yeni proje başlat",
   "home.subtitle":
     "Canlı yayın bağlantısı yapıştır, dosya bırak ya da son projelerden birini aç. Her kayıt aynı düzenlenebilir zaman çizelgesine eklenir.",
+  "home.eyebrow": "ClipStream Studio",
+  "home.commandLabel": "Başlamak için bağlantı yapıştır",
+  "home.localNote": "Yerel çalışır · dosyalar bu makineden çıkmaz",
   "home.sourceTitle": "Kaynak",
   "home.sourceBadge": "URL · dosya · curl",
   "home.dropHint": "Dosyayı buraya bırak veya seçmek için tıkla",
@@ -56,7 +59,7 @@ export const tr: Record<TranslationKey, string> = {
   "home.recentBadge": "Bu tarayıcı",
   "home.recentEmpty": "Henüz proje yok",
   "home.recentEmptyHint":
-    "Soldan bir kaynak yükle; proje otomatik olarak kaydedilir.",
+    "Yukarıdan bir kaynak yükle; proje otomatik olarak kaydedilir.",
 
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",
@@ -74,6 +77,8 @@ export const tr: Record<TranslationKey, string> = {
   "settings.openLog": "Günlüğü aç",
   "settings.clearLog": "Günlüğü temizle",
   "settings.logEntries": "kayıt",
+  "settings.logsHiddenHint":
+    "Günlük paneli kapalıyken hiç render edilmez. Açtığında hata ve sistem olaylarını pencerenin altında görürsün.",
   "settings.shortcutsSearch": "Kısayol ara",
   "settings.shortcutsEmpty": "Aramanla eşleşen kısayol yok.",
   "settings.appliesImmediately":

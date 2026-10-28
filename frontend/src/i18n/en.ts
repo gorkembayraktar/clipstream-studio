@@ -50,6 +50,9 @@ export const en = {
   "home.title": "Start a new project",
   "home.subtitle":
     "Paste a live stream link, drop a file or pick a recent project. Every recording lands in the same editable timeline.",
+  "home.eyebrow": "ClipStream Studio",
+  "home.commandLabel": "Paste a link to begin",
+  "home.localNote": "Runs locally · files never leave this machine",
   "home.sourceTitle": "Source",
   "home.sourceBadge": "URL · file · curl",
   "home.dropHint": "Drop a file here or click to browse",
@@ -59,7 +62,7 @@ export const en = {
   "home.recentBadge": "This browser",
   "home.recentEmpty": "No projects yet",
   "home.recentEmptyHint":
-    "Load a source on the left; the project is saved automatically.",
+    "Load a source above; the project is saved automatically.",
 
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",
@@ -77,6 +80,8 @@ export const en = {
   "settings.openLog": "Open log",
   "settings.clearLog": "Clear log",
   "settings.logEntries": "entries",
+  "settings.logsHiddenHint":
+    "The log panel is not rendered while it is off. Turn it on to see errors and system events at the bottom of the window.",
   "settings.shortcutsSearch": "Search shortcuts",
   "settings.shortcutsEmpty": "No shortcuts match your search.",
   "settings.appliesImmediately":
