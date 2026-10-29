@@ -126,10 +126,13 @@
 | `shared.tsx`                    | SUPPORTED_PLATFORMS, ResolveStatusView, StudioSecurityPill |
 | `types.ts`                      | HOME_VARIANTS |
 | `variant-bento.tsx`             | VariantBento |
+| `variant-broadcast.tsx`         | VariantBroadcast |
 | `variant-cards.tsx`             | VariantCards |
 | `variant-cinema.tsx`            | VariantCinema |
 | `variant-daw.tsx`               | VariantDaw |
+| `variant-dock.tsx`              | VariantDock |
 | `variant-dropzone.tsx`          | VariantDropzone |
+| `variant-hud.tsx`               | VariantHud |
 | `variant-island.tsx`            | VariantIsland |
 | `variant-launcher.tsx`          | VariantLauncher |
 | `variant-minimal.tsx`           | VariantMinimal |
@@ -137,9 +140,11 @@
 | `variant-nle.tsx`               | VariantNle |
 | `variant-resolve.tsx`           | VariantResolve |
 | `variant-split.tsx`             | VariantSplit |
+| `variant-stage.tsx`             | VariantStage |
 | `variant-switcher.tsx`          | VariantSwitcher |
 | `variant-terminal.tsx`          | VariantTerminal |
 | `variant-toolbelt.tsx`          | VariantToolbelt |
+| `variant-workbench.tsx`         | VariantWorkbench |
 | `variant-zen.tsx`               | VariantZen |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |
 | `job-preview-dialog.tsx`        | JobPreviewDialog |

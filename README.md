@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.14-8b5cf6?style=flat-square" alt="Version 0.2.14">
+  <img src="https://img.shields.io/badge/version-0.2.15-8b5cf6?style=flat-square" alt="Version 0.2.15">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
   <img src="https://img.shields.io/badge/yt--dlp-optional-111827?style=flat-square" alt="yt-dlp optional">
   <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">

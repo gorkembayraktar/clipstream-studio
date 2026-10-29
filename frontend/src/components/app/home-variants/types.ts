@@ -1,4 +1,9 @@
 export type HomeVariantId =
+  | "broadcast"
+  | "hud"
+  | "stage"
+  | "dock"
+  | "workbench"
   | "nle"
   | "resolve"
   | "launcher"
@@ -21,11 +26,48 @@ export interface VariantMeta {
   number: string
   nameKey: string
   descKey: string
-  group: "app-welcome" | "creative" | "dashboard"
+  group: "hardware-studio" | "app-welcome" | "creative" | "dashboard"
 }
 
 export const HOME_VARIANTS: VariantMeta[] = [
-  // 5 Yeni Uygulama Karşılama Arayüzü (Application Start Screen)
+  // 5 Yeni Donanım & Profesyonel Stüdyo Karşılama Tasarımı (16 - 20)
+  {
+    id: "broadcast",
+    number: "16",
+    nameKey: "home.variants.broadcast",
+    descKey: "home.variants.broadcastDesc",
+    group: "hardware-studio",
+  },
+  {
+    id: "hud",
+    number: "17",
+    nameKey: "home.variants.hud",
+    descKey: "home.variants.hudDesc",
+    group: "hardware-studio",
+  },
+  {
+    id: "stage",
+    number: "18",
+    nameKey: "home.variants.stage",
+    descKey: "home.variants.stageDesc",
+    group: "hardware-studio",
+  },
+  {
+    id: "dock",
+    number: "19",
+    nameKey: "home.variants.dock",
+    descKey: "home.variants.dockDesc",
+    group: "hardware-studio",
+  },
+  {
+    id: "workbench",
+    number: "20",
+    nameKey: "home.variants.workbench",
+    descKey: "home.variants.workbenchDesc",
+    group: "hardware-studio",
+  },
+
+  // Masaüstü Yazılım Karşılama Ekranları (11 - 15)
   {
     id: "nle",
     number: "11",
@@ -62,7 +104,7 @@ export const HOME_VARIANTS: VariantMeta[] = [
     group: "app-welcome",
   },
 
-  // Özgün / Yaratıcı Konseptler
+  // Özgün / Yaratıcı Konseptler (6 - 10)
   {
     id: "island",
     number: "6",
@@ -99,7 +141,7 @@ export const HOME_VARIANTS: VariantMeta[] = [
     group: "creative",
   },
 
-  // Klasik Panel Tasarımları
+  // Klasik Panel Tasarımları (1 - 5 + Orijinal)
   {
     id: "minimal",
     number: "1",
