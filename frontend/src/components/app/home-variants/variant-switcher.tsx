@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutTemplate,
+  Monitor,
   Sparkles,
   ArrowUpDown,
 } from "lucide-react"
@@ -27,8 +28,9 @@ export function VariantSwitcher({
   const activeMeta =
     HOME_VARIANTS.find((v) => v.id === current) ?? HOME_VARIANTS[0]
 
-  const newVariants = HOME_VARIANTS.filter((v) => v.badge === "New")
-  const standardVariants = HOME_VARIANTS.filter((v) => v.badge !== "New")
+  const appWelcomeVariants = HOME_VARIANTS.filter((v) => v.group === "app-welcome")
+  const creativeVariants = HOME_VARIANTS.filter((v) => v.group === "creative")
+  const dashboardVariants = HOME_VARIANTS.filter((v) => v.group === "dashboard")
 
   return (
     <aside
@@ -43,7 +45,7 @@ export function VariantSwitcher({
         <div className="flex w-full items-center justify-between gap-3 px-2 py-0.5 text-xs">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <LayoutTemplate className="size-3.5 text-primary" />
-            <span className="font-bold text-primary">UI Seçimi:</span>
+            <span className="font-bold text-primary">Karşılama Arayüzü:</span>
             <span className="rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary">
               #{activeMeta.number} {t(activeMeta.nameKey as any)}
             </span>
@@ -87,12 +89,12 @@ export function VariantSwitcher({
         {/* Seçenek Düğmeleri */}
         {!collapsed && (
           <div className="mt-1.5 flex flex-col gap-1.5 border-t border-border/40 pt-1.5">
-            {/* 1. Grup: 5 Yeni Özgün Tasarım */}
+            {/* 1. Grup: 5 Yeni Masaüstü / Uygulama Karşılama Ekranı (11, 12, 13, 14, 15) */}
             <div className="flex flex-wrap items-center justify-center gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-primary mr-1 flex items-center gap-1">
-                <Sparkles className="size-2.5" /> Yeni 5 Tasarım:
+                <Monitor className="size-3" /> Uygulama Başlangıç:
               </span>
-              {newVariants.map((v) => {
+              {appWelcomeVariants.map((v) => {
                 const active = v.id === current
                 return (
                   <button
@@ -103,7 +105,7 @@ export function VariantSwitcher({
                       "flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all duration-200",
                       active
                         ? "bg-primary text-primary-foreground shadow-md scale-105"
-                        : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                        : "bg-muted/50 text-foreground hover:bg-muted",
                     )}
                     title={t(v.descKey as any)}
                   >
@@ -116,12 +118,12 @@ export function VariantSwitcher({
               })}
             </div>
 
-            {/* 2. Grup: Klasik / Önceki Tasarımlar */}
-            <div className="flex flex-wrap items-center justify-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
-              <span className="text-[10px] text-muted-foreground mr-1">
-                Diğerleri:
+            {/* 2. Grup: Yaratıcı & Diğer Tasarımlar */}
+            <div className="flex flex-wrap items-center justify-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+              <span className="text-[10px] text-muted-foreground mr-1 flex items-center gap-1">
+                <Sparkles className="size-2.5" /> Diğerleri:
               </span>
-              {standardVariants.map((v) => {
+              {[...creativeVariants, ...dashboardVariants].map((v) => {
                 const active = v.id === current
                 return (
                   <button

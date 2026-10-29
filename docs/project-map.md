@@ -128,9 +128,14 @@
 | `variant-bento.tsx`             | VariantBento |
 | `variant-cards.tsx`             | VariantCards |
 | `variant-cinema.tsx`            | VariantCinema |
+| `variant-daw.tsx`               | VariantDaw |
 | `variant-dropzone.tsx`          | VariantDropzone |
 | `variant-island.tsx`            | VariantIsland |
+| `variant-launcher.tsx`          | VariantLauncher |
 | `variant-minimal.tsx`           | VariantMinimal |
+| `variant-native-modal.tsx`      | VariantNativeModal |
+| `variant-nle.tsx`               | VariantNle |
+| `variant-resolve.tsx`           | VariantResolve |
 | `variant-split.tsx`             | VariantSplit |
 | `variant-switcher.tsx`          | VariantSwitcher |
 | `variant-terminal.tsx`          | VariantTerminal |
