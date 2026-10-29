@@ -24,6 +24,7 @@
 |-------------------|------------------------|
 | `__init__.py`     | — |
 | `capabilities.py` | Dışa aktarma yetenekleri: GPU, H.265 ve kare hızı desteği. |
+| `diagnostics.py`  | Bellek teşhisi: süreç RSS'i, GC sayaçları ve önbellek boyutları. |
 | `frames.py`       | Önizleme karesi uç noktası: videoyu ilerletmeden tek kare döner. |
 | `jobs.py`         | Dışa aktarma işleri: oluşturma, durum sorgulama, iptal. |
 | `library.py`      | Galeri uç noktaları: listeleme, silme, gezginde gösterme ve thumbnail. |
@@ -49,6 +50,7 @@
 |-------------------------|------------------------|
 | `__init__.py`           | — |
 | `codecs.py`             | FFmpeg CPU codec yeteneklerini (H.265/libx265) algılar. |
+| `diagnostics.py`        | Bellek kullanımı ve sınırlı önbelleklerin anlık görüntüsü. |
 | `exporter.py`           | FFmpeg dışa aktarma işçisi: komutu kurar, çalıştırır ve ilerlemeyi raporlar. |
 | `file_dialog.py`        | — |
 | `frames.py`             | Hover önizlemesi için tek kare (JPEG) üretimi. |
@@ -73,6 +75,7 @@
 
 | Dosya                        | Açıklama / semboller |
 |------------------------------|------------------------|
+| `test_diagnostics.py`        | Bellek teşhis anlık görüntüsü ve ucunun sözleşme testleri. |
 | `test_exporter.py`           | Dışa aktarma komutu ve GPU kodlayıcı seçimi için birim testleri. |
 | `test_hls_detection.py`      | Uzantısız HLS playlist'lerinin tespiti ve doğrudan kaynak çözümlemesi. |
 | `test_jobs.py`               | İş merkezinin listeleme ve genel görünüm davranışı için birim testleri. |

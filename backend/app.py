@@ -29,6 +29,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from api import capabilities as capabilities_api
+from api import diagnostics as diagnostics_api
 from api import frames as frames_api
 from api import jobs as jobs_api
 from api import library as library_api
@@ -131,6 +132,7 @@ def create_app() -> Starlette:
         *frames_api.routes,
         *recordings_api.routes,
         *streams_api.routes,
+        *diagnostics_api.routes,
     ]
 
     routes.append(Mount("/exports", app=StaticFiles(directory=str(EXPORTS_DIR)), name="exports"))

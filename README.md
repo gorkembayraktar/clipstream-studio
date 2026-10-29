@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.9-8b5cf6?style=flat-square" alt="Version 0.2.9">
+  <img src="https://img.shields.io/badge/version-0.2.10-8b5cf6?style=flat-square" alt="Version 0.2.10">
   <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
   <img src="https://img.shields.io/badge/yt--dlp-optional-111827?style=flat-square" alt="yt-dlp optional">
   <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">
@@ -142,7 +142,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.2.9`.
+and the version badge above in sync. Current version: `0.2.10`.
 
 ## Troubleshooting
 
@@ -150,6 +150,10 @@ and the version badge above in sync. Current version: `0.2.9`.
 - **Social links fail:** Update yt-dlp.
 - **HLS fails:** Read the error toast. Use Advanced link or enable the CORS proxy.
 - **Port 8765 is busy:** Run `stop.bat` first.
+- **Memory grows during a long session:** Open
+  `http://127.0.0.1:8765/api/diagnostics/memory` to see the process RSS, GC
+  counters and the size of every bounded cache. Add `?collect=true` to run a
+  one-off `gc.collect()` and compare the numbers before and after.
 
 ## Development
 
