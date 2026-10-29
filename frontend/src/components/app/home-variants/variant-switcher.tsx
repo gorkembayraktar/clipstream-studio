@@ -1,5 +1,11 @@
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Sparkles, LayoutTemplate } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  LayoutTemplate,
+  Sparkles,
+  ArrowUpDown,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useI18n } from "@/i18n"
@@ -16,37 +22,58 @@ export function VariantSwitcher({
 }) {
   const { t } = useI18n()
   const [collapsed, setCollapsed] = useState(false)
+  const [position, setPosition] = useState<"bottom" | "top">("bottom")
 
   const activeMeta =
     HOME_VARIANTS.find((v) => v.id === current) ?? HOME_VARIANTS[0]
 
+  const newVariants = HOME_VARIANTS.filter((v) => v.badge === "New")
+  const standardVariants = HOME_VARIANTS.filter((v) => v.badge !== "New")
+
   return (
     <aside
       aria-label="UI Variant Switcher"
-      className="fixed bottom-3 left-1/2 z-50 -translate-x-1/2 transition-all duration-300"
+      className={cn(
+        "fixed left-1/2 z-50 -translate-x-1/2 transition-all duration-300 max-w-[96vw]",
+        position === "bottom" ? "bottom-3" : "top-14",
+      )}
     >
-      <div className="flex flex-col items-center rounded-2xl border border-border/80 bg-card/90 p-1.5 shadow-xl backdrop-blur-xl ring-1 ring-black/5 dark:ring-white/10 max-w-[95vw]">
-        {/* Başlık ve Durum Şeridi */}
-        <div className="flex w-full items-center justify-between gap-3 px-2 py-1 text-xs">
-          <div className="flex items-center gap-1.5 font-medium text-foreground">
+      <div className="flex flex-col items-center rounded-2xl border border-border/80 bg-card/95 p-2 shadow-2xl backdrop-blur-xl ring-1 ring-black/10 dark:ring-white/10">
+        {/* Başlık, Aktif Tasarım ve Pozisyon Kontrolü */}
+        <div className="flex w-full items-center justify-between gap-3 px-2 py-0.5 text-xs">
+          <div className="flex items-center gap-2 font-medium text-foreground">
             <LayoutTemplate className="size-3.5 text-primary" />
-            <span className="font-semibold">{t("home.variants.switcherLabel")}</span>
-            <span className="text-muted-foreground hidden sm:inline">
-              ({activeMeta.number}) {t(activeMeta.nameKey as any)}
+            <span className="font-bold text-primary">UI Seçimi:</span>
+            <span className="rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+              #{activeMeta.number} {t(activeMeta.nameKey as any)}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="hidden text-[11px] text-muted-foreground/80 md:inline">
+          <div className="flex items-center gap-1.5">
+            <span className="hidden text-[11px] text-muted-foreground lg:inline max-w-sm truncate">
               {t(activeMeta.descKey as any)}
             </span>
+
+            {/* Pozisyonu yukarı / aşağı alma */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={() => setPosition(position === "bottom" ? "top" : "bottom")}
+              className="text-muted-foreground hover:text-foreground"
+              title={position === "bottom" ? "Yukarı taşı" : "Aşağı taşı"}
+            >
+              <ArrowUpDown className="size-3" />
+            </Button>
+
+            {/* Daralt / Genişlet */}
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
               onClick={() => setCollapsed(!collapsed)}
               className="text-muted-foreground"
-              title={collapsed ? "Expand Switcher" : "Collapse Switcher"}
+              title={collapsed ? "Genişlet" : "Daralt"}
             >
               {collapsed ? (
                 <ChevronUp className="size-3.5" />
@@ -59,40 +86,62 @@ export function VariantSwitcher({
 
         {/* Seçenek Düğmeleri */}
         {!collapsed && (
-          <div className="mt-1 flex flex-wrap items-center justify-center gap-1 border-t border-border/40 pt-1.5">
-            {HOME_VARIANTS.map((v) => {
-              const active = v.id === current
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => onChange(v.id)}
-                  className={cn(
-                    "flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-medium transition-all duration-200",
-                    active
-                      ? "bg-primary text-primary-foreground shadow-sm scale-100"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                  title={t(v.descKey as any)}
-                >
-                  {v.id === "spotlight" ? (
-                    <Sparkles className="size-3" />
-                  ) : (
-                    <span
-                      className={cn(
-                        "flex size-4 items-center justify-center rounded-full text-[10px] font-bold",
-                        active
-                          ? "bg-primary-foreground/20 text-primary-foreground"
-                          : "bg-muted text-muted-foreground",
-                      )}
-                    >
+          <div className="mt-1.5 flex flex-col gap-1.5 border-t border-border/40 pt-1.5">
+            {/* 1. Grup: 5 Yeni Özgün Tasarım */}
+            <div className="flex flex-wrap items-center justify-center gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary mr-1 flex items-center gap-1">
+                <Sparkles className="size-2.5" /> Yeni 5 Tasarım:
+              </span>
+              {newVariants.map((v) => {
+                const active = v.id === current
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onChange(v.id)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all duration-200",
+                      active
+                        ? "bg-primary text-primary-foreground shadow-md scale-105"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    title={t(v.descKey as any)}
+                  >
+                    <span className="flex size-4 items-center justify-center rounded-full text-[10px] font-bold">
                       {v.number}
                     </span>
-                  )}
-                  <span>{t(v.nameKey as any)}</span>
-                </button>
-              )
-            })}
+                    <span>{t(v.nameKey as any).replace(/^\d+\.\s*/, "")}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 2. Grup: Klasik / Önceki Tasarımlar */}
+            <div className="flex flex-wrap items-center justify-center gap-1 opacity-80 hover:opacity-100 transition-opacity">
+              <span className="text-[10px] text-muted-foreground mr-1">
+                Diğerleri:
+              </span>
+              {standardVariants.map((v) => {
+                const active = v.id === current
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onChange(v.id)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] transition-all",
+                      active
+                        ? "bg-secondary text-secondary-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    title={t(v.descKey as any)}
+                  >
+                    <span>{v.number}</span>
+                    <span>{t(v.nameKey as any).replace(/^\d+\.\s*/, "")}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>

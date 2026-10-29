@@ -4,6 +4,11 @@ export type HomeVariantId =
   | "cards"
   | "dropzone"
   | "toolbelt"
+  | "island"
+  | "cinema"
+  | "bento"
+  | "terminal"
+  | "zen"
   | "spotlight"
 
 export interface VariantMeta {
@@ -11,9 +16,48 @@ export interface VariantMeta {
   number: string
   nameKey: string
   descKey: string
+  badge?: string
 }
 
 export const HOME_VARIANTS: VariantMeta[] = [
+  // 5 Yeni Özgün Tasarım
+  {
+    id: "island",
+    number: "6",
+    nameKey: "home.variants.island",
+    descKey: "home.variants.islandDesc",
+    badge: "New",
+  },
+  {
+    id: "cinema",
+    number: "7",
+    nameKey: "home.variants.cinema",
+    descKey: "home.variants.cinemaDesc",
+    badge: "New",
+  },
+  {
+    id: "bento",
+    number: "8",
+    nameKey: "home.variants.bento",
+    descKey: "home.variants.bentoDesc",
+    badge: "New",
+  },
+  {
+    id: "terminal",
+    number: "9",
+    nameKey: "home.variants.terminal",
+    descKey: "home.variants.terminalDesc",
+    badge: "New",
+  },
+  {
+    id: "zen",
+    number: "10",
+    nameKey: "home.variants.zen",
+    descKey: "home.variants.zenDesc",
+    badge: "New",
+  },
+
+  // Önceki 5 Tasarım
   {
     id: "minimal",
     number: "1",

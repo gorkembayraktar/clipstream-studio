@@ -125,12 +125,17 @@
 | `home-spotlight.tsx`            | HomeSpotlight |
 | `shared.tsx`                    | SUPPORTED_PLATFORMS, ResolveStatusView, StudioSecurityPill |
 | `types.ts`                      | HOME_VARIANTS |
+| `variant-bento.tsx`             | VariantBento |
 | `variant-cards.tsx`             | VariantCards |
+| `variant-cinema.tsx`            | VariantCinema |
 | `variant-dropzone.tsx`          | VariantDropzone |
+| `variant-island.tsx`            | VariantIsland |
 | `variant-minimal.tsx`           | VariantMinimal |
 | `variant-split.tsx`             | VariantSplit |
 | `variant-switcher.tsx`          | VariantSwitcher |
+| `variant-terminal.tsx`          | VariantTerminal |
 | `variant-toolbelt.tsx`          | VariantToolbelt |
+| `variant-zen.tsx`               | VariantZen |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |
 | `job-preview-dialog.tsx`        | JobPreviewDialog |
 | `job-progress.tsx`              | JobProgress |
