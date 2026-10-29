@@ -233,7 +233,10 @@ def main() -> None:
 
     if not _browser_launch_disabled():
         threading.Thread(target=_open_browser, daemon=True).start()
-    uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+    # Erişim günlüğü kapalı: HLS proxy'si oynatma sırasında saniyede onlarca
+    # istek üretiyor ve Windows konsoluna senkron yazmak olay döngüsünü
+    # bekletiyor. Uygulama günlükleri (logger) çalışmaya devam eder.
+    uvicorn.run(app, host=HOST, port=PORT, log_level="info", access_log=False)
 
 
 if __name__ == "__main__":

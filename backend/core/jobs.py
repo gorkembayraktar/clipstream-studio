@@ -116,13 +116,28 @@ class JobManager:
 
         return True, t("error.jobCancelled")
 
+    def release_payload(self, job: dict[str, Any]) -> None:
+        """Bitmiş işte istek gövdesini bırakır.
+
+        `payload` kaynak URL'sini, curl başlıklarını ve segment listesini taşır;
+        iş bittikten sonra kartın ihtiyaç duyduğu tüm alanlar (biçim, mod,
+        kalite, aralık) `job` üzerinde zaten yazılıdır.
+        """
+        if job.get("status") in TERMINAL_STATUSES:
+            job.pop("payload", None)
+
     # ------------------------------------------------------------- Görünümler
     def public_view(self, job: dict[str, Any]) -> dict[str, Any]:
-        """Serileştirilemez alanları (süreç nesnesi, ham yük) ayıklar."""
+        """Serileştirilemez alanları (süreç nesnesi, ham yük) ayıklar.
+
+        `command` de gönderilmez: iş kartı tam ffmpeg komut satırını hiç
+        kullanmıyor, ama her yoklama yanıtında iş başına 1-3 KB'lık JSON
+        üretiyordu.
+        """
         view = {
             key: value
             for key, value in job.items()
-            if key not in {"process", "payload", "lang"}
+            if key not in {"process", "payload", "lang", "command"}
         }
         # Kuyrukta bekleyen işte run_export_job henüz çalışmadığı için kartın
         # biçim/aralık bilgisini istekten türet; çalışınca gerçek değerler

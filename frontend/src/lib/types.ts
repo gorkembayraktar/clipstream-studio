@@ -302,7 +302,6 @@ export interface ExportJob {
   eta_sec?: number
   current_sec?: number
   error?: string
-  command?: string
 }
 
 /** `GET /api/jobs` — bellek içi iş merkezindeki işler (en eski önce). */

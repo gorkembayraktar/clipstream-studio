@@ -1,24 +1,49 @@
 /** Dışa aktarma işi (job) sorgu ve mutasyonları. */
 import { useEffect } from "react"
 
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-  type Query,
-} from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { toast } from "sonner"
 
 import { translate } from "@/i18n"
 import { api } from "@/lib/api"
-import type { ExportJob, ExportRequest } from "@/lib/types"
+import type { ExportRequest } from "@/lib/types"
 import { log } from "@/stores/log-store"
 import { useExportStore } from "@/stores/export-store"
 
+/** Pano yoklama aralığı. Kart ilerlemesi bu sıklıkta tazelenir. */
+const POLL_MS = 800
+
 export const jobKeys = {
   byId: (jobId: string) => ["job", jobId] as const,
+  /** Panodaki iş kümesi; `["jobs", ...]` öneki tüm yoklama sorgularını kapsar. */
+  all: ["jobs"] as const,
+  batch: (jobIds: string[]) =>
+    ["jobs", [...jobIds].sort().join(",")] as const,
+}
+
+/** Panodaki işleri **tek** istekte yoklar.
+ *
+ * Her kart kendi `/api/jobs/{id}` isteğini 600 ms'de bir atsaydı N iş için
+ * saniyede N istek doğardı; ayrıca her yanıt iş sözlüğünün tamamını
+ * serileştirirdi. Kimlik listesi sabit olduğu için biten iş son durumunu
+ * (done/error/cancelled) de alır; kart "running" durumunda takılmaz.
+ */
+export function useJobsPoll(jobIds: string[]) {
+  return useQuery({
+    queryKey: jobKeys.batch(jobIds),
+    queryFn: () => api.listJobsByIds(jobIds),
+    enabled: jobIds.length > 0,
+    refetchInterval: (query) => {
+      const jobs = query.state.data?.jobs ?? []
+      const active = jobs.some(
+        (job) => job.status === "pending" || job.status === "running",
+      )
+      return active ? POLL_MS : false
+    },
+    // Başka sekmedeyken de yüzde güncellenmeye devam etsin.
+    refetchIntervalInBackground: true,
+  })
 }
 
 export function useStartExport() {
@@ -63,35 +88,27 @@ export function useActiveJobsHydration() {
   }, [addActiveJobId])
 }
 
-/** İş durumunu yoklar; iş bitene kadar 600 ms'de bir yeniler. */
-export function useJob(jobId: string | null) {
-  return useQuery({
-    queryKey: jobKeys.byId(jobId ?? ""),
-    queryFn: () => api.getJob(jobId as string),
-    enabled: Boolean(jobId),
-    refetchInterval: (query) => {
-      const status = query.state.data?.status
-      return status === "pending" || status === "running" ? 600 : false
-    },
-    // Başka sekmedeyken de yüzde güncellenmeye devam etsin.
-    refetchIntervalInBackground: true,
-  })
+/** Panodaki tüm işler. Kartlar aynı yoklama isteğini paylaşır. */
+export function useJobs(jobIds: string[]) {
+  const query = useJobsPoll(jobIds)
+  return jobIds.map((jobId) => ({
+    data: query.data?.jobs.find((job) => job.id === jobId),
+  }))
 }
 
-/** Panodaki tüm işleri tek seferde izler; kartlar kendi sorgularını kullanmaya devam eder. */
-export function useJobs(jobIds: string[]) {
-  return useQueries({
-    queries: jobIds.map((jobId) => ({
-      queryKey: jobKeys.byId(jobId),
-      queryFn: () => api.getJob(jobId),
-      enabled: Boolean(jobId),
-      refetchInterval: (query: Query<ExportJob>) => {
-        const status = query.state.data?.status
-        return status === "pending" || status === "running" ? 600 : false
-      },
-      refetchIntervalInBackground: true,
-    })),
-  })
+/** Tek iş; veriyi panonun paylaştığı yoklama isteğinden okur.
+ *
+ * Kart başına ayrı istek atmak yerine pano sorgusuna abone olunur. Aynı
+ * kimlik kümesi aynı sorgu anahtarını ürettiği için tek HTTP isteği yeter.
+ */
+export function useJob(jobId: string | null) {
+  const jobIds = useExportStore((s) => s.activeJobIds)
+  const query = useJobsPoll(jobIds)
+  return {
+    data: jobId
+      ? query.data?.jobs.find((job) => job.id === jobId)
+      : undefined,
+  }
 }
 
 export function useCancelJob(jobId: string | null) {
@@ -102,7 +119,8 @@ export function useCancelJob(jobId: string | null) {
       if (data.success) {
         log("warn", translate("log.exportCancelled"))
         toast.info(translate("job.cancelled"))
-        void queryClient.invalidateQueries({ queryKey: jobKeys.byId(jobId ?? "") })
+        // Durum hemen yansısın; bir sonraki yoklamayı bekleme.
+        void queryClient.invalidateQueries({ queryKey: jobKeys.all })
       }
     },
     onError: (error: Error) => {

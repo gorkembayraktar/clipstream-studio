@@ -592,7 +592,14 @@ async def _read_stderr(process, limit: int = 64 * 1024) -> str:
         chunk = await process.stderr.read(64 * 1024)
         if not chunk:
             break
-        tail = (tail + chunk)[-limit:]
+        # Parçayı doğrudan ekle, yalnızca sınır aşıldığında kırp: her okumada
+        # `(tail + chunk)[-limit:]` yapmak 64-128 KB'lık yeni bir nesne üretip
+        # uzun dışa aktarmalarda ayırıcıyı sürekli meşgul ediyordu.
+        tail += chunk
+        if len(tail) > 2 * limit:
+            tail = tail[-limit:]
+    if len(tail) > limit:
+        tail = tail[-limit:]
     return tail.decode("utf-8", errors="ignore").strip()
 
 
@@ -1484,6 +1491,12 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         reserved = job.get("output_path")
         if reserved:
             _RESERVED_PATHS.discard(str(reserved))
+        # İstek gövdesi (URL, başlıklar, segmentler) artık gerekmiyor: kartın
+        # gösterdiği tüm alanlar yukarıda `job` üzerine yazıldı.
+        if manager is not None:
+            manager.release_payload(job)
+        else:
+            job.pop("payload", None)
 
 
 def _parse_speed(raw: Any) -> Optional[float]:

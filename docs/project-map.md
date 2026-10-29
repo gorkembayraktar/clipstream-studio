@@ -184,7 +184,7 @@
 
 | Dosya                       | Açıklama / semboller |
 |-----------------------------|------------------------|
-| `use-export-job.ts`         | jobKeys, useStartExport, useActiveJobsHydration, useJob, useJobs, useCancelJob |
+| `use-export-job.ts`         | jobKeys, useJobsPoll, useStartExport, useActiveJobsHydration, useJobs, useJob, useCancelJob |
 | `use-export-title.ts`       | useExportTitle |
 | `use-fullscreen.ts`         | getStageElement, toggleStageFullscreen, useFullscreen |
 | `use-gpu-capability.ts`     | capabilityKeys, useGpuCapability |

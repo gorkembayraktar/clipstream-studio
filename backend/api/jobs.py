@@ -61,9 +61,13 @@ async def create_job_endpoint(request):
 
 
 async def list_jobs_endpoint(request):
-    """Bellekteki işleri döndürür; `?active=true` yalnızca sürenleri verir.
+    """Bellekteki işleri döndürür.
 
-    Sayfa tam yenilendiğinde istemci bu uçla panoyu geri yükler.
+    - `?active=true` yalnızca sürenleri verir; sayfa yenilendiğinde pano bu
+      uçla geri yüklenir.
+    - `?ids=a,b,c` yalnızca istenen kimlikleri verir (durumdan bağımsız).
+      Pano tek istekte kendi iş kümesini yoklar; bitmiş iş son durumunu
+      koruduğu için kart "running" durumunda takılı kalmaz.
     """
     manager = request.app.state.jobs
     active_only = request.query_params.get("active", "").lower() in {
@@ -71,7 +75,12 @@ async def list_jobs_endpoint(request):
         "true",
         "yes",
     }
-    jobs = manager.list_jobs(active_only=active_only)
+    ids_param = request.query_params.get("ids")
+    if ids_param is not None:
+        wanted = {part.strip() for part in ids_param.split(",") if part.strip()}
+        jobs = [job for job in manager.list_jobs() if job["id"] in wanted]
+    else:
+        jobs = manager.list_jobs(active_only=active_only)
     return JSONResponse(
         {
             "success": True,

@@ -24,6 +24,9 @@ MAX_PARALLEL = 2
 _EXTENSIONS = (".webp", ".jpg")
 _LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
+#: Kilit tablosu sınırlı tutulur: her export dosyası için bir kilit eklenip
+#: hiç silinmezse uzun oturumda tablo sürekli büyür.
+_LOCKS_LIMIT = 512
 _GENERATION_SLOTS = threading.BoundedSemaphore(MAX_PARALLEL)
 #: Kapaksız MP3'lerde her istekte yeniden FFmpeg çalıştırmamak için negatif cache.
 _AUDIO_WITHOUT_COVER: set[str] = set()
@@ -43,6 +46,12 @@ def _lock_for(key: str) -> threading.Lock:
     with _LOCKS_GUARD:
         lock = _LOCKS.get(key)
         if lock is None:
+            if len(_LOCKS) >= _LOCKS_LIMIT:
+                # Yalnızca boşta olan kilitler atılır: tutulan bir kilidi
+                # düşürmek aynı dosya için ikinci bir üretimi başlatırdı.
+                idle = [name for name, item in _LOCKS.items() if not item.locked()]
+                for stale in idle:
+                    _LOCKS.pop(stale, None)
             lock = threading.Lock()
             _LOCKS[key] = lock
         return lock

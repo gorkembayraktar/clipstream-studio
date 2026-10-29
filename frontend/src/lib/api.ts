@@ -397,6 +397,13 @@ export const api = {
       undefined,
       { silent: true },
     ),
+  /** Panodaki işleri tek istekte yoklamak için (durumdan bağımsız). */
+  listJobsByIds: (jobIds: string[]) =>
+    request<JobsResponse>(
+      `/api/jobs?ids=${encodeURIComponent(jobIds.join(","))}`,
+      undefined,
+      { silent: true },
+    ),
   getJob: (jobId: string) => request<ExportJob>(`/api/jobs/${jobId}`),
   cancelJob: (jobId: string) =>
     post<{ success: boolean; message?: string }>(`/api/jobs/${jobId}/cancel`),

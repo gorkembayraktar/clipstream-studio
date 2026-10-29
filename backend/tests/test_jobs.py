@@ -1,12 +1,16 @@
 """İş merkezinin listeleme ve genel görünüm davranışı için birim testleri."""
+import json
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import parse_qsl
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from api.jobs import list_jobs_endpoint  # noqa: E402
 from core.jobs import DONE, ERROR, PENDING, RUNNING, JobManager  # noqa: E402
 
 
@@ -108,6 +112,80 @@ class JobListTests(unittest.TestCase):
         self.assertEqual(view["output_fps"], 30)
         self.assertEqual(view["clip_start"], 1.5)
         self.assertEqual(view["clip_end"], 4.0)
+
+
+    def test_public_view_hides_the_ffmpeg_command(self):
+        # İş kartı komut satırını hiç kullanmıyor; yoklanan yanıtı şişirmesin.
+        self.first["command"] = "ffmpeg -i in.mp4 out.mp4"
+        self.assertNotIn("command", self.manager.public_view(self.first))
+
+    def test_release_payload_drops_the_request_body_when_terminal(self):
+        self.first["payload"] = {"url": "a", "headers": {"cookie": "x"}}
+        self.manager.release_payload(self.first)  # hâlâ pending
+        self.assertIn("payload", self.first)
+
+        self.first["status"] = DONE
+        self.manager.release_payload(self.first)
+        self.assertNotIn("payload", self.first)
+
+    def test_view_after_release_keeps_the_card_metadata(self):
+        job = self.manager.create({"url": "a", "mode": "fast"})
+        job.update(
+            {
+                "output_format": "mp4",
+                "mode": "fast",
+                "quality": "balanced",
+                "codec": "h264",
+                "clip_start": 1.0,
+                "clip_end": 2.0,
+            }
+        )
+        job["status"] = DONE
+        self.manager.release_payload(job)
+
+        view = self.manager.public_view(job)
+        self.assertEqual(view["mode"], "fast")
+        self.assertEqual(view["quality"], "balanced")
+        self.assertEqual(view["clip_start"], 1.0)
+        self.assertEqual(view["clip_end"], 2.0)
+
+
+class ListJobsEndpointTests(unittest.IsolatedAsyncioTestCase):
+    """Pano tek istekte kendi iş kümesini yoklar (`?ids=`)."""
+
+    def setUp(self):
+        self.manager = JobManager()
+        self.jobs = [self.manager.create({"url": name}) for name in "abc"]
+        for index, job in enumerate(self.jobs, start=1):
+            job["created_at"] = float(index)
+        self.jobs[0]["status"] = DONE
+
+    async def get(self, query: str) -> dict:
+        request = SimpleNamespace(
+            query_params=dict(parse_qsl(query)),
+            app=SimpleNamespace(state=SimpleNamespace(jobs=self.manager)),
+        )
+        response = await list_jobs_endpoint(request)
+        return json.loads(response.body)
+
+    async def test_ids_filter_returns_terminal_jobs_too(self):
+        wanted = f"{self.jobs[0]['id']},{self.jobs[2]['id']}"
+        data = await self.get(f"ids={wanted}")
+        self.assertEqual(
+            [job["id"] for job in data["jobs"]],
+            [self.jobs[0]["id"], self.jobs[2]["id"]],
+        )
+
+    async def test_active_flag_still_filters(self):
+        data = await self.get("active=true")
+        self.assertEqual(
+            [job["id"] for job in data["jobs"]],
+            [self.jobs[1]["id"], self.jobs[2]["id"]],
+        )
+
+    async def test_unknown_ids_yield_an_empty_list(self):
+        data = await self.get("ids=deadbeef")
+        self.assertEqual(data["jobs"], [])
 
 
 if __name__ == "__main__":
