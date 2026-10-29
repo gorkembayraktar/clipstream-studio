@@ -123,6 +123,14 @@
 | `gallery.tsx`                   | Gallery |
 | `home-screen.tsx`               | HomeScreen |
 | `home-spotlight.tsx`            | HomeSpotlight |
+| `shared.tsx`                    | SUPPORTED_PLATFORMS, ResolveStatusView, StudioSecurityPill |
+| `types.ts`                      | HOME_VARIANTS |
+| `variant-cards.tsx`             | VariantCards |
+| `variant-dropzone.tsx`          | VariantDropzone |
+| `variant-minimal.tsx`           | VariantMinimal |
+| `variant-split.tsx`             | VariantSplit |
+| `variant-switcher.tsx`          | VariantSwitcher |
+| `variant-toolbelt.tsx`          | VariantToolbelt |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |
 | `job-preview-dialog.tsx`        | JobPreviewDialog |
 | `job-progress.tsx`              | JobProgress |

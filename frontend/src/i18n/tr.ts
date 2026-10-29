@@ -60,6 +60,21 @@ export const tr: Record<TranslationKey, string> = {
   "home.hero.subtitle":
     "YouTube, X, Instagram, TikTok — ya da diskindeki bir dosya.",
 
+  "home.variants.switcherLabel": "Index UI:",
+  "home.variants.minimal": "1. Minimal",
+  "home.variants.minimalDesc": "Sade, odaklı komut çubuğu, hızlı eylemler ve hemen altında son projeler.",
+  "home.variants.split": "2. Split Hub",
+  "home.variants.splitDesc": "İki kolonlu çalışma alanı: solda kaynak girişi, sağda son projeler.",
+  "home.variants.cards": "3. Eylem Kartları",
+  "home.variants.cardsDesc": "3 net başlangıç yolu: Web Akışı, Yerel Dosya veya Projeye Devam.",
+  "home.variants.dropzone": "4. Medya Tuvali",
+  "home.variants.dropzoneDesc": "Görsel sürükle-bırak tuvali, entegre bağlantı kutusu ve medya ızgarası.",
+  "home.variants.toolbelt": "5. Pro Araç Çubuğu",
+  "home.variants.toolbeltDesc": "DaVinci/Premiere tarzı kompakt üst çubuk ve detaylı proje yöneticisi.",
+  "home.variants.spotlight": "Orijinal",
+  "home.variants.spotlightDesc": "Orijinal sinematik spotlight ana sayfası.",
+  "home.variants.chooseTooltip": "Test etmek için bir UI stili seçin",
+
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",
   "settings.nav.playback": "Oynatma",

@@ -63,6 +63,21 @@ export const en = {
   "home.hero.subtitle":
     "YouTube, X, Instagram, TikTok — or a file from your disk.",
 
+  "home.variants.switcherLabel": "Index UI:",
+  "home.variants.minimal": "1. Minimal",
+  "home.variants.minimalDesc": "Clean, focused command bar with instant actions and recent projects.",
+  "home.variants.split": "2. Split Hub",
+  "home.variants.splitDesc": "Dual-column layout: fast ingestion on the left, recent projects on the right.",
+  "home.variants.cards": "3. Action Cards",
+  "home.variants.cardsDesc": "Three distinct workflow paths: Web Stream, Local File, or Resume.",
+  "home.variants.dropzone": "4. Media Dropzone",
+  "home.variants.dropzoneDesc": "Visual drag-and-drop canvas with embedded link input and media recents.",
+  "home.variants.toolbelt": "5. Pro Toolbelt",
+  "home.variants.toolbeltDesc": "DaVinci/Premiere-style compact toolbar and full project manager table.",
+  "home.variants.spotlight": "Original",
+  "home.variants.spotlightDesc": "Original cinematic spotlight hero section.",
+  "home.variants.chooseTooltip": "Select a UI style to test",
+
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",
   "settings.nav.playback": "Playback",
