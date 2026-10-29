@@ -14,6 +14,7 @@ from services.exporter import (  # noqa: E402
     _build_concat_manifest,
     _build_concat_remux_command,
     _can_resume,
+    _COPY_PROBE_CACHE,
     _export_segments,
     _next_resume_offset,
     _parse_speed,
@@ -24,11 +25,12 @@ from services.exporter import (  # noqa: E402
     _update_eta,
     build_ffmpeg_command,
     is_gpu_render_eligible,
+    local_copy_eligible,
     run_export_job,
     select_gpu_encoder,
     stage_hls_sources,
 )
-from core.jobs import ERROR, RUNNING  # noqa: E402
+from core.jobs import DONE, ERROR, RUNNING  # noqa: E402
 from services.segment_downloader import DownloadedMedia  # noqa: E402
 from services.gpu import (  # noqa: E402
     GPU_ENCODERS,
@@ -655,6 +657,133 @@ class GpuSelectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("CPU", reason or "")
         self.assertIsNone(detail)
         self.assertIsNone(label)
+
+
+LOCAL_URL = "http://127.0.0.1:8765/api/local/file/token"
+
+H264_INFO = {
+    "codec": "h264",
+    "raw": {
+        "streams": [
+            {"codec_type": "video", "codec_name": "h264"},
+            {"codec_type": "audio", "codec_name": "aac"},
+        ]
+    },
+}
+
+
+class LocalCopyTests(unittest.IsolatedAsyncioTestCase):
+    """Yerel dosyada kırpma/kesim yoksa yeniden kodlama yerine kopyalama."""
+
+    def setUp(self):
+        _COPY_PROBE_CACHE.clear()
+        self.addCleanup(_COPY_PROBE_CACHE.clear)
+
+    async def eligible(self, payload, segments=None, info=H264_INFO):
+        return await self._call(payload, segments or [(1.25, 4.75)], info, Path("local.mp4"))
+
+    async def _call(self, payload, segments, info, path):
+        with (
+            patch("services.exporter.local_path", return_value=path),
+            patch(
+                "services.exporter._local_copy_probe",
+                new=AsyncMock(return_value=info),
+            ),
+        ):
+            return await local_copy_eligible(payload, segments)
+
+    async def test_local_h264_clip_is_copied(self):
+        self.assertTrue(await self.eligible(make_payload(url=LOCAL_URL)))
+
+    async def test_crop_disables_copy(self):
+        crop = {"enabled": True, "x": 0, "y": 0, "width": 640, "height": 360}
+        self.assertFalse(await self.eligible(make_payload(url=LOCAL_URL, crop=crop)))
+
+    async def test_deleted_segments_disable_copy(self):
+        self.assertFalse(
+            await self.eligible(
+                make_payload(url=LOCAL_URL),
+                segments=[(1.0, 2.0), (3.0, 4.0)],
+            )
+        )
+
+    async def test_remote_source_is_not_copied(self):
+        self.assertFalse(
+            await self._call(
+                make_payload(url="https://example.com/source.mp4"),
+                [(1.25, 4.75)],
+                H264_INFO,
+                None,
+            )
+        )
+
+    async def test_hevc_source_is_not_copied(self):
+        info = {
+            "codec": "hevc",
+            "raw": {"streams": [{"codec_type": "video", "codec_name": "hevc"}]},
+        }
+        self.assertFalse(await self.eligible(make_payload(url=LOCAL_URL), info=info))
+
+    async def test_audio_outside_mp4_disables_copy(self):
+        info = {
+            "codec": "h264",
+            "raw": {
+                "streams": [
+                    {"codec_type": "video", "codec_name": "h264"},
+                    {"codec_type": "audio", "codec_name": "opus"},
+                ]
+            },
+        }
+        self.assertFalse(await self.eligible(make_payload(url=LOCAL_URL), info=info))
+
+    async def test_unreadable_source_disables_copy(self):
+        self.assertFalse(
+            await self.eligible(make_payload(url=LOCAL_URL), info=None)
+        )
+
+    async def test_output_fps_and_hevc_output_disable_copy(self):
+        self.assertFalse(
+            await self.eligible(make_payload(url=LOCAL_URL, output_fps=30))
+        )
+        self.assertFalse(
+            await self.eligible(make_payload(url=LOCAL_URL, codec="hevc"))
+        )
+
+    async def test_export_job_switches_to_stream_copy(self):
+        job = {"status": RUNNING, "payload": make_payload(url=LOCAL_URL), "lang": "en"}
+        commands: list[list[str]] = []
+
+        async def fake_ffmpeg(command, job_state, total, progress_base=0.0):
+            commands.append(command)
+            Path(command[-1]).write_bytes(b"mp4")
+            return 0, "", False
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "out.mp4"
+            with (
+                patch("services.exporter.local_path", return_value=Path("local.mp4")),
+                patch(
+                    "services.exporter._local_copy_probe",
+                    new=AsyncMock(return_value=H264_INFO),
+                ),
+                patch(
+                    "services.exporter.build_output_path", return_value=output
+                ),
+                patch("services.exporter._run_ffmpeg", side_effect=fake_ffmpeg),
+                patch(
+                    "services.exporter._warm_thumbnail", new=AsyncMock()
+                ),
+            ):
+                await run_export_job(job, None)
+
+        self.assertEqual(job["status"], DONE)
+        self.assertTrue(job["auto_copy"])
+        self.assertEqual(job["mode"], "fast")
+        self.assertEqual(job["encoder_used"], "cpu")
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(commands[0][commands[0].index("-c") + 1], "copy")
+        self.assertNotIn("libx264", commands[0])
+        self.assertNotIn("h264_nvenc", commands[0])
 
 
 if __name__ == "__main__":

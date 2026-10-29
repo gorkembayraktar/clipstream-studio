@@ -18,6 +18,7 @@ from services.gpu import (
 )
 from services.header_store import get_headers
 from services.local_media import local_path
+from services.prober import probe_url
 from services.request_headers import ffmpeg_input_args, sanitize_headers
 from services.segment_downloader import (
     DownloadedMedia,
@@ -191,6 +192,96 @@ def is_gpu_render_eligible(
     if output_format != "mp4" or codec == "hevc":
         return False
     return crop is not None or mode != "fast" or output_fps is not None
+
+
+#: Yerel kaynakta yeniden kodlamadan kopyalanabilecek kodekler. MP4 kabına
+#: olduğu gibi konabildikleri ve tarayıcıda çalındıkları için yalnızca bunlar
+#: kabul edilir; HEVC/VP9/AV1 kopyalanırsa etiket/kap uyumsuzluğu çıkabilir.
+COPY_VIDEO_CODECS = {"h264"}
+COPY_AUDIO_CODECS = {"aac", "mp3"}
+
+#: Kopyalama kararı için yerel dosya ffprobe sonucu önbelleği: yol →
+#: ((mtime_ns, boyut), bilgi). Aynı dosya tekrar dışa aktarılırken ffprobe
+#: yeniden çalışmaz; dosya değişirse imza tutmadığı için tazelenir.
+_COPY_PROBE_CACHE: dict[str, tuple[tuple[int, int], dict[str, Any]]] = {}
+_COPY_PROBE_LIMIT = 64
+
+
+async def _local_copy_probe(path: Path) -> Optional[dict[str, Any]]:
+    """Yerel dosyanın kodek bilgisini okur; okunamazsa None döner."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+
+    signature = (stat.st_mtime_ns, stat.st_size)
+    cached = _COPY_PROBE_CACHE.get(str(path))
+    if cached is not None and cached[0] == signature:
+        return cached[1]
+
+    try:
+        info = await probe_url(str(path))
+    except Exception as exc:  # en iyi çaba: kopyalanamıyorsa yeniden kodlanır
+        logger.warning("export: yerel kopya denetimi başarısız: %s", exc)
+        return None
+
+    if len(_COPY_PROBE_CACHE) >= _COPY_PROBE_LIMIT:
+        _COPY_PROBE_CACHE.clear()
+    _COPY_PROBE_CACHE[str(path)] = (signature, info)
+    return info
+
+
+def _audio_codec_name(info: dict[str, Any]) -> Optional[str]:
+    """ffprobe sonucundan ses kodeğini çıkarır (ses yoksa None)."""
+    for stream in (info.get("raw") or {}).get("streams", []) or []:
+        if stream.get("codec_type") == "audio":
+            return str(stream.get("codec_name") or "unknown")
+    return None
+
+
+async def local_copy_eligible(
+    payload: dict[str, Any], segments: list[tuple[float, float]]
+) -> bool:
+    """Yerel kaynakta klip yeniden kodlanmadan kopyalanabilir mi?
+
+    Yerel dosya diskten doğrudan okunduğu için akış kopyalama neredeyse
+    anlıktır; yeniden kodlama ise dakikalar sürebilir. Kırpma (crop), kare
+    hızı değişimi, H.265 çıktısı veya silme sonrası birden çok parça
+    istendiğinde filtre/kodlayıcı gerektiği için kopyalama yapılmaz.
+
+    Kaynak kodeği ffprobe ile doğrulanır: HEVC/VP9/AV1 gibi akışlar MP4
+    kabına olduğu gibi konduğunda etiket/kap uyumsuzluğu çıkabildiğinden
+    yalnızca H.264 (ve AAC/MP3 ses) kopyalanır.
+    """
+    if len(segments) != 1:
+        return False
+    if str(payload.get("output_format", "mp4")).lower() != "mp4":
+        return False
+    if _normalized_crop(payload.get("crop")) is not None:
+        return False
+    if _export_codec(payload) != DEFAULT_EXPORT_CODEC:
+        return False
+    if _output_fps(payload) is not None:
+        return False
+    # Ayrı ses akışı (YouTube gibi sessiz video) birleştirme ister: kopyalanamaz.
+    if str(payload.get("audio_url") or "").strip():
+        return False
+
+    url = str(payload.get("url", "")).strip()
+    if not url:
+        return False
+    path = local_path(url)
+    if path is None:
+        return False
+
+    info = await _local_copy_probe(path)
+    if not info:
+        return False
+    if str(info.get("codec") or "") not in COPY_VIDEO_CODECS:
+        return False
+
+    audio_codec = _audio_codec_name(info)
+    return audio_codec is None or audio_codec in COPY_AUDIO_CODECS
 
 
 def build_ffmpeg_command(
@@ -1191,6 +1282,15 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
             str(payload.get("filename", "")),
             output_format,
         )
+
+        # Yerel dosyada kırpma/kesim yoksa yeniden kodlamak zaman kaybıdır:
+        # akış olduğu gibi kopyalanır ve dışa aktarma saniyeler yerine anlık
+        # tamamlanır. Kodek denetimi de bu kararın içindedir.
+        auto_copy = await local_copy_eligible(payload, segments)
+        if auto_copy:
+            payload = {**payload, "mode": "fast"}
+            job["auto_copy"] = True
+
         job["output_path"] = str(output_path)
         job["output_filename"] = output_path.name
         job["clip_duration"] = round(clip_duration, 3)
@@ -1236,9 +1336,19 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
             if job["status"] == CANCELLED:
                 return
 
-        gpu_encoder, fallback_reason, fallback_detail, gpu_label = await select_gpu_encoder(
-            payload
-        )
+        gpu_encoder: Optional[str] = None
+        fallback_reason: Optional[str] = None
+        fallback_detail: Optional[str] = None
+        gpu_label: Optional[str] = None
+        if auto_copy:
+            # Kopyalama yolunda kodlayıcı yok; GPU isteği sessizce düşer.
+            # `select_gpu_encoder` çağrılsaydı "uygun değil" uyarısı kartta
+            # gereksiz bir CPU'ya dönüş notu olarak görünürdü.
+            job["encoder_requested"] = "cpu"
+        else:
+            gpu_encoder, fallback_reason, fallback_detail, gpu_label = (
+                await select_gpu_encoder(payload)
+            )
         if job["status"] == CANCELLED:
             return
 

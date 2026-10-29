@@ -433,6 +433,7 @@ export const en = {
   "job.doneLog": "Clip created: {name} ({size}, duration: {seconds}s)",
   "job.failedLog": "Export failed",
   "job.gpuShort": "GPU",
+  "job.autoCopyHint": "The source file was copied as-is because no crop or cut was applied.",
   "job.gpuUsed": "Rendered with {encoder}.",
   "job.gpuFallback": "GPU could not be used; the clip was rendered on the CPU instead.",
 

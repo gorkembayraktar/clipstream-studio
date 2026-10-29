@@ -277,6 +277,8 @@ export interface ExportJob {
   /** Çıktı biçimi ve kesim modu (kart başlığında gösterilir). */
   output_format?: string
   mode?: string
+  /** Yerel kaynakta kırpma/kesim yokken akış kopyalanarak dışa aktarıldı. */
+  auto_copy?: boolean
   quality?: string
   codec?: string
   output_fps?: number | null

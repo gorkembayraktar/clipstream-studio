@@ -194,7 +194,9 @@ export function JobProgress({ jobId }: { jobId: string }) {
               {job.lane === "gpu" ? t("job.laneGpu") : t("job.laneCpu")}
             </span>
           )}
-          <span>
+          <span
+            title={job.auto_copy ? t("job.autoCopyHint") : undefined}
+          >
             {job.mode === "fast" ? t("export.modeFast") : t("export.modeExact")}
           </span>
           {job.gpu_encoder && !job.gpu_fallback && (

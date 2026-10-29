@@ -431,6 +431,7 @@ export const tr: Record<TranslationKey, string> = {
   "job.doneLog": "Klip oluşturuldu: {name} ({size}, süre: {seconds} sn)",
   "job.failedLog": "Dışa aktarma başarısız",
   "job.gpuShort": "GPU",
+  "job.autoCopyHint": "Kırpma veya kesim uygulanmadığı için kaynak dosya olduğu gibi kopyalandı.",
   "job.gpuUsed": "{encoder} ile oluşturuldu.",
   "job.gpuFallback": "GPU kullanılamadı; klip bunun yerine CPU ile oluşturuldu.",
 
