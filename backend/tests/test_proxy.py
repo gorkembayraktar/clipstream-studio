@@ -9,6 +9,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from services.hls import MAX_PLAYLIST_BYTES  # noqa: E402
 from services.proxy import proxy_request  # noqa: E402
 
 URL = "https://cdn.example.com/mc/extensionless-playlist"
@@ -47,6 +48,10 @@ class FakeUpstream:
 
     async def aread(self) -> bytes:
         return self.body
+
+    async def aiter_bytes(self, chunk_size: int = 65536):
+        for start in range(0, len(self.body), max(1, chunk_size)):
+            yield self.body[start:start + chunk_size]
 
     async def aiter_raw(self, chunk_size: int = 65536):
         for start in range(0, len(self.body), max(1, chunk_size)):
@@ -180,6 +185,42 @@ class SegmentProxyTests(unittest.IsolatedAsyncioTestCase):
         await proxy_request(request)
 
         self.assertEqual(http.request_url, f"{URL}-seg.ts")
+
+
+class ProxyCleanupTests(unittest.IsolatedAsyncioTestCase):
+    """Proxy yanıtları her yolda kapatılmalı; gövde boyutu sınırlı olmalı."""
+
+    async def test_playlist_body_is_capped(self):
+        # `.txt` sanılan adres çok büyük gövde döndürürse sunucu belleği
+        # şişmemeli: yalnızca sınır kadar bayt okunur.
+        upstream = FakeUpstream(
+            b"x" * (MAX_PLAYLIST_BYTES + 4096),
+            headers={"content-type": "text/plain"},
+            url=TXT_URL,
+        )
+        response = await proxy_request(FakeRequest(upstream, TXT_URL))
+
+        body = await _read_body(response)
+        self.assertEqual(len(body), MAX_PLAYLIST_BYTES)
+        self.assertTrue(upstream.closed)
+
+    async def test_upstream_is_closed_when_reading_fails(self):
+        # Okuma sırasında kopan bağlantı httpx havuzunda açık kalırsa her
+        # segment isteği kalıcı bir soket + tampon sızıntısı bırakır.
+        upstream = FakeUpstream(
+            b"#EXTM3U\n",
+            headers={"content-type": "application/x-mpegURL"},
+        )
+
+        async def boom(chunk_size: int = 65536):
+            raise RuntimeError("network down")
+            yield b""  # pragma: no cover
+
+        upstream.aiter_bytes = boom
+        response = await proxy_request(FakeRequest(upstream))
+
+        self.assertEqual(response.status_code, 502)
+        self.assertTrue(upstream.closed)
 
 
 if __name__ == "__main__":

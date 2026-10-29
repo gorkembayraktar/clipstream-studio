@@ -77,6 +77,7 @@
 | `test_hls_detection.py`      | Uzantısız HLS playlist'lerinin tespiti ve doğrudan kaynak çözümlemesi. |
 | `test_jobs.py`               | İş merkezinin listeleme ve genel görünüm davranışı için birim testleri. |
 | `test_library.py`            | Galeri metadata uç noktası: güvenli çözümleme, ffprobe ve önbellek. |
+| `test_local_media.py`        | Kopyasız yerel kaynak jetonlarının sınırlı bellekte tutulması. |
 | `test_proxy.py`              | CORS proxy'sinin uzantısız/`.txt` HLS playlist'lerini ve sıkıştırılmış yanıtları aktarımı. |
 | `test_recorder.py`           | Canlı kayıt yöneticisi: segment yakalama sırası, dayanıklılık, akışa yazma. |
 | `test_resolver.py`           | TikTok URL/platform seçimi ve canlı akış tercihleri. |

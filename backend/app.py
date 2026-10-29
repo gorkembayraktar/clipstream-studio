@@ -161,11 +161,19 @@ def create_app() -> Starlette:
         "cpu": asyncio.Semaphore(1),
     }
     app.state.user_agent = USER_AGENT
+    #: Bağlantı havuzu sınırlıdır: HLS proxy'si her segment için bağlantı
+    #: açtığından sınırsız havuz, uzun oturumlarda boşta duran soketleri ve
+    #: okuma tamponlarını bellekte tutar.
     app.state.http = httpx.AsyncClient(
         verify=False,
         timeout=httpx.Timeout(15.0, read=60.0),
         follow_redirects=True,
         headers={"User-Agent": USER_AGENT, "Accept": "*/*"},
+        limits=httpx.Limits(
+            max_connections=32,
+            max_keepalive_connections=8,
+            keepalive_expiry=30.0,
+        ),
     )
 
     # Canlı kayıtlar backend'de sürer; açılışta diskteki durum geri yüklenir ve
@@ -177,6 +185,8 @@ def create_app() -> Starlette:
         await recorder.restore()
 
     async def on_shutdown() -> None:
+        # Süren dışa aktarmalar HTTP istemcisi kapanmadan durdurulmalı.
+        await jobs_api.shutdown_jobs()
         await recorder.shutdown()
         await app.state.http.aclose()
 

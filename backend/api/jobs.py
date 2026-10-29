@@ -18,6 +18,27 @@ async def _run_in_lane(job, manager, client, semaphore) -> None:
         await run_export_job(job, manager, client)
 
 
+#: Süren iş görevleri. `asyncio` görevlere yalnızca zayıf referans tuttuğu
+#: için referanssız bir görev çalışırken çöp toplanabilir; ayrıca kapanışta
+#: bekleyebilmek için listeye ihtiyaç var.
+_RUNNING_TASKS: set[asyncio.Task] = set()
+
+
+def _track(task: asyncio.Task) -> None:
+    """Görevi güçlü referansla izler; bitince kümeden düşer."""
+    _RUNNING_TASKS.add(task)
+    task.add_done_callback(_RUNNING_TASKS.discard)
+
+
+async def shutdown_jobs() -> None:
+    """Kapanışta süren dışa aktarma görevlerini iptal edip bekler."""
+    tasks = list(_RUNNING_TASKS)
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def create_job_endpoint(request):
     try:
         payload = await request.json()
@@ -31,7 +52,11 @@ async def create_job_endpoint(request):
     job = manager.create(payload, lang=current_language())
     lanes = request.app.state.job_lanes
     semaphore = lanes.get(job.get("lane", "cpu"), lanes["cpu"])
-    asyncio.create_task(_run_in_lane(job, manager, request.app.state.http, semaphore))
+    _track(
+        asyncio.create_task(
+            _run_in_lane(job, manager, request.app.state.http, semaphore)
+        )
+    )
     return JSONResponse({"success": True, "job_id": job["id"]})
 
 

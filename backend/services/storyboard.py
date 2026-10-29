@@ -571,10 +571,10 @@ async def _run(command: list[str], timeout: float, error_key: str) -> None:
     try:
         _, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        _kill(process)
+        await _kill(process)
         raise StoryboardError(t("error.storyboardTimeout"), status_code=504) from None
     except asyncio.CancelledError:
-        _kill(process)
+        await _kill(process)
         raise
 
     if process.returncode != 0:
@@ -583,9 +583,14 @@ async def _run(command: list[str], timeout: float, error_key: str) -> None:
         raise StoryboardError(message or t(error_key))
 
 
-def _kill(process: Any) -> None:
+async def _kill(process: Any) -> None:
+    """Süreci sonlandırır ve geri dönüşünü bekler (tanıtıcı/boru sızmasın)."""
     try:
         process.kill()
+    except Exception:
+        pass
+    try:
+        await process.wait()
     except Exception:
         pass
 

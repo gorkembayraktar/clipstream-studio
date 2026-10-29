@@ -641,7 +641,7 @@ async def _peaks_for_range(
             timeout=CHUNK_TIMEOUT_SECONDS,
         )
     except (asyncio.TimeoutError, asyncio.CancelledError):
-        _kill(process)
+        await _kill(process)
         raise
 
     if process.returncode != 0 and not stdout:
@@ -780,13 +780,13 @@ async def _extract(
                 timeout=TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
-            _kill(process)
+            await _kill(process, stderr_task)
             raise WaveformError(
                 t("error.waveformTimeout"),
                 status_code=504,
             ) from None
         except asyncio.CancelledError:
-            _kill(process)
+            await _kill(process, stderr_task)
             raise
 
         returncode = await process.wait()
@@ -852,11 +852,30 @@ async def _consume_stream(stream: Any, bucket_samples: int) -> tuple[bytearray, 
     return buckets, total_samples / SAMPLE_RATE
 
 
-def _kill(process: Any) -> None:
+async def _kill(process: Any, *tasks: Any) -> None:
+    """Süreci sonlandırır, geri dönüşünü ve yan görevlerini bekler.
+
+    Yalnızca `kill()` çağırmak süreci yeniden toplamaz; ayrıca stderr okuyan
+    görev iptal edilmezse boru taşıyıcısı açık kalır. Zaman aşımına uğrayan
+    her dalga formu isteği bu yüzden kalıcı bir sızıntı bırakıyordu.
+    """
+    for task in tasks:
+        task.cancel()
     try:
         process.kill()
     except Exception:
         pass
+    try:
+        await process.wait()
+    except Exception:
+        pass
+    for task in tasks:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            pass
 
 
 # ----------------------------------------------------------------- önbellek

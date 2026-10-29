@@ -51,6 +51,11 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
             process.kill()
         except Exception:
             pass
+        # Süreç yeniden toplanmazsa boru taşıyıcısı ve tanıtıcı açık kalır.
+        try:
+            await process.wait()
+        except Exception:
+            pass
         raise ProbeError(
             t("error.probeTimeout"),
             status_code=504,

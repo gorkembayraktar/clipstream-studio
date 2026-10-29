@@ -1,17 +1,48 @@
 """CORS proxy'si: uzak yayınları tarayıcıya aktarır ve HLS playlist'lerini yeniden yazar."""
 import re
 import urllib.parse
-from typing import Optional
+from typing import Any, Optional
 
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from core.i18n import t
 from services.header_store import get_headers
-from services.hls import is_hls_content_type
+from services.hls import MAX_PLAYLIST_BYTES, is_hls_content_type
 
 BROWSER_HEADERS = {
     "Accept": "*/*",
 }
+
+
+async def _aclose(response: Any) -> None:
+    """Yanıtı kapatır; yoksa ya da zaten kapalıysa sessizce döner."""
+    if response is None:
+        return
+    try:
+        await response.aclose()
+    except Exception:
+        pass
+
+
+async def _read_limited(response: Any, limit: int) -> bytes:
+    """Yanıt gövdesini en fazla ``limit`` bayt okuyup döndürür.
+
+    Playlist sanılan (`.txt` gibi) adresler çok büyük gövde döndürebilir;
+    sınırsız `aread()` sunucu belleğini tek istekte şişirir.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in response.aiter_bytes():
+        if not chunk:
+            continue
+        remaining = limit - size
+        if remaining <= 0:
+            break
+        part = chunk[:remaining]
+        chunks.append(part)
+        size += len(part)
+    return b"".join(chunks)
+
 
 #: m3u8 içindeki URI="..." taşıyan etiketler
 _URI_TAG_PREFIXES = ("#EXT-X-KEY:", "#EXT-X-MAP:", "#EXT-X-MEDIA:", "#EXT-X-I-FRAME-STREAM-INF:")
@@ -91,6 +122,7 @@ async def proxy_request(request) -> Response:
     if "range" in request.headers:
         headers["range"] = request.headers["range"]
 
+    upstream = None
     try:
         # Segment ve doğrudan dosyalar: bayt bayt, range desteğiyle akıt.
         # Playlist olup olmadığı URL uzantısından değil, yanıtın kendisinden
@@ -105,8 +137,13 @@ async def proxy_request(request) -> Response:
             # Playlist'ler küçüktür: gövde tamamen okunup URI'ler proxy'ye
             # çevrilir. `aread()` sıkıştırmayı çözer; yeni gövde farklı
             # uzunlukta olabileceği için upstream `Content-Length` kullanılmaz.
-            body = await upstream.aread()
-            await upstream.aclose()
+            # `.txt` uzantılı adresler de playlist sayıldığından gövde boyutu
+            # sınırlanır: bozuk bir CDN gigabaytlarca metin gönderirse sunucu
+            # belleği şişmemeli.
+            try:
+                body = await _read_limited(upstream, MAX_PLAYLIST_BYTES)
+            finally:
+                await _aclose(upstream)
             text = body.decode("utf-8", errors="replace")
 
             if "#EXTM3U" in text:
@@ -143,7 +180,7 @@ async def proxy_request(request) -> Response:
                 async for chunk in upstream.aiter_raw(chunk_size=65536):
                     yield chunk
             finally:
-                await upstream.aclose()
+                await _aclose(upstream)
 
         return StreamingResponse(
             stream_body(),
@@ -152,4 +189,8 @@ async def proxy_request(request) -> Response:
             headers=response_headers,
         )
     except Exception as exc:
+        # Yanıt açıldıktan sonra oluşan hatalarda bağlantı kapatılmazsa
+        # httpx havuzunda soket + okuma tamponu açık kalır; HLS oynatırken
+        # her kopan segment isteği kalıcı bir sızıntı bırakıyordu.
+        await _aclose(upstream)
         return JSONResponse({"error": t("error.proxyFailed", detail=exc)}, status_code=502)

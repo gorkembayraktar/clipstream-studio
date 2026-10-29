@@ -671,19 +671,49 @@ async def _run_ffmpeg(
     job["process"] = process
     stall_result: dict[str, Any] = {"stalled": False}
 
+    # Görevler açıkça tutulur: `gather` bir istisnada diğer kardeşleri iptal
+    # etmez; iptal edilmeyen okuma görevleri boru taşıyıcılarını açık bırakır
+    # ve süreç yeniden toplanmadığı için bellek sürekli büyür.
+    tasks = [
+        asyncio.create_task(
+            _read_progress(process, job, total_duration, progress_base)
+        ),
+        asyncio.create_task(process.wait()),
+        asyncio.create_task(_read_stderr(process)),
+        asyncio.create_task(
+            _watch_stall(process, job, total_duration, progress_base, stall_result)
+        ),
+    ]
     try:
-        _, _, stderr_tail, _ = await asyncio.gather(
-            _read_progress(process, job, total_duration, progress_base),
-            process.wait(),
-            _read_stderr(process),
-            _watch_stall(process, job, total_duration, progress_base, stall_result),
-        )
+        _, _, stderr_tail, _ = await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        try:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except BaseException:
+            pass
+        await _reap(process)
+        raise
     finally:
         if job.get("process") is process:
             job.pop("process", None)
 
     returncode = process.returncode if process.returncode is not None else -1
     return returncode, stderr_tail, bool(stall_result["stalled"])
+
+
+async def _reap(process: Any) -> None:
+    """Süreci sonlandırır ve geri dönüşünü bekler (tanıtıcı/boru sızmasın)."""
+    if process.returncode is None:
+        try:
+            process.kill()
+        except Exception:
+            pass
+    try:
+        await process.wait()
+    except BaseException:
+        pass
 
 
 def _can_resume(payload: dict[str, Any]) -> bool:
@@ -860,6 +890,14 @@ async def _run_ffmpeg_remux(command: list[str], job: dict[str, Any]) -> tuple[in
     try:
         await process.wait()
         stderr_tail = await stderr_task
+    except BaseException:
+        stderr_task.cancel()
+        try:
+            await stderr_task
+        except BaseException:
+            pass
+        await _reap(process)
+        raise
     finally:
         if job.get("process") is process:
             job.pop("process", None)
@@ -1441,6 +1479,11 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         for media in downloads:
             media.cleanup()
         downloads.clear()
+        # Yol rezervasyonu iş bitince bırakılır; aksi halde her dışa aktarma
+        # kümede kalıcı bir kayıt bırakır ve bellek yavaşça büyür.
+        reserved = job.get("output_path")
+        if reserved:
+            _RESERVED_PATHS.discard(str(reserved))
 
 
 def _parse_speed(raw: Any) -> Optional[float]:

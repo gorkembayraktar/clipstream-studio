@@ -20,6 +20,7 @@ import asyncio
 import re
 import secrets
 import time
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import unquote, urlparse
@@ -70,7 +71,10 @@ MP4_CONTAINER_EXTENSIONS = {".mp4", ".m4v", ".mov"}
 
 #: Kopyasız kaynaklar: rastgele jeton → gerçek dosya yolu.
 #: Sunucu yeniden başlatılırsa jetonlar geçersiz olur (kullanıcı yeniden seçer).
-_FILE_REGISTRY: dict[str, Path] = {}
+#: Kayıt sınırlı tutulur: uzun bir oturumda her "Gözat" yeni bir jeton eklediği
+#: için sözlük aksi halde sürekli büyürdü.
+_FILE_REGISTRY: "OrderedDict[str, Path]" = OrderedDict()
+_FILE_REGISTRY_LIMIT = 512
 
 #: Süren remux süreci ve iptal bayrağı (yeni bir remux başlarken sıfırlanır).
 _REMUX_PROCESS: Optional[asyncio.subprocess.Process] = None
@@ -120,6 +124,9 @@ def register_local_file(path: Path) -> str:
     """Kopyasız kaynağı jetonla kaydeder; oynatma adresi için jeton döner."""
     token = secrets.token_hex(12)
     _FILE_REGISTRY[token] = path
+    _FILE_REGISTRY.move_to_end(token)
+    while len(_FILE_REGISTRY) > _FILE_REGISTRY_LIMIT:
+        _FILE_REGISTRY.popitem(last=False)
     return token
 
 
@@ -413,6 +420,10 @@ async def _remux(
     except asyncio.TimeoutError:
         try:
             process.kill()
+        except Exception:
+            pass
+        try:
+            await process.wait()
         except Exception:
             pass
         target.unlink(missing_ok=True)

@@ -21,11 +21,16 @@ HEIGHT = 90
 QUALITY = 5
 TIME_BUCKET = 0.5
 MAX_CACHE_ENTRIES = 300
+#: Kare boyutu kaynağa göre değiştiği için giriş sayısına ek olarak toplam
+#: bayt da sınırlanır: 300 büyük kare onlarca megabayt tutabilirdi.
+MAX_CACHE_BYTES = 8 * 1024 * 1024
 TIMEOUT_SECONDS = 20.0
 MAX_CONCURRENT = 2
 
 #: sha1(url|zaman) → JPEG baytları
 _cache: "OrderedDict[str, bytes]" = OrderedDict()
+#: Önbellekteki JPEG baytlarının toplamı (bayt sınırını uygulamak için).
+_cache_bytes = 0
 #: aynı kare için ikinci süreç başlatılmaması adına uçuştaki anahtarlar
 _inflight: set[str] = set()
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT)
@@ -52,6 +57,7 @@ async def build_frame(
     if not url:
         raise FrameError(t("error.sourceEmpty"))
 
+    global _cache_bytes
     wanted = max(0.0, float(time or 0.0))
     source, _optimized = await _select_source(client, origin, url, headers)
     fingerprint = header_fingerprint(headers)
@@ -82,8 +88,12 @@ async def build_frame(
 
     _cache[key] = data
     _cache.move_to_end(key)
-    while len(_cache) > MAX_CACHE_ENTRIES:
-        _cache.popitem(last=False)
+    _cache_bytes += len(data)
+    while _cache and (
+        len(_cache) > MAX_CACHE_ENTRIES or _cache_bytes > MAX_CACHE_BYTES
+    ):
+        _, dropped = _cache.popitem(last=False)
+        _cache_bytes -= len(dropped)
 
     return data
 
@@ -143,10 +153,10 @@ async def _extract(source: str, time: float, headers: Any = None) -> bytes:
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
-        _kill(process)
+        await _kill(process)
         raise FrameError(t("error.frameTimeout"), status_code=504) from None
     except asyncio.CancelledError:
-        _kill(process)
+        await _kill(process)
         raise
 
     if process.returncode != 0 or not stdout:
@@ -156,8 +166,19 @@ async def _extract(source: str, time: float, headers: Any = None) -> bytes:
     return stdout
 
 
-def _kill(process: Any) -> None:
+async def _kill(process: Any) -> None:
+    """Süreci sonlandırır ve geri dönüşünü bekler.
+
+    Yalnızca `kill()` çağırmak süreci yeniden toplamaz (reap); Windows'ta
+    Proactor döngüsü boru taşıyıcılarını ve süreç tanıtıcısını bellekte
+    tutmaya devam eder. Zaman aşımına uğrayan her kare isteği bu yüzden
+    kalıcı bir sızıntı bırakıyordu.
+    """
     try:
         process.kill()
+    except Exception:
+        pass
+    try:
+        await process.wait()
     except Exception:
         pass
