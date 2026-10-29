@@ -8,7 +8,6 @@ Tasarım notları:
   grubu (`EXT-X-MEDIA`) ya da en düşük bit hızlı varyant tercih edilir; dalga
   formu için sesin hangi varyanttan geldiği önemli değildir.
 """
-import array
 import asyncio
 import base64
 import hashlib
@@ -18,6 +17,8 @@ import math
 import time
 from contextlib import aclosing
 from typing import Any, AsyncIterator, Optional
+
+import numpy as np
 
 from config import USER_AGENT, WAVEFORM_CACHE_DIR
 from core.i18n import t
@@ -58,8 +59,25 @@ logger = logging.getLogger(__name__)
 # Sessiz bölümler de görünür olsun diye hafif log-benzeri ölçek (0 < x < 1)
 PEAK_CURVE = 0.75
 
-# Aynı anda tek çıkarım: kaynak değiştirilse bile kaynak tüketimi sınırlı kalır.
-_extract_lock = asyncio.Lock()
+# Aynı kaynak için tek çıkarım: ikinci istek boşuna FFmpeg çalıştırmasın.
+# Kilit kaynak (önbellek anahtarı) başına tutulur; farklı dosyalar birbirini
+# beklemez. Tek olay döngüsünde çalıştığımız için sözlük ayrıca korunmaz.
+_extract_locks: dict[str, asyncio.Lock] = {}
+_EXTRACT_LOCKS_LIMIT = 32
+
+
+def _extract_lock_for(cache_key: str) -> asyncio.Lock:
+    lock = _extract_locks.get(cache_key)
+    if lock is None:
+        if len(_extract_locks) >= _EXTRACT_LOCKS_LIMIT:
+            # Yalnızca boşta olanlar atılır; tutulan bir kilidi düşürmek aynı
+            # kaynak için ikinci bir çıkarımı başlatırdı.
+            idle = [name for name, item in _extract_locks.items() if not item.locked()]
+            for name in idle:
+                _extract_locks.pop(name, None)
+        lock = asyncio.Lock()
+        _extract_locks[cache_key] = lock
+    return lock
 
 
 class WaveformError(Exception):
@@ -152,7 +170,7 @@ async def build_waveform(
         if cached is not None:
             return {**cached, "cached": True, "optimized": optimized}
 
-    async with _extract_lock:
+    async with _extract_lock_for(cache_key):
         if not force:
             cached = _read_cache(cache_key)
             if cached is not None:
@@ -458,7 +476,7 @@ async def stream_waveform(
                     yield event
                 return
 
-        async with _extract_lock:
+        async with _extract_lock_for(cache_key):
             if not force:
                 cached = _read_cache(cache_key)
                 if cached is not None:
@@ -557,6 +575,28 @@ def _to_u8(peak: int) -> int:
     return min(255, int(round(ratio * 255)))
 
 
+def _peak_of(samples: np.ndarray) -> int:
+    """Bir örnek bloğunun tepe genliği (int16 mutlak değeri taşmadan)."""
+    high = int(samples.max())
+    low = int(samples.min())
+    return max(high, -low)
+
+
+def _merge_peak(peaks: dict[int, int], index: int, value: int) -> None:
+    if value > peaks.get(index, -1):
+        peaks[index] = value
+
+
+def _full_bucket_peaks(samples: np.ndarray, bucket_samples: int) -> np.ndarray:
+    """Tam kovalara bölünebilen bloğun kova başına tepe değerleri."""
+    count = samples.size // bucket_samples
+    block = samples[: count * bucket_samples].reshape(count, bucket_samples)
+    # `-min()` int16'da -32768'de taşar; int32'ye yükseltip karşılaştır.
+    highs = block.max(axis=1).astype(np.int32)
+    lows = block.min(axis=1).astype(np.int32)
+    return np.maximum(highs, -lows)
+
+
 def _peaks_from_pcm(
     data: bytes,
     bucket_samples: int,
@@ -564,38 +604,43 @@ def _peaks_from_pcm(
 ) -> dict[int, int]:
     """PCM baytlarını kova indekslerine göre tepe değerlerine indirger.
 
-    `start_sample`, bu PCM parçasının toplam zaman çizgisindeki başlangıcıdır.
-    Böylece 5 dakikalık parçalar birbirinden bağımsız çözülse de kova sınırları
-    genel ses süresine göre hizalanır. Bir kova iki parçaya bölünürse iki
-    parçanın tepe değerlerinden büyüğü geçerlidir.
+    `start_sample`, bu PCM parçasının toplam zaman çizgisi üzerindeki
+    başlangıcıdır. Böylece 5 dakikalık parçalar birbirinden bağımsız çözülse
+    de kova sınırları genel ses süresine göre hizalanır. Bir kova iki parçaya
+    bölünürse iki parçanın tepe değerlerinden büyüğü geçerlidir.
     """
     if bucket_samples <= 0 or len(data) < 2:
         return {}
     if len(data) % 2:
         data = data[:-1]
 
-    samples = array.array("h")
-    samples.frombytes(data)
-    if not samples:
+    samples = np.frombuffer(data, dtype=np.int16)
+    if samples.size == 0:
         return {}
 
     peaks: dict[int, int] = {}
     index = start_sample // bucket_samples
-    remaining = bucket_samples - (start_sample % bucket_samples)
-    start = 0
-    total = len(samples)
+    pos = 0
 
-    while start < total:
-        take = min(remaining, total - start)
-        window = samples[start:start + take]
-        local = max(max(window), -min(window))
-        if index not in peaks or local > peaks[index]:
-            peaks[index] = local
-        start += take
-        remaining -= take
-        if remaining == 0:
-            index += 1
-            remaining = bucket_samples
+    # İlk kova, parçanın zaman çizgisindeki konumuna göre yarım başlayabilir.
+    first = min(bucket_samples - (start_sample % bucket_samples), samples.size)
+    _merge_peak(peaks, index, _peak_of(samples[:first]))
+    pos = first
+    index += 1
+
+    if pos < samples.size:
+        # Kalan tam kovalar tek bir numpy indirgemesiyle çözülür: kova başına
+        # ayrı Python dilimi/max/min turu, saatlik seste saniyeler alıyordu.
+        count = (samples.size - pos) // bucket_samples
+        if count:
+            for offset, value in enumerate(
+                _full_bucket_peaks(samples[pos:], bucket_samples)
+            ):
+                _merge_peak(peaks, index + offset, int(value))
+            pos += count * bucket_samples
+            index += count
+        if pos < samples.size:
+            _merge_peak(peaks, index, _peak_of(samples[pos:]))
 
     return peaks
 
@@ -810,7 +855,8 @@ async def _consume_stream(stream: Any, bucket_samples: int) -> tuple[bytearray, 
     buckets = bytearray()
     pending = b""
     peak = 0
-    remaining = bucket_samples
+    # Geçerli (yarım kalmış) kovada biriken örnek sayısı.
+    filled = 0
     total_samples = 0
 
     while True:
@@ -827,26 +873,34 @@ async def _consume_stream(stream: Any, bucket_samples: int) -> tuple[bytearray, 
         if not data:
             continue
 
-        samples = array.array("h")
-        samples.frombytes(data)
-        total_samples += len(samples)
+        samples = np.frombuffer(data, dtype=np.int16)
+        total_samples += samples.size
+        pos = 0
 
-        start = 0
-        total = len(samples)
-        while start < total:
-            take = min(remaining, total - start)
-            window = samples[start:start + take]
-            local = max(max(window), -min(window))
-            if local > peak:
-                peak = local
-            start += take
-            remaining -= take
-            if remaining == 0:
-                buckets.append(_to_u8(peak))
-                peak = 0
-                remaining = bucket_samples
+        # Yarım kalmış kovayı tamamla; tamamlanmıyorsa yalnızca tepe güncellenir.
+        if filled:
+            take = min(bucket_samples - filled, samples.size)
+            peak = max(peak, _peak_of(samples[:take]))
+            filled += take
+            pos = take
+            if filled < bucket_samples:
+                continue
+            buckets.append(_to_u8(peak))
+            peak = 0
+            filled = 0
 
-    if remaining < bucket_samples and peak:
+        # Kalan tam kovalar tek bir numpy indirgemesiyle çözülür.
+        if pos < samples.size:
+            count = (samples.size - pos) // bucket_samples
+            if count:
+                for value in _full_bucket_peaks(samples[pos:], bucket_samples):
+                    buckets.append(_to_u8(int(value)))
+                pos += count * bucket_samples
+            if pos < samples.size:
+                peak = _peak_of(samples[pos:])
+                filled = samples.size - pos
+
+    if filled and peak:
         buckets.append(_to_u8(peak))
 
     return buckets, total_samples / SAMPLE_RATE

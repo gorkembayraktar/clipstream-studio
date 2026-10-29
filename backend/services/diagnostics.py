@@ -91,7 +91,7 @@ def _gc_stats() -> dict[str, Any]:
 
 def _caches() -> dict[str, Any]:
     from services import exporter, frames, header_store, library
-    from services import local_media, streams, thumbnails
+    from services import local_media, streams, thumbnails, waveform
 
     return {
         "frames": {
@@ -121,6 +121,10 @@ def _caches() -> dict[str, Any]:
             "locks": len(streams._LOCKS),
         },
         "library_meta": {"entries": len(library._META_CACHE)},
+        "waveform_locks": {
+            "entries": len(waveform._extract_locks),
+            "limit": waveform._EXTRACT_LOCKS_LIMIT,
+        },
         "export_paths": {
             "reserved": len(exporter._RESERVED_PATHS),
             "copy_probes": len(exporter._COPY_PROBE_CACHE),

@@ -35,6 +35,7 @@ class SnapshotTests(unittest.TestCase):
                 "header_tokens",
                 "streams",
                 "library_meta",
+                "waveform_locks",
                 "export_paths",
             },
         )
@@ -42,6 +43,7 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(caches["frames"]["limit_bytes"], 8 * 1024 * 1024)
         self.assertEqual(caches["local_files"]["limit"], 512)
         self.assertEqual(caches["thumbnail_locks"]["limit"], 512)
+        self.assertEqual(caches["waveform_locks"]["limit"], 32)
         self.assertEqual(caches["header_tokens"]["limit"], 64)
 
     def test_collect_is_opt_in(self):
