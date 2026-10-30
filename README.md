@@ -11,22 +11,6 @@
   Paste a link. Trim, crop, and export.
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.11-8b5cf6?style=flat-square" alt="Version 0.2.11">
-  <img src="https://img.shields.io/badge/FFmpeg-required-15803d?style=flat-square&logo=ffmpeg&logoColor=white" alt="FFmpeg">
-  <img src="https://img.shields.io/badge/yt--dlp-optional-111827?style=flat-square" alt="yt-dlp optional">
-  <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT License">
-</p>
-
-<p align="center">
-  <a href="docs/demo-v3.mp4">
-    <img src="docs/demo-v3.gif" alt="ClipStream Studio demo" width="860">
-  </a>
-</p>
-
-<p align="center">
-  <sub>Demo source: Mux HLS test stream · <a href="docs/demo-v3.mp4">Watch the MP4</a></sub>
-</p>
 
 ---
 
