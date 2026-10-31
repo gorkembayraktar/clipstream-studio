@@ -12,6 +12,10 @@ export const en = {
   "language.en": "English",
   "language.tr": "Türkçe",
 
+  "notify.dismiss": "Dismiss notification",
+  "notify.region": "Notifications",
+  "notify.minimized": "{count} notifications",
+
   "common.cancel": "Cancel",
   "common.clear": "Clear",
   "common.close": "Close",

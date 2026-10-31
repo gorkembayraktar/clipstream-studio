@@ -13,7 +13,7 @@ import {
   PlayIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { ExportThumbnail } from "@/components/app/export-thumbnail"
 import { JobPreviewDialog } from "@/components/app/job-preview-dialog"

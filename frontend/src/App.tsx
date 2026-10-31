@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { toast } from "sonner"
 
 import { AppHeader } from "@/components/app/app-header"
 import { FileDropZone } from "@/components/app/file-drop-zone"
@@ -14,7 +13,7 @@ import { ProjectRecoveryScreen } from "@/components/app/project-recovery-screen"
 import { ProjectScreen } from "@/components/app/project-screen"
 import { ProjectWorkspaceProvider } from "@/components/app/project-workspace-context"
 import { SettingsDialog } from "@/components/app/settings-dialog"
-import { Toaster } from "@/components/ui/sonner"
+import { AppSnackbarProvider } from "@/components/ui/snackbar-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   useProjectWorkspace,
@@ -23,29 +22,21 @@ import {
 import { useIncomingProject } from "@/hooks/use-incoming-project"
 import { useProjectRoute } from "@/hooks/use-project-route"
 import { useI18n } from "@/i18n"
-
-const TOASTER = {
-  richColors: true,
-  position: "top-right",
-  offset: 56,
-  closeButton: true,
-  duration: 4200,
-} as const
+import { toast } from "@/lib/notify"
 
 export default function App() {
   const incoming = useIncomingProject()
   useProjectRoute()
 
-  if (incoming.active) {
-    return (
-      <>
+  return (
+    <AppSnackbarProvider>
+      {incoming.active ? (
         <IncomingProjectScreen fileName={incoming.fileName} error={incoming.error} />
-        <Toaster {...TOASTER} />
-      </>
-    )
-  }
-
-  return <StudioApp />
+      ) : (
+        <StudioApp />
+      )}
+    </AppSnackbarProvider>
+  )
 }
 
 function StudioApp() {
@@ -62,7 +53,6 @@ function StudioApp() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={300}>
         <Workspace />
-        <Toaster {...TOASTER} />
       </TooltipProvider>
     </QueryClientProvider>
   )

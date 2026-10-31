@@ -6,7 +6,7 @@
 import { useEffect, type RefObject } from "react"
 
 import type HlsJs from "hls.js"
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { translate } from "@/i18n"
 import { isHlsUrl } from "@/lib/media"

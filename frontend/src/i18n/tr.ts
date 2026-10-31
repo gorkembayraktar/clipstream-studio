@@ -9,6 +9,10 @@ export const tr: Record<TranslationKey, string> = {
   "language.en": "English",
   "language.tr": "Türkçe",
 
+  "notify.dismiss": "Bildirimi kapat",
+  "notify.region": "Bildirimler",
+  "notify.minimized": "{count} bildirim",
+
   "common.cancel": "İptal",
   "common.clear": "Temizle",
   "common.close": "Kapat",

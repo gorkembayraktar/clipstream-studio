@@ -14,7 +14,7 @@
  * kesilir, sunucudaki dosya penceresi kapatılır ve/veya remux süreci durdurulur.
  * İptal düğmesi hem kaynak panelinde hem de sağ alttaki bildirimde görünür.
  */
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 import { create } from "zustand"
 
 import { ApiError, api } from "@/lib/api"

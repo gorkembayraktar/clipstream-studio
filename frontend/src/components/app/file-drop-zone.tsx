@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { UploadCloud } from "lucide-react"
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { translate, useI18n } from "@/i18n"
 import { useLocalImportStore } from "@/stores/local-import-store"

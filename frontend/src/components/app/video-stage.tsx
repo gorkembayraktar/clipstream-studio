@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react"
 
 import { Clapperboard, Loader2 } from "lucide-react"
 import type HlsJs from "hls.js"
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { CropMenu } from "@/components/app/crop-menu"
 import { CropOverlay } from "@/components/app/crop-overlay"

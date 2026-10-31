@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { ApiError, api } from "@/lib/api"
 import { formatTime } from "@/lib/format"

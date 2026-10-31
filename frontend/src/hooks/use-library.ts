@@ -1,7 +1,7 @@
 /** Galeri (exports/) verileri için TanStack Query sarmalayıcıları. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 
 import { translate } from "@/i18n"
 import { api, ApiError } from "@/lib/api"

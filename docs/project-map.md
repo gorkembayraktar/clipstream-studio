@@ -158,31 +158,31 @@
 
 ### UI temelleri (`components/ui/`)
 
-| Dosya               | Açıklama / semboller |
-|---------------------|------------------------|
-| `alert-dialog.tsx`  | — |
-| `badge.tsx`         | — |
-| `button.tsx`        | — |
-| `card.tsx`          | — |
-| `checkbox.tsx`      | — |
-| `context-menu.tsx`  | — |
-| `dialog.tsx`        | — |
-| `dropdown-menu.tsx` | — |
-| `input.tsx`         | — |
-| `label.tsx`         | — |
-| `popover.tsx`       | — |
-| `progress.tsx`      | — |
-| `scroll-area.tsx`   | — |
-| `select.tsx`        | — |
-| `separator.tsx`     | — |
-| `skeleton.tsx`      | — |
-| `slider.tsx`        | — |
-| `sonner.tsx`        | — |
-| `switch.tsx`        | — |
-| `tabs.tsx`          | — |
-| `toggle-group.tsx`  | — |
-| `toggle.tsx`        | — |
-| `tooltip.tsx`       | — |
+| Dosya                   | Açıklama / semboller |
+|-------------------------|------------------------|
+| `alert-dialog.tsx`      | — |
+| `badge.tsx`             | — |
+| `button.tsx`            | — |
+| `card.tsx`              | — |
+| `checkbox.tsx`          | — |
+| `context-menu.tsx`      | — |
+| `dialog.tsx`            | — |
+| `dropdown-menu.tsx`     | — |
+| `input.tsx`             | — |
+| `label.tsx`             | — |
+| `popover.tsx`           | — |
+| `progress.tsx`          | — |
+| `scroll-area.tsx`       | — |
+| `select.tsx`            | — |
+| `separator.tsx`         | — |
+| `skeleton.tsx`          | — |
+| `slider.tsx`            | — |
+| `snackbar-provider.tsx` | AppSnackbarProvider |
+| `switch.tsx`            | — |
+| `tabs.tsx`              | — |
+| `toggle-group.tsx`      | — |
+| `toggle.tsx`            | — |
+| `tooltip.tsx`           | — |
 
 ### Hook'lar (`hooks/`)
 
@@ -216,6 +216,7 @@
 | `format.ts`             | clamp, sourceDisplayName, formatMegabytes, formatFrameRate, formatBytes, stripExtension, formatTime, formatClock, tickStep, formatTick, compactDuration, formatRemaining |
 | `keyboard-shortcuts.ts` | KEYBOARD_SHORTCUTS |
 | `media.ts`              | isHlsUrl, proxiedUrl, withScheme, extractPastedUrl |
+| `notify.ts`             | toast |
 | `project-handoff.ts`    | projectKey, writeProjectHandoff, readProjectHandoff, removeProjectHandoff |
 | `project-route.ts`      | projectParamFromUrl, isProjectId, readProjectIdFromUrl, projectHash, ensureProjectHash, setProjectInUrl, clearProjectFromUrl, projectUrl, cleanProjectUrl |
 | `project-workspace.ts`  | PROJECT_SCHEMA_VERSION, PROJECT_STORAGE_PREFIX, PROJECT_TITLE_MAX, createProjectId, projectStorageKey, readProjectWorkspace, writeProjectWorkspace, removeProjectWorkspace, listProjectWorkspaces |

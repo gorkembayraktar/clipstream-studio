@@ -12,7 +12,7 @@
  * değişimde (`playback`) tazelenir: playlist büyüyen bir EVENT listesidir ve
  * kayıt bitince video yeniden yüklenmez.
  */
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 import { create } from "zustand"
 
 import { translate } from "@/i18n"

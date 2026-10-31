@@ -5,7 +5,7 @@
  * kayıt bittiği anda akışın bir bloğu olur (`stream-store`). Böylece sayfa
  * F5'lense de kayıt durmaz: açılışta `refresh()` aynı kaydı yeniden bağlar.
  */
-import { toast } from "sonner"
+import { toast } from "@/lib/notify"
 import { create } from "zustand"
 
 import { translate } from "@/i18n"
