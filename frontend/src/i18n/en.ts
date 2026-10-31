@@ -63,6 +63,19 @@ export const en = {
   "home.hero.subtitle":
     "YouTube, X, Instagram, TikTok — or a file from your disk.",
 
+  "home.launcher.version": "Version {version} · Standalone",
+  "home.launcher.startSession": "Start session",
+  "home.launcher.shortcuts": "Shortcuts",
+  "home.launcher.shortcutPlay": "Play / pause",
+  "home.launcher.shortcutTrim": "Set in / out",
+  "home.launcher.shortcutCut": "Cut selection",
+  "home.launcher.shortcutPaste": "Paste URL",
+  "home.launcher.recentWorkspaces": "Recent workspaces",
+  "home.launcher.filterRecent": "Filter recent…",
+  "home.launcher.noRecent": "No recent workspaces found",
+  "home.launcher.removeHistory": "Remove from history",
+  "home.launcher.localVideo": "Local video",
+
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",
   "settings.nav.playback": "Playback",

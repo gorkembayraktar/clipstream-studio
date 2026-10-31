@@ -121,6 +121,7 @@
 | `file-icon.tsx`                 | FileIcon |
 | `gallery-preview-dialog.tsx`    | GalleryPreviewDialog |
 | `gallery.tsx`                   | Gallery |
+| `home-launcher.tsx`             | HomeLauncher |
 | `home-screen.tsx`               | HomeScreen |
 | `home-spotlight.tsx`            | HomeSpotlight |
 | `incoming-project-screen.tsx`   | IncomingProjectScreen |

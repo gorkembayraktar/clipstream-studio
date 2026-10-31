@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo/dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/logo/light.svg">
@@ -10,7 +10,6 @@
   A local video and live stream clipper.<br />
   Paste a link. Trim, crop, and export.
 </p>
-
 
 ---
 
@@ -25,41 +24,41 @@
   <tr>
     <td align="center" width="64"><img src="docs/logos/youtube.svg" width="30" alt="YouTube logo"></td>
     <td><strong>YouTube</strong><br><sub>Videos and Shorts.</sub></td>
-    <td align="center" title="Requires yt-dlp">✅</td>
+    <td align="center" title="Requires yt-dlp">âœ…</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/x.svg" width="30" alt="X logo"></td>
     <td><strong>X (Twitter)</strong><br><sub>Video posts.</sub></td>
-    <td align="center" title="Requires yt-dlp">✅</td>
+    <td align="center" title="Requires yt-dlp">âœ…</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/instagram.svg" width="30" alt="Instagram logo"></td>
     <td><strong>Instagram</strong><br><sub>Public posts and reels.</sub></td>
-    <td align="center" title="Requires yt-dlp">✅</td>
+    <td align="center" title="Requires yt-dlp">âœ…</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/tiktok.svg" width="30" alt="TikTok logo"></td>
     <td><strong>TikTok</strong><br><sub>Videos and Live streams (playback only).</sub></td>
-    <td align="center" title="Requires yt-dlp">✅</td>
+    <td align="center" title="Requires yt-dlp">âœ…</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/hls.svg" width="30" alt="HLS Stream logo"></td>
     <td><strong>m3u8 / HLS Stream</strong><br><sub>Master and media playlists. Supports <code>.m3u8</code>, <code>.txt</code>, and extensionless URLs.</sub></td>
-    <td align="center" title="No yt-dlp needed">❌</td>
+    <td align="center" title="No yt-dlp needed">âŒ</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/ffmpeg.svg" width="30" alt="FFmpeg logo"></td>
     <td><strong>Direct MP4 / WebM</strong><br><sub>HTTP(S) video files.</sub></td>
-    <td align="center" title="No yt-dlp needed">❌</td>
+    <td align="center" title="No yt-dlp needed">âŒ</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/local-file.svg" width="30" alt="Local file logo"></td>
     <td><strong>Local files</strong><br><sub>Browse or drag and drop.</sub></td>
-    <td align="center" title="No yt-dlp needed">❌</td>
+    <td align="center" title="No yt-dlp needed">âŒ</td>
   </tr>
 </table>
 
-✅ yt-dlp required · ❌ not required
+âœ… yt-dlp required Â· âŒ not required
 
 > <sub>FFmpeg is required for every source. Brand logos are from Simple Icons (CC0). HLS and local file icons are custom.</sub>
 
@@ -81,7 +80,7 @@
 - **Gallery:** Play, download, reveal, or delete clips.
 - **Protected media:** Paste a `curl` command to add headers.
 - **Languages:** English and Turkish.
-- **Shortcuts:** `Space`, `I`/`O`, `←`/`→`, `M`, `F`, `P`.
+- **Shortcuts:** `Space`, `I`/`O`, `â†`/`â†’`, `M`, `F`, `P`.
 
 ## Quick Start
 
@@ -126,7 +125,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.2.11`.
+and the version badge above in sync. Current version: `0.2.12`.
 
 ## Troubleshooting
 

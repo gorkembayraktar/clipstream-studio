@@ -1,10 +1,10 @@
-/** Ana sayfa: tek odaklı sinematik kaynak girişi ve son projeler. */
-import { HomeSpotlight } from "@/components/app/home-spotlight"
+/** Ana sayfa: tek ekran — "Desktop Launcher" karşılama düzeni. */
+import { HomeLauncher } from "@/components/app/home-launcher"
 
 export function HomeScreen() {
   return (
-    <div data-slot="home-screen" className="flex min-h-0 flex-1 flex-col">
-      <HomeSpotlight />
+    <div data-slot="home-screen" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+      <HomeLauncher />
     </div>
   )
 }

@@ -60,6 +60,19 @@ export const tr: Record<TranslationKey, string> = {
   "home.hero.subtitle":
     "YouTube, X, Instagram, TikTok — ya da diskindeki bir dosya.",
 
+  "home.launcher.version": "Sürüm {version} · Bağımsız",
+  "home.launcher.startSession": "Oturum başlat",
+  "home.launcher.shortcuts": "Kısayollar",
+  "home.launcher.shortcutPlay": "Oynat / duraklat",
+  "home.launcher.shortcutTrim": "Giriş / çıkış",
+  "home.launcher.shortcutCut": "Seçimi kes",
+  "home.launcher.shortcutPaste": "URL yapıştır",
+  "home.launcher.recentWorkspaces": "Son çalışma alanları",
+  "home.launcher.filterRecent": "Son projeleri filtrele…",
+  "home.launcher.noRecent": "Son çalışma alanı bulunamadı",
+  "home.launcher.removeHistory": "Geçmişten kaldır",
+  "home.launcher.localVideo": "Yerel video",
+
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",
   "settings.nav.playback": "Oynatma",
