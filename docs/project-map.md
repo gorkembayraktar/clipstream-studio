@@ -143,6 +143,7 @@
 | `side-panel.tsx`                | SidePanel |
 | `source-panels.tsx`             | CircleProgress, ResolveProgressCard, ImportProgressCard, SourceSummaryCard, SourceCurlDialog |
 | `source-timeline.tsx`           | SourceTimeline |
+| `splash-body.tsx`               | SplashBody |
 | `splash-mark.tsx`               | SplashMark |
 | `stage-controls.tsx`            | StageControls |
 | `stage-track-controls.tsx`      | StageTrackControls |
