@@ -11,6 +11,9 @@
   Paste a link. Trim, crop, and export.
 </p>
 
+
+> **Project status:** ClipStream Studio is currently in active development and has to be run from source (Python, FFmpeg and Node.js are required, see [Quick Start](#quick-start)).
+> If you find it useful, a ⭐ star or an [issue](../../issues) with feedback, bug reports or feature requests would be very welcome. Based on the interest, I'm planning to publish a ready-to-run Windows release (no setup needed).
 ---
 
 ## Supported Sources
