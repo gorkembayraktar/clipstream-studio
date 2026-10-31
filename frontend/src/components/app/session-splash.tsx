@@ -62,12 +62,8 @@ export function SessionSplash() {
       role="status"
       aria-live="polite"
       aria-busy
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-background/85 px-6 backdrop-blur-2xl"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-background px-6"
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-3xl" />
-      </div>
-
       <SplashBody
         title={t("splash.preparing")}
         caption={detail || stageLabel}

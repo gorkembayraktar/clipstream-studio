@@ -88,7 +88,8 @@ function Workspace() {
       {/* Kabuk her genişlikte tam yükseklikte durur: gövde kaymaz, kaydırma
           iç panellerde olur (ana sayfa, proje sahnesi). */}
       <div className="flex h-dvh flex-col overflow-hidden bg-background pb-8">
-        <AppHeader />
+        {/* Yükleme ekranında üst çubuk gizlenir: masaüstü açılışı gibi tek parça dursun. */}
+        {project.phase !== "hydrating" && project.phase !== "restoring" && <AppHeader />}
         {project.projectId ? (
           <ProjectGate project={project} />
         ) : (
