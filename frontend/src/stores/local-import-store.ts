@@ -25,6 +25,7 @@ import { projectHash } from "@/lib/project-route"
 import type { LocalFileResponse } from "@/lib/types"
 import { useExportStore } from "@/stores/export-store"
 import { log } from "@/stores/log-store"
+import { useSessionSplashStore } from "@/stores/session-splash-store"
 import { useSourceStore } from "@/stores/source-store"
 
 const VIDEO_EXTENSIONS = [
@@ -232,6 +233,9 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       fileSize: file.size,
       target,
     })
+    const splashToken = useSessionSplashStore.getState().start({
+      cancel: () => useLocalImportStore.getState().cancel(),
+    })
     log(
       "info",
       translate(
@@ -249,6 +253,11 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
       const percent = Math.round(ratio * 100)
       if (percent === lastPercent) return
       lastPercent = percent
+      useSessionSplashStore.getState().update({
+        progress: percent,
+        stage: "downloading",
+        detail: file.name,
+      })
       toast.loading(
         translate(
           target === "new-tab" ? "import.progressNew" : "import.progressUpload",
@@ -278,6 +287,11 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
         },
         onUploaded: () => {
           set({ progress: 1, processing: true })
+          useSessionSplashStore.getState().update({
+            progress: null,
+            stage: "transcoding",
+            detail: file.name,
+          })
           toast.loading(
             translate(
               target === "new-tab" ? "import.preparingNew" : "import.preparingBrowser",
@@ -397,6 +411,7 @@ export const useLocalImportStore = create<LocalImportState>()((set, get) => {
         )
       }
     } finally {
+      useSessionSplashStore.getState().finish(splashToken)
       toast.dismiss(IMPORT_TOAST_ID)
       if (activeController === controller) activeController = null
       set({

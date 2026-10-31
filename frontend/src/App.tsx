@@ -12,6 +12,7 @@ import { ProjectLoadingScreen } from "@/components/app/project-loading-screen"
 import { ProjectRecoveryScreen } from "@/components/app/project-recovery-screen"
 import { ProjectScreen } from "@/components/app/project-screen"
 import { ProjectWorkspaceProvider } from "@/components/app/project-workspace-context"
+import { SessionSplash } from "@/components/app/session-splash"
 import { SettingsDialog } from "@/components/app/settings-dialog"
 import { AppSnackbarProvider } from "@/components/ui/snackbar-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -35,6 +36,7 @@ export default function App() {
       ) : (
         <StudioApp />
       )}
+      <SessionSplash />
     </AppSnackbarProvider>
   )
 }

@@ -80,6 +80,8 @@ export const en = {
   "home.launcher.removeHistory": "Remove from history",
   "home.launcher.localVideo": "Local video",
 
+  "splash.preparing": "Preparing video…",
+
   "settings.dialogHint": "Preferences, log and shortcuts for this browser.",
   "settings.nav.general": "General",
   "settings.nav.playback": "Playback",

@@ -125,7 +125,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and the version badge above in sync. Current version: `0.2.13`.
+and the version badge above in sync. Current version: `0.2.14`.
 
 ## Troubleshooting
 

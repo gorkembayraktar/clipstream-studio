@@ -77,6 +77,8 @@ export const tr: Record<TranslationKey, string> = {
   "home.launcher.removeHistory": "Geçmişten kaldır",
   "home.launcher.localVideo": "Yerel video",
 
+  "splash.preparing": "Video hazırlanıyor…",
+
   "settings.dialogHint": "Bu tarayıcıya özel tercihler, günlük ve kısayollar.",
   "settings.nav.general": "Genel",
   "settings.nav.playback": "Oynatma",

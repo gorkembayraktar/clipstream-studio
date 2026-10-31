@@ -13,6 +13,7 @@ import { extractPastedUrl, withScheme } from "@/lib/media"
 import { useI18n } from "@/i18n"
 import { log } from "@/stores/log-store"
 import { useProjectUiStore } from "@/stores/project-ui-store"
+import { useSessionSplashStore } from "@/stores/session-splash-store"
 import { useSourceStore } from "@/stores/source-store"
 
 export const DEMO_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8"
@@ -105,8 +106,8 @@ export function useSourceResolve(): SourceResolve {
       setProgress(0)
       setStage("resolving")
       setDetail("")
+      const splashToken = useSessionSplashStore.getState().start({ cancel })
       log("info", t("log.sourceResolving", { url }))
-
       try {
         const resolved = await api.resolveStream(url, requestedHeaders, {
           onProgress: (event) => {
@@ -116,6 +117,14 @@ export function useSourceResolve(): SourceResolve {
             }
             if (event.stage) setStage(event.stage)
             if (event.detail !== undefined) setDetail(event.detail)
+            useSessionSplashStore.getState().update({
+              progress:
+                event.percent === undefined
+                  ? undefined
+                  : Math.max(0, Math.min(100, event.percent)),
+              stage: event.stage,
+              detail: event.detail,
+            })
           },
           signal: controller.signal,
         })
@@ -253,9 +262,10 @@ export function useSourceResolve(): SourceResolve {
         setProgress(null)
         setStage(null)
         setDetail("")
+        useSessionSplashStore.getState().finish(splashToken)
       }
     },
-    [setInputUrl, setMeta, setSource, setSourceLoading, setUseProxy, t],
+    [cancel, setInputUrl, setMeta, setSource, setSourceLoading, setUseProxy, t],
   )
 
   /** Panodaki bağlantıyı tek tıkla giriş alanına aktarır. */

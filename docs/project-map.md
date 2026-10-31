@@ -137,11 +137,13 @@
 | `project-workspace-context.tsx` | ProjectWorkspaceProvider, useProjectWorkspaceController |
 | `recent-projects.tsx`           | RecentProjects |
 | `recorder-controls.tsx`         | RecorderControls |
+| `session-splash.tsx`            | SessionSplash |
 | `settings-dialog.tsx`           | SettingsDialog |
 | `settings-panel.tsx`            | SettingsPanel |
 | `side-panel.tsx`                | SidePanel |
 | `source-panels.tsx`             | CircleProgress, ResolveProgressCard, ImportProgressCard, SourceSummaryCard, SourceCurlDialog |
 | `source-timeline.tsx`           | SourceTimeline |
+| `splash-mark.tsx`               | SplashMark |
 | `stage-controls.tsx`            | StageControls |
 | `stage-track-controls.tsx`      | StageTrackControls |
 | `storyboard-provider.tsx`       | StoryboardProvider, useStoryboardData |
@@ -226,21 +228,22 @@
 
 ### Zustand store'ları (`stores/`)
 
-| Dosya                   | Açıklama / semboller |
-|-------------------------|------------------------|
-| `edit-store.ts`         | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, clippedSegments, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt |
-| `export-store.ts`       | useExportStore |
-| `local-import-store.ts` | applyLocalSource, useLocalImportStore |
-| `log-store.ts`          | useLogStore, log |
-| `player-store.ts`       | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, LIVE_EDGE_MARGIN, LIVE_BUTTON_THRESHOLD, LIVE_BUTTON_PLAYING_THRESHOLD, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
-| `preferences-store.ts`  | usePreferencesStore |
-| `project-store.ts`      | useProjectStore |
-| `project-ui-store.ts`   | toPanelTab, useProjectUiStore |
-| `recorder-store.ts`     | useRecorderStore |
-| `source-store.ts`       | anchorAtTime, onExternalSource, streamPlaylistUrl, useSourceStore |
-| `stream-store.ts`       | useStreamStore |
-| `theme-store.ts`        | useThemeStore |
-| `timeline-store.ts`     | TIMELINE_ZOOM_LEVELS, MIN_TIMELINE_ZOOM, MAX_TIMELINE_ZOOM, useTimelineStore |
+| Dosya                     | Açıklama / semboller |
+|---------------------------|------------------------|
+| `edit-store.ts`           | MIN_TRIM_SECONDS, createSegment, trimOf, ensureTrim, clippedSegments, gapsOf, keptDuration, outputDuration, layoutOf, sourceToOutputTime, outputToSourceTime, segmentAt |
+| `export-store.ts`         | useExportStore |
+| `local-import-store.ts`   | applyLocalSource, useLocalImportStore |
+| `log-store.ts`            | useLogStore, log |
+| `player-store.ts`         | MIN_PLAYBACK_RATE, MAX_PLAYBACK_RATE, VOLUME_STEP, SEEK_BACK_SECONDS, SEEK_FORWARD_SECONDS, LIVE_EDGE_MARGIN, LIVE_BUTTON_THRESHOLD, LIVE_BUTTON_PLAYING_THRESHOLD, STEP_MODES, FALLBACK_FPS, getVideoElement, usePlayerStore |
+| `preferences-store.ts`    | usePreferencesStore |
+| `project-store.ts`        | useProjectStore |
+| `project-ui-store.ts`     | toPanelTab, useProjectUiStore |
+| `recorder-store.ts`       | useRecorderStore |
+| `session-splash-store.ts` | useSessionSplashStore |
+| `source-store.ts`         | anchorAtTime, onExternalSource, streamPlaylistUrl, useSourceStore |
+| `stream-store.ts`         | useStreamStore |
+| `theme-store.ts`          | useThemeStore |
+| `timeline-store.ts`       | TIMELINE_ZOOM_LEVELS, MIN_TIMELINE_ZOOM, MAX_TIMELINE_ZOOM, useTimelineStore |
 
 ### Çeviriler (`i18n/`)
 
