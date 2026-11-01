@@ -8,6 +8,9 @@
  * Şerit her zaman tam genişliğe sığar (yakınlaştırma yok); tıklayıp
  * sürükleyerek kaynak zamanında sarma yapılır ve hover'da kare önizlemesi
  * gösterilir.
+ *
+ * Kesim yokken şerit hiç çizilmez: o durumda tamamı tek renk bir şerit olur ve
+ * yalnızca yer kaplar. İnce tutulur (10 px) ve zaman etiketleri yatay yazılır.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 
@@ -30,9 +33,6 @@ import { usePlayerStore } from "@/stores/player-store"
 
 /** Çentik etiketleri arasında hedeflenen en az boşluk (px). */
 const TICK_MIN_SPACING = 80
-
-/** Dikey (90° döndürülmüş) çentik etiketinde karakter başına yükseklik (px). */
-const TICK_CHAR_HEIGHT = 5.5
 
 /** Kaldırılan aralıkların çapraz tarama deseni. */
 const CUT_STRIPES =
@@ -87,18 +87,20 @@ export function SourceTimeline() {
   }, [])
 
   const ticks = useMemo(() => {
-    if (duration <= 0) return { step: 1, items: [] as Array<{ time: number; label: string }>, height: 0 }
+    if (duration <= 0) {
+      return { step: 1, items: [] as Array<{ time: number; label: string }> }
+    }
     const laneWidth = width > 0 ? width : 600
     const divisions = Math.max(2, Math.floor(laneWidth / TICK_MIN_SPACING))
-    const step = tickStep(duration / divisions)
+    // `tickStep` zaten ~10 çentik hedefler; dilimi olduğu gibi vermek etiket
+    // sayısını 8 katına çıkarıyordu (37 sn'de 75 etiket). 10 ile ölçekliyoruz.
+    const step = tickStep((duration / divisions) * 10)
     const items: Array<{ time: number; label: string }> = []
     for (let index = 0; index * step <= duration + 1e-9; index += 1) {
       const time = index * step
       items.push({ time, label: formatTick(time, step) })
     }
-    // Etiketler dikey yazıldığı için yükseklik en uzun etikete göre hesaplanır.
-    const longest = items.reduce((max, item) => Math.max(max, item.label.length), 0)
-    return { step, items, height: 6 + Math.max(1, longest) * TICK_CHAR_HEIGHT }
+    return { step, items }
   }, [duration, width])
 
   /** Kaynak zamanı için yüzde konumu (şerit her zaman tam genişlik). */
@@ -191,7 +193,9 @@ export function SourceTimeline() {
   }
 
   // Sonlu bir kaynak yoksa (canlı yayın veya henüz yükleme) şerit gösterilmez.
-  if (duration <= 0) return null
+  // Kesim yokken de gösterilmez: tamamı tek renk bir şerit yalnızca yer kaplar.
+  // Şeridin işlevi kaldırılan aralıkları göstermek; onlar da yalnızca kesimde var.
+  if (duration <= 0 || gaps.length === 0) return null
 
   return (
     <div ref={wrapperRef} data-slot="source-timeline" className="relative min-w-0">
@@ -214,7 +218,7 @@ export function SourceTimeline() {
                 onPointerUp={handlePointerUp}
                 onPointerCancel={handlePointerUp}
                 onPointerLeave={() => setHover(null)}
-                className="relative h-6 cursor-pointer touch-none overflow-hidden rounded-md bg-muted/50 ring-1 ring-foreground/10"
+                className="relative h-2.5 cursor-pointer touch-none overflow-hidden rounded-md bg-muted/50 ring-1 ring-foreground/10"
               >
                 {/* Tam kaynak dalga formu (ana çizelgeyle aynı veri) */}
                 <WaveformLayer duration={duration} zoom={1} />
@@ -224,7 +228,7 @@ export function SourceTimeline() {
                   <div
                     key={segment.id}
                     data-slot="source-piece"
-                    className="absolute inset-y-0 rounded-[2px] bg-emerald-400/15 ring-1 ring-emerald-400/25 ring-inset"
+                    className="absolute inset-y-0 rounded-[2px] bg-foreground/[0.06] ring-1 ring-foreground/10 ring-inset"
                     style={{
                       left: `${pct(segment.start)}%`,
                       width: `${Math.max(0, pct(segment.end) - pct(segment.start))}%`,
@@ -264,7 +268,7 @@ export function SourceTimeline() {
                       style={{ left: `${pct(gap.start)}%` }}
                     >
                       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
-                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
+                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-2.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
                     </div>
                   ) : null,
                 )}
@@ -281,7 +285,7 @@ export function SourceTimeline() {
                       style={{ left: `${pct(gap.end)}%` }}
                     >
                       <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-red-400" />
-                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-4 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
+                      <div className="pointer-events-none absolute top-1/2 left-1/2 h-2.5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-red-400" />
                     </div>
                   ) : null,
                 )}
@@ -316,13 +320,9 @@ export function SourceTimeline() {
             </ContextMenuContent>
           </ContextMenu>
 
-          {/* Zaman damgaları: kaynak zamanı — dikey yazılır ki birbirine girmesin */}
-          <div
-            data-slot="source-ticks"
-            aria-hidden
-            className="relative mt-0.5"
-            style={{ height: ticks.height }}
-          >
+          {/* Zaman damgaları: kaynak zamanı. Yatay yazılır — çentik sayısı
+              şerit genişliğine göre sınırlı olduğu için üst üste binmezler. */}
+          <div data-slot="source-ticks" aria-hidden className="relative mt-1 h-3">
             {ticks.items.map(({ time, label }) => {
               const first = time <= 0
               const last = time + ticks.step > duration + 1e-9
@@ -330,7 +330,7 @@ export function SourceTimeline() {
                 <span
                   key={time}
                   data-slot="source-tick"
-                  className="absolute top-0 flex flex-col items-center gap-0.5 whitespace-nowrap text-muted-foreground"
+                  className="absolute top-0 text-[9px] leading-none whitespace-nowrap tabular-nums text-muted-foreground"
                   style={{
                     left: `${pct(time)}%`,
                     transform: first
@@ -340,10 +340,7 @@ export function SourceTimeline() {
                         : "translateX(-50%)",
                   }}
                 >
-                  <span className="block h-1 w-px bg-foreground/20" />
-                  <span className="block text-[9px] leading-none tabular-nums [writing-mode:vertical-rl]">
-                    {label}
-                  </span>
+                  {label}
                 </span>
               )
             })}

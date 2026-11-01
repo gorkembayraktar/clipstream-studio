@@ -8,17 +8,18 @@ import {
   ArrowRight,
   ClipboardPaste,
   FileVideo,
-  Film,
   FolderOpen,
   Keyboard,
   Link2,
   Loader2,
+  MoreVerticalIcon,
   Play,
   Search,
   Terminal,
   Trash2,
 } from "lucide-react"
 
+import { AppMenuItems } from "@/components/app/app-menu-items"
 import {
   ImportProgressCard,
   ResolveProgressCard,
@@ -26,6 +27,11 @@ import {
   SourceSummaryCard,
 } from "@/components/app/source-panels"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { useSourceResolve, DEMO_URL } from "@/hooks/use-source-resolve"
 import { useI18n } from "@/i18n"
@@ -89,19 +95,32 @@ export function HomeLauncher() {
     >
       <div className="mx-auto flex h-full w-full max-w-5xl items-center justify-center p-8">
         <div className="grid h-full max-h-[580px] w-full grid-cols-1 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xl md:grid-cols-12">
-          {/* Sol panel: oturum başlatma ve eylemler */}
+          {/* Sol panel: marka, oturum başlatma ve eylemler. Üst çubuk ana
+              sayfada gizli olduğu için logo ve ⋮ menü de burada durur. */}
           <div className="flex flex-col justify-between border-b border-border/70 p-6 md:col-span-5 md:border-b-0 md:border-r">
             <div>
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Film className="size-4" />
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <img
+                    src="/clipstream-mark-light.svg"
+                    alt=""
+                    className="h-7 w-auto shrink-0 dark:hidden"
+                  />
+                  <img
+                    src="/clipstream-mark-dark.svg"
+                    alt=""
+                    className="hidden h-7 w-auto shrink-0 dark:block"
+                  />
+                  <div className="min-w-0">
+                    <h1 className="truncate text-sm font-bold tracking-tight">
+                      ClipStream Studio
+                    </h1>
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                      {t("home.launcher.version", { version: APP_VERSION })}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-sm font-bold tracking-tight">ClipStream Studio</h1>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    {t("home.launcher.version", { version: APP_VERSION })}
-                  </span>
-                </div>
+                <HomeMenu />
               </div>
 
               <div className="mt-6 space-y-4">
@@ -299,5 +318,28 @@ export function HomeLauncher() {
         }}
       />
     </div>
+  )
+}
+
+/** Ana sayfadaki ⋮ menü: üst çubuk gizliyken ayarlar/günlük/dil/tema girişleri. */
+function HomeMenu() {
+  const { t } = useI18n()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title={t("menu.title")}
+          aria-label={t("menu.title")}
+        >
+          <MoreVerticalIcon />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <AppMenuItems />
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

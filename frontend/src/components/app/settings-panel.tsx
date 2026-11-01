@@ -192,8 +192,6 @@ function PlaybackSection() {
 
 function LogsSection() {
   const { t } = useI18n()
-  const showLogs = useLogStore((s) => s.showLogs)
-  const setShowLogs = useLogStore((s) => s.setShowLogs)
   const setOpen = useLogStore((s) => s.setOpen)
   const clear = useLogStore((s) => s.clear)
   const total = useLogStore((s) => s.entries.length)
@@ -204,57 +202,43 @@ function LogsSection() {
       <SectionCard>
         <SettingRow
           icon={TerminalIcon}
-          title={t("settings.showErrorLog")}
-          hint={t("settings.showErrorLogHint")}
+          title={t("logs.title")}
+          hint={t("settings.logsHint")}
         >
-          <Switch
-            checked={showLogs}
-            onCheckedChange={setShowLogs}
-            aria-label={t("settings.showErrorLog")}
-          />
-        </SettingRow>
-      </SectionCard>
-
-      {showLogs ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOpen(true)}
-            className="h-8 gap-1.5 text-xs"
-          >
-            <TerminalIcon className="size-3.5" aria-hidden />
-            {t("settings.openLog")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={clear}
-            className="h-8 gap-1.5 text-xs"
-          >
-            <EraserIcon className="size-3.5" aria-hidden />
-            {t("settings.clearLog")}
-          </Button>
-          <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
             <Badge variant="secondary" className="h-5 px-1.5 font-mono text-[10px]">
               {total}
             </Badge>
             <span>{t("settings.logEntries")}</span>
             {errors > 0 && (
-              <Badge
-                variant="destructive"
-                className="h-5 px-1.5 font-mono text-[10px]"
-              >
+              <Badge variant="destructive" className="h-5 px-1.5 font-mono text-[10px]">
                 {errors}
               </Badge>
             )}
           </div>
-        </div>
-      ) : (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {t("settings.logsHiddenHint")}
-        </p>
-      )}
+        </SettingRow>
+      </SectionCard>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <TerminalIcon className="size-3.5" aria-hidden />
+          {t("settings.openLog")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clear}
+          className="h-8 gap-1.5 text-xs"
+        >
+          <EraserIcon className="size-3.5" aria-hidden />
+          {t("settings.clearLog")}
+        </Button>
+      </div>
     </div>
   )
 }

@@ -7,7 +7,7 @@ import { FileDropZone } from "@/components/app/file-drop-zone"
 import { HomeScreen } from "@/components/app/home-screen"
 import { IncomingProjectScreen } from "@/components/app/incoming-project-screen"
 import { JobsDock } from "@/components/app/jobs-dock"
-import { LogDrawer } from "@/components/app/log-drawer"
+import { LogDialog } from "@/components/app/log-dialog"
 import { ProjectLoadingScreen } from "@/components/app/project-loading-screen"
 import { ProjectRecoveryScreen } from "@/components/app/project-recovery-screen"
 import { ProjectScreen } from "@/components/app/project-screen"
@@ -88,8 +88,11 @@ function Workspace() {
       {/* Kabuk her genişlikte tam yükseklikte durur: gövde kaymaz, kaydırma
           iç panellerde olur (ana sayfa, proje sahnesi). */}
       <div className="flex h-dvh flex-col overflow-hidden bg-background pb-8">
-        {/* Yükleme ekranında üst çubuk gizlenir: masaüstü açılışı gibi tek parça dursun. */}
-        {project.phase !== "hydrating" && project.phase !== "restoring" && <AppHeader />}
+        {/* Yükleme ekranında üst çubuk gizlenir: masaüstü açılışı gibi tek parça dursun.
+            Ana sayfada da yok: logoyu ve ⋮ menüyü başlatma kartı taşır. */}
+        {project.projectId &&
+          project.phase !== "hydrating" &&
+          project.phase !== "restoring" && <AppHeader />}
         {project.projectId ? (
           <ProjectGate project={project} />
         ) : (
@@ -98,7 +101,7 @@ function Workspace() {
       </div>
       <SettingsDialog />
       <FileDropZone />
-      <LogDrawer />
+      <LogDialog />
       {/* Dışa aktarma işleri globaldir: ana sayfada da görünür. */}
       <JobsDock />
     </ProjectWorkspaceProvider>

@@ -2,24 +2,17 @@
 import { useRef, useState } from "react"
 
 import {
-  CheckIcon,
   FilePlus2Icon,
   HistoryIcon,
-  InfoIcon,
-  LanguagesIcon,
   MenuIcon,
-  MoonIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
-  SettingsIcon,
-  SunIcon,
-  TerminalIcon,
 } from "lucide-react"
 
+import { AppMenuItems } from "@/components/app/app-menu-items"
 import { ProjectInfoPopover } from "@/components/app/project-info-popover"
 import { ProjectTitleField } from "@/components/app/project-title-field"
 import { useProjectWorkspaceController } from "@/components/app/project-workspace-context"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -37,15 +30,13 @@ import { formatRelativeTime, sourceDisplayName } from "@/lib/format"
 import { projectUrl } from "@/lib/project-route"
 import { listProjectWorkspaces } from "@/lib/project-workspace"
 import { useI18n } from "@/i18n"
-import { useLogStore } from "@/stores/log-store"
 import { useProjectUiStore } from "@/stores/project-ui-store"
 import { useSourceStore } from "@/stores/source-store"
-import { useThemeStore } from "@/stores/theme-store"
 
 const RECENT_LIMIT = 5
 
 export function AppHeader() {
-  const { t, locale, setLocale } = useI18n()
+  const { t } = useI18n()
   const project = useProjectWorkspaceController()
   const inProject = Boolean(project.projectId)
 
@@ -56,16 +47,7 @@ export function AppHeader() {
 
   const panelOpen = useProjectUiStore((s) => s.panelOpen)
   const togglePanel = useProjectUiStore((s) => s.togglePanel)
-  const setSettingsOpen = useProjectUiStore((s) => s.setSettingsOpen)
   const requestSourceFocus = useProjectUiStore((s) => s.requestSourceFocus)
-
-  const toggleLogs = useLogStore((s) => s.toggle)
-  const logsOpen = useLogStore((s) => s.open)
-  const showLogs = useLogStore((s) => s.showLogs)
-  const errorCount = useLogStore((s) => s.errorCount)
-
-  const theme = useThemeStore((s) => s.theme)
-  const setTheme = useThemeStore((s) => s.setTheme)
 
   const [recentProjects, setRecentProjects] = useState(() =>
     listProjectWorkspaces().slice(0, RECENT_LIMIT),
@@ -192,68 +174,7 @@ export function AppHeader() {
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-              <SettingsIcon />
-              {t("menu.settings")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => setSettingsOpen(true, "about")}
-            >
-              <InfoIcon />
-              {t("menu.about")}
-            </DropdownMenuItem>
-            {showLogs && (
-              <DropdownMenuItem onSelect={toggleLogs}>
-                <TerminalIcon />
-                {logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-                {errorCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-auto h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
-                  >
-                    {errorCount > 9 ? "9+" : errorCount}
-                  </Badge>
-                )}
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <LanguagesIcon />
-                {t("menu.language")}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem onSelect={() => setLocale("tr")}>
-                  {locale === "tr" ? <CheckIcon /> : <span className="size-3.5" />}
-                  Türkçe
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setLocale("en")}>
-                  {locale === "en" ? <CheckIcon /> : <span className="size-3.5" />}
-                  English
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                {theme === "dark" ? <MoonIcon /> : <SunIcon />}
-                {t("menu.theme")}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem onSelect={() => setTheme("dark")}>
-                  {theme === "dark" ? <CheckIcon /> : <span className="size-3.5" />}
-                  <MoonIcon />
-                  {t("menu.themeDark")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setTheme("light")}>
-                  {theme === "light" ? <CheckIcon /> : <span className="size-3.5" />}
-                  <SunIcon />
-                  {t("menu.themeLight")}
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            <AppMenuItems />
 
             <DropdownMenuSeparator />
             <p className="px-2 py-1.5 text-[10px] text-muted-foreground tabular-nums">
@@ -290,47 +211,6 @@ export function AppHeader() {
               {panelOpen ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
             </Button>
           )}
-
-          {showLogs && (
-            <Button
-              variant={logsOpen ? "secondary" : "ghost"}
-              size="icon-sm"
-              onClick={toggleLogs}
-              title={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-              aria-label={logsOpen ? t("menu.hideLogs") : t("menu.showLogs")}
-              className="relative"
-            >
-              <TerminalIcon />
-              {errorCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 font-mono text-[9px] tabular-nums"
-                >
-                  {errorCount > 9 ? "9+" : errorCount}
-                </Badge>
-              )}
-            </Button>
-          )}
-
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSettingsOpen(true)}
-            title={t("menu.settings")}
-            aria-label={t("menu.settings")}
-          >
-            <SettingsIcon />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            title={t("menu.themeToggle")}
-            aria-label={t("menu.themeToggle")}
-          >
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </Button>
         </div>
       </div>
     </header>

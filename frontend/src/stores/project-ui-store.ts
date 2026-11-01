@@ -60,7 +60,7 @@ interface ProjectUiState {
 
 export const useProjectUiStore = create<ProjectUiState>()((set) => ({
   panelTab: "export",
-  panelOpen: readBool(PANEL_OPEN_KEY, true),
+  panelOpen: readBool(PANEL_OPEN_KEY, false),
   settingsOpen: false,
   settingsSection: "general",
   historyOpen: readBool(HISTORY_OPEN_KEY, false),

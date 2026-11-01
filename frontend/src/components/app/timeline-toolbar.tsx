@@ -1,9 +1,17 @@
-/** Zaman çizelgesi araç çubuğu: kaba/hassas atlama, giriş-çıkış ve seçim eylemleri. */
+/** Zaman çizelgesi araç çubuğu: LosslessCut benzeri tek satır.
+ *
+ * Sık kullanılanlar görünür kalır (kaba sarma, hassas adım, seçimi oynatma,
+ * yakınlaştırma, dışa aktarma). Nadir kullanılanlar — adım boyu, döngü, seçim
+ * modu, tüm videoya dönme — "⋯" menüsüne taşınır ki şerit sade dursun.
+ */
 import {
+  CheckIcon,
   CirclePlayIcon,
+  MoreHorizontalIcon,
   RepeatIcon,
   RotateCcwIcon,
   RotateCwIcon,
+  ScissorsIcon,
   SquareDashedMousePointerIcon,
   StepBackIcon,
   StepForwardIcon,
@@ -13,15 +21,17 @@ import {
 
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useI18n, type TranslationKey } from "@/i18n"
 import {
-  getVideoElement,
   SEEK_BACK_SECONDS,
   SEEK_FORWARD_SECONDS,
   STEP_MODES,
@@ -33,9 +43,9 @@ import { useSourceStore } from "@/stores/source-store"
 import {
   MAX_TIMELINE_ZOOM,
   MIN_TIMELINE_ZOOM,
-  TIMELINE_ZOOM_LEVELS,
   useTimelineStore,
 } from "@/stores/timeline-store"
+import { useProjectUiStore } from "@/stores/project-ui-store"
 
 const STEP_LABEL_KEYS: Record<StepMode, TranslationKey> = {
   frame: "step.frame",
@@ -65,6 +75,11 @@ function SeekSecondsIcon({
   )
 }
 
+/** Menüde onay işareti ile boşluk arasında kaymayı önleyen yer tutucu. */
+function CheckSlot({ checked }: { checked: boolean }) {
+  return checked ? <CheckIcon /> : <span className="size-3.5" aria-hidden />
+}
+
 export function TimelineToolbar() {
   const { t } = useI18n()
   const seekBy = usePlayerStore((s) => s.seekBy)
@@ -73,69 +88,62 @@ export function TimelineToolbar() {
   const step = usePlayerStore((s) => s.step)
   const seek = usePlayerStore((s) => s.seek)
   const trim = useEditStore((s) => s.trim)
-  const setTrim = useEditStore((s) => s.setTrim)
   const loop = useEditStore((s) => s.loop)
   const setLoop = useEditStore((s) => s.setLoop)
+  const resetSegments = useEditStore((s) => s.resetSegments)
   const duration = useSourceStore((s) => s.meta?.duration ?? 0)
   const zoom = useTimelineStore((s) => s.zoom)
-  const setZoom = useTimelineStore((s) => s.setZoom)
   const zoomIn = useTimelineStore((s) => s.zoomIn)
   const zoomOut = useTimelineStore((s) => s.zoomOut)
   const resetZoom = useTimelineStore((s) => s.resetZoom)
   const selectMode = useTimelineStore((s) => s.selectMode)
   const toggleSelectMode = useTimelineStore((s) => s.toggleSelectMode)
+  const setPanelTab = useProjectUiStore((s) => s.setPanelTab)
+  const setPanelOpen = useProjectUiStore((s) => s.setPanelOpen)
 
-  const currentTimeOf = () =>
-    getVideoElement()?.currentTime ?? usePlayerStore.getState().currentTime
-
-  const markIn = () => setTrim({ start: currentTimeOf() })
-  const markOut = () => setTrim({ end: currentTimeOf() })
   const playSelection = () => {
     seek(trim.start)
     usePlayerStore.getState().play()
   }
-  const resetSegments = useEditStore((s) => s.resetSegments)
+  // Tüm video: kesimler dahil her şeyi geri getirir.
   const resetRange = () => {
-    // Tüm video: kesimler dahil her şeyi geri getirir.
     if (duration > 0) resetSegments()
   }
   const zoomPercent = Math.round(zoom * 100)
-  const zoomIndex = Math.max(
-    0,
-    TIMELINE_ZOOM_LEVELS.findIndex((level) => level === zoom),
-  )
+  const openExport = () => {
+    setPanelTab("export")
+    setPanelOpen(true)
+  }
 
   return (
     <div
       data-slot="timeline-toolbar"
-      className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-2"
+      className="flex flex-wrap items-center gap-1 px-2"
     >
       {/* Kaba atlama: 5 sn geri / 10 sn ileri */}
-      <div className="flex items-center gap-0.5">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => seekBy(-SEEK_BACK_SECONDS)}
-          data-slot="seek-back"
-          aria-label={t("player.seekBack")}
-          title={t("player.seekBack")}
-        >
-          <SeekSecondsIcon direction="back" seconds={SEEK_BACK_SECONDS} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => seekBy(SEEK_FORWARD_SECONDS)}
-          data-slot="seek-forward"
-          aria-label={t("player.seekForward")}
-          title={t("player.seekForward")}
-        >
-          <SeekSecondsIcon direction="forward" seconds={SEEK_FORWARD_SECONDS} />
-        </Button>
-      </div>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => seekBy(-SEEK_BACK_SECONDS)}
+        data-slot="seek-back"
+        aria-label={t("player.seekBack")}
+        title={t("player.seekBack")}
+      >
+        <SeekSecondsIcon direction="back" seconds={SEEK_BACK_SECONDS} />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => seekBy(SEEK_FORWARD_SECONDS)}
+        data-slot="seek-forward"
+        aria-label={t("player.seekForward")}
+        title={t("player.seekForward")}
+      >
+        <SeekSecondsIcon direction="forward" seconds={SEEK_FORWARD_SECONDS} />
+      </Button>
 
       {/* Hassas adım: kare ya da ms bazında ileri/geri (Shift ile ×10) */}
-      <div className="flex items-center gap-1 border-l border-border/70 pl-2">
+      <div className="ml-1 flex items-center gap-0.5 border-l border-border/70 pl-1.5">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -156,48 +164,12 @@ export function TimelineToolbar() {
         >
           <StepForwardIcon />
         </Button>
-        <Select value={stepMode} onValueChange={(value) => setStepMode(value as StepMode)}>
-          <SelectTrigger
-            size="sm"
-            className="w-[92px] text-xs tabular-nums"
-            aria-label={t("player.stepSize")}
-            title={t("player.stepSizeTitle")}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start" className="min-w-[92px]">
-            {STEP_MODES.map((mode) => (
-              <SelectItem key={mode} value={mode} className="text-xs tabular-nums">
-                {t(STEP_LABEL_KEYS[mode])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Giriş / çıkış ve seçimi oynatma */}
-      <div className="flex items-center gap-1 border-l border-border/70 pl-2">
+      {/* Seçimi baştan oynat */}
+      <div className="ml-1 flex items-center gap-0.5 border-l border-border/70 pl-1.5">
         <Button
-          variant="outline"
-          size="sm"
-          onClick={markIn}
-          data-slot="mark-in"
-          title={t("player.markIn")}
-          className="text-emerald-600 dark:text-emerald-400"
-        >
-          {t("player.in")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={markOut}
-          data-slot="mark-out"
-          title={t("player.markOut")}
-          className="text-amber-600 dark:text-amber-400"
-        >
-          {t("player.out")}
-        </Button>
-        <Button
+          variant="ghost"
           size="icon-sm"
           onClick={playSelection}
           data-slot="play-selection"
@@ -208,52 +180,13 @@ export function TimelineToolbar() {
         </Button>
       </div>
 
-      {/* Kesim alanı seçimi: açıkken Shift gerekmeden sürükleyerek seç */}
-      <div className="flex items-center gap-1 border-l border-border/70 pl-2">
-        <Button
-          variant={selectMode ? "secondary" : "ghost"}
-          size="sm"
-          onClick={toggleSelectMode}
-          data-slot="select-mode"
-          aria-pressed={selectMode}
-          title={t("timeline.selectModeTitle")}
-        >
-          <SquareDashedMousePointerIcon />
-          {t("timeline.selectMode")}
-        </Button>
-      </div>
-
       <div className="ml-auto flex items-center gap-1">
-        <div className="flex items-center gap-0.5">
-          <Button
-            variant={loop ? "secondary" : "ghost"}
-            size="icon-sm"
-            onClick={() => setLoop(!loop)}
-            data-slot="loop-toggle"
-            aria-label={t("trim.loop")}
-            aria-pressed={loop}
-            title={t("trim.loop")}
-          >
-            <RepeatIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={resetRange}
-            disabled={duration <= 0}
-            data-slot="reset-range"
-            aria-label={t("trim.fullRange")}
-            title={t("trim.fullRange")}
-          >
-            <RotateCcwIcon />
-          </Button>
-        </div>
-
-        {/* Zaman çizelgesi yakınlaştırması: yüzde etiketi sıfırlar, altındaki kaydırıcı seviye seçer. */}
+        {/* Yakınlaştırma: yüzde etiketi sıfırlar. Kaydırıcı yerine üç düğme:
+            şerit sade kalsın, kademeler zaten sabit. */}
         <div
           role="group"
           aria-label={t("timeline.zoom")}
-          className="flex items-center gap-0.5 border-l border-border/70 pl-2"
+          className="flex items-center gap-0.5"
         >
           <Button
             variant="ghost"
@@ -266,36 +199,16 @@ export function TimelineToolbar() {
           >
             <ZoomOutIcon />
           </Button>
-          <div className="flex h-7 w-14 shrink-0 flex-col items-center">
-            <button
-              type="button"
-              onClick={resetZoom}
-              data-slot="timeline-zoom-reset"
-              aria-label={t("timeline.zoomResetLevel", { percent: zoomPercent })}
-              title={t("timeline.zoomReset")}
-              className="flex h-4 w-full items-center justify-center rounded-sm font-mono text-[10px] leading-none tabular-nums text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-            >
-              {zoomPercent}%
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={TIMELINE_ZOOM_LEVELS.length - 1}
-              step={1}
-              value={zoomIndex}
-              onChange={(event) =>
-                setZoom(
-                  TIMELINE_ZOOM_LEVELS[Number(event.currentTarget.value)] ??
-                    MIN_TIMELINE_ZOOM,
-                )
-              }
-              data-slot="timeline-zoom-range"
-              aria-label={t("timeline.zoom")}
-              aria-valuetext={`${zoomPercent}%`}
-              title={t("timeline.zoomSlider")}
-              className="h-3 w-14 cursor-ew-resize appearance-none rounded-full bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:mt-[-3px] [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={resetZoom}
+            data-slot="timeline-zoom-reset"
+            aria-label={t("timeline.zoomResetLevel", { percent: zoomPercent })}
+            title={t("timeline.zoomReset")}
+            className="flex h-7 w-11 shrink-0 items-center justify-center rounded-md font-mono text-[10px] leading-none tabular-nums text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          >
+            {zoomPercent}%
+          </button>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -308,6 +221,73 @@ export function TimelineToolbar() {
             <ZoomInIcon />
           </Button>
         </div>
+
+        {/* Nadir ayarlar: adım boyu, döngü, seçim modu, tüm videoya dönme. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              data-slot="timeline-more"
+              aria-label={t("timeline.more")}
+              title={t("timeline.more")}
+            >
+              <MoreHorizontalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-52">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <StepForwardIcon />
+                <span className="min-w-0 flex-1 truncate">
+                  {t("player.stepSize")}
+                </span>
+                <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">
+                  {t(STEP_LABEL_KEYS[stepMode])}
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {STEP_MODES.map((mode) => (
+                  <DropdownMenuItem key={mode} onSelect={() => setStepMode(mode)}>
+                    <CheckSlot checked={mode === stepMode} />
+                    {t(STEP_LABEL_KEYS[mode])}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onSelect={() => setLoop(!loop)}>
+              <CheckSlot checked={loop} />
+              <RepeatIcon />
+              {t("trim.loop")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => toggleSelectMode()}>
+              <CheckSlot checked={selectMode} />
+              <SquareDashedMousePointerIcon />
+              {t("timeline.selectMode")}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onSelect={resetRange} disabled={duration <= 0}>
+              <RotateCcwIcon />
+              {t("trim.fullRange")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Dışa aktarma paneli kapalıyken de tek tıkla erişilebilir kalsın. */}
+        <Button
+          size="sm"
+          data-slot="open-export"
+          onClick={openExport}
+          title={t("timeline.exportMenu")}
+        >
+          <ScissorsIcon />
+          {t("tabs.export")}
+        </Button>
       </div>
     </div>
   )
