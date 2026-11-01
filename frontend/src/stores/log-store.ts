@@ -1,7 +1,7 @@
-/** Sistem & hata günlüğü (referans projedeki log çekmecesinin karşılığı).
+/** Sistem & hata günlüğü.
  *
- * Kayıtlar en fazla MAX_ENTRIES adet tutulur; hata kaydı geldiğinde çekmece
- * otomatik olarak açılır. Tarayıcı konsoluna da aynı satır yazılır.
+ * Kayıtlar en fazla MAX_ENTRIES adet tutulur. Günlük modal olarak açılır;
+ * hata sayısı menüdeki rozette görünür. Tarayıcı konsoluna da aynı satır yazılır.
  */
 import { create } from "zustand"
 
@@ -19,24 +19,6 @@ export interface LogEntry {
 }
 
 const MAX_ENTRIES = 500
-const SHOW_LOGS_KEY = "clip2:show-logs"
-
-function readShowLogs(): boolean {
-  if (typeof window === "undefined") return false
-  try {
-    return window.localStorage.getItem(SHOW_LOGS_KEY) === "true"
-  } catch {
-    return false
-  }
-}
-
-function persistShowLogs(show: boolean) {
-  try {
-    window.localStorage.setItem(SHOW_LOGS_KEY, String(show))
-  } catch {
-    /* gizli sekme vb. durumlarda sessizce yok sayılır */
-  }
-}
 
 function stamp(): string {
   const now = new Date()
@@ -59,12 +41,10 @@ interface LogState {
   entries: LogEntry[]
   errorCount: number
   open: boolean
-  showLogs: boolean
   nextId: number
   log: (level: LogLevel, message: string, extra?: unknown) => void
   clear: () => void
   setOpen: (open: boolean) => void
-  setShowLogs: (show: boolean) => void
   toggle: () => void
 }
 
@@ -79,7 +59,6 @@ export const useLogStore = create<LogState>((set, get) => ({
   entries: [STARTUP_ENTRY],
   errorCount: 0,
   open: false,
-  showLogs: readShowLogs(),
   nextId: 2,
 
   log: (level, message, extra) => {
@@ -103,8 +82,6 @@ export const useLogStore = create<LogState>((set, get) => ({
         entries,
         nextId: state.nextId + 1,
         errorCount: state.errorCount + (level === "error" ? 1 : 0),
-        // Hata kaydında çekmece kendiliğinden açılır; ayarlarda kapalıysa açılmaz.
-        open: level === "error" && state.showLogs ? true : state.open,
       }
     })
   },
@@ -114,14 +91,8 @@ export const useLogStore = create<LogState>((set, get) => ({
     get().log("info", translate("log.cleared"))
   },
 
-  setOpen: (open) =>
-    set((state) => (open && !state.showLogs ? state : { open })),
-  setShowLogs: (showLogs) => {
-    persistShowLogs(showLogs)
-    set(showLogs ? { showLogs, open: true } : { showLogs, open: false })
-  },
-  // Panel ayarlarda kapalıyken açma isteği yok sayılır.
-  toggle: () => set((state) => (state.showLogs ? { open: !state.open } : state)),
+  setOpen: (open) => set({ open }),
+  toggle: () => set((state) => ({ open: !state.open })),
 }))
 
 /** React dışından (ör. api katmanı) kayıt eklemek için kısayol. */

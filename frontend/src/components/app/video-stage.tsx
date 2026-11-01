@@ -1019,7 +1019,7 @@ export function VideoStage() {
   return (
     <div
       data-slot="video-stage"
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10"
+      className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-black"
     >
       <div
         className="stage-frame relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black"

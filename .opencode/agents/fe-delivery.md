@@ -12,7 +12,7 @@ Sen ClipStream Studio'nun **delivery/library** ajanısın. Dışa aktarma işler
 - `frontend/src/components/app/jobs-dock.tsx`
 - `frontend/src/components/app/gallery.tsx`
 - `frontend/src/components/app/gallery-preview-dialog.tsx`
-- `frontend/src/components/app/log-drawer.tsx`
+- `frontend/src/components/app/log-dialog.tsx`
 - `frontend/src/hooks/use-export-job.ts`
 - `frontend/src/hooks/use-gpu-capability.ts`
 - `frontend/src/hooks/use-library.ts`

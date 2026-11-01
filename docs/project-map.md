@@ -106,6 +106,7 @@
 | Dosya                           | Açıklama / semboller |
 |---------------------------------|------------------------|
 | `app-header.tsx`                | AppHeader |
+| `app-menu-items.tsx`            | AppMenuItems |
 | `crop-menu.tsx`                 | CropMenu |
 | `crop-overlay.tsx`              | CropOverlay |
 | `delete-file-dialog.tsx`        | DeleteFileDialog, DeleteFilesDialog |
@@ -128,7 +129,7 @@
 | `job-preview-dialog.tsx`        | JobPreviewDialog |
 | `job-progress.tsx`              | JobProgress |
 | `jobs-dock.tsx`                 | JobsDock |
-| `log-drawer.tsx`                | LogDrawer |
+| `log-dialog.tsx`                | LogDialog |
 | `project-info-popover.tsx`      | ProjectInfoPopover |
 | `project-loading-screen.tsx`    | ProjectLoadingScreen |
 | `project-recovery-screen.tsx`   | ProjectRecoveryScreen |

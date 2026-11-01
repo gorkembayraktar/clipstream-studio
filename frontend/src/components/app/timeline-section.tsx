@@ -65,18 +65,18 @@ export function TimelineSection() {
       data-slot="timeline-section"
       inert={!streamUrl}
       className={cn(
-        "stage-strip min-w-0 space-y-2 border-t border-border/60 px-3 py-2.5",
+        "stage-strip min-w-0 shrink-0 space-y-1.5 border-t border-border/60 px-3 py-2",
         !streamUrl && "pointer-events-none opacity-60",
       )}
     >
       <TimelineToolbar />
+      <TrimBar />
       <WaveformProvider>
         <StoryboardProvider>
           <Timeline />
           <SourceTimeline />
         </StoryboardProvider>
       </WaveformProvider>
-      <TrimBar />
     </div>
   )
 }

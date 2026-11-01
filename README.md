@@ -64,13 +64,14 @@
 
 ## Features
 
+- **Minimal UI:** The stage takes the full width and the timeline strip keeps only everyday actions — seek, step, in/out, split, cut, and export. Rare options live behind the `⋯` menu, and the side panel is closed by default.
 - **Sources:** YouTube, X, Instagram, TikTok, HLS, direct MP4/WebM, and local files.
 - **Audio:** Choose alternate HLS audio tracks or YouTube dubs.
 - **Subtitles:** Preview HLS WebVTT subtitles. Subtitles are not burned into exports.
 - **HLS errors:** Clear messages for 403, 404, CORS, missing segments, and unsupported codecs.
 - **Trim:** Set in and out points on the timeline.
 - **Multi-cut:** Shift+drag a range on the timeline and press `Delete` to remove it; the preview skips the removed range and the export is rendered without it. The main timeline closes the gap up (ripple), so its duration always matches the export. Multiple cuts apply to MP4 exports.
-- **Source lane:** A second lane under the main timeline shows the whole source in source time, with removed ranges marked in red and vertical time labels. Drag the red edges to fine-tune a cut, click the red area to restore it, and hover for frame previews.
+- **Source lane:** When a range is cut, a thin lane under the main timeline shows the whole source in source time, with removed ranges marked in red. Drag the red edges to fine-tune a cut, click the red area to restore it, and hover for frame previews. With no cuts the lane stays hidden.
 - **Live recording:** Record a live HLS stream while it keeps playing. The backend keeps recording if the page reloads, converts the result to MP4 on stop, and keeps it out of the gallery as a raw source.
 - **Clip sequence:** Finished recordings are appended to the project's timeline in order. The backend merges them into one continuous stream without re-encoding, so the playhead crosses clip boundaries and in/out points plus export cover the whole sequence. Recordings belong to the project they were started in.
 - **Crop:** Use presets or freeform selection.
@@ -125,7 +126,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and this note in sync. Current version: `0.2.17`.
+and this note in sync. Current version: `0.2.22`.
 
 ## Troubleshooting
 

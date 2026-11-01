@@ -109,11 +109,11 @@ export function TrimBar() {
   return (
     <div
       data-slot="trim-bar"
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-2"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2"
     >
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+      {/* LosslessCut'taki gibi: renkli nokta yerine sade In/Out etiketi + alan. */}
+      <label className="flex items-center gap-1.5">
+        <span className="font-mono text-[10px] font-semibold tracking-wide text-emerald-600 uppercase dark:text-emerald-400">
           {t("trim.in")}
         </span>
         <TimeInput
@@ -124,9 +124,8 @@ export function TrimBar() {
         />
       </label>
 
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="size-1.5 rounded-full bg-amber-500 dark:bg-amber-400" />
+      <label className="flex items-center gap-1.5">
+        <span className="font-mono text-[10px] font-semibold tracking-wide text-amber-600 uppercase dark:text-amber-400">
           {t("trim.out")}
         </span>
         <TimeInput
@@ -137,7 +136,7 @@ export function TrimBar() {
         />
       </label>
 
-      <div className="flex items-center gap-1.5">
+      <div className="ml-1 flex items-center gap-1.5">
         <Button
           type="button"
           size="xs"
@@ -163,14 +162,7 @@ export function TrimBar() {
             <Trash2Icon />
             {t("trim.removeSelection")}
           </Button>
-        ) : (
-          !isLive &&
-          gaps.length === 0 && (
-            <span className="text-[11px] text-muted-foreground">
-              {t("trim.splitHint")}
-            </span>
-          )
-        )}
+        ) : null}
       </div>
 
       {(gaps.length > 0 || empty) && (
