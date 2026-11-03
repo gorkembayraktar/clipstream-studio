@@ -78,11 +78,19 @@ def is_gpu_encoder(name: str) -> bool:
     return get_gpu_encoder(name) is not None
 
 
-def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
+def gpu_encoder_arguments(
+    name: str,
+    quality: str = "high",
+    maxrate_kbps: Optional[int] = None,
+) -> list[str]:
     """FFmpeg komutuna eklenecek video kodlayıcı argümanları.
 
     ``quality`` profili x264 tarafındaki CRF karşılığına eşlenir. Bilinmeyen
     profil, geriye dönük uyumluluk için ``high`` kabul edilir.
+
+    ``maxrate_kbps`` verilirse VBR kodlamaya üst sınır eklenir. NVENC/QSV/AMF
+    sabit kalite modunda çalıştığı için ``-b:v 0`` ile birlikte sınırsız çıktı
+    üretebiliyordu; kaynak bitrate'inden türetilen tavan bu şişmeyi önler.
     """
     encoder = get_gpu_encoder(name)
     if encoder is None:
@@ -90,6 +98,7 @@ def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
 
     profile = quality if quality in GPU_QUALITY_LEVELS else "high"
     value = str(GPU_QUALITY_LEVELS[profile])
+    ceiling = _bitrate_ceiling_arguments(maxrate_kbps)
     if encoder.name == "h264_nvenc":
         return [
             "-c:v",
@@ -104,6 +113,7 @@ def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
             value,
             "-b:v",
             "0",
+            *ceiling,
         ]
     if encoder.name == "h264_qsv":
         return [
@@ -113,6 +123,7 @@ def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
             "veryfast",
             "-global_quality",
             value,
+            *ceiling,
         ]
     if encoder.name == "h264_amf":
         return [
@@ -128,8 +139,23 @@ def gpu_encoder_arguments(name: str, quality: str = "high") -> list[str]:
             value,
             "-qp_b",
             value,
+            *ceiling,
         ]
     raise ValueError(f"Unsupported GPU encoder: {name}")
+
+
+def _bitrate_ceiling_arguments(maxrate_kbps: Optional[int]) -> list[str]:
+    """VBR kodlamaya üst sınır argümanlarını üretir (değer yoksa boş)."""
+    try:
+        ceiling = int(maxrate_kbps or 0)
+    except (TypeError, ValueError):
+        return []
+    if ceiling <= 0:
+        return []
+    # Tampon, sınırın iki katı: ani sahne değişimlerinde kırpma yerine
+    # kısa süreli taşmaya izin verir, ortalama bitrate sınırın altında kalır.
+    return ["-maxrate", f"{ceiling}k", "-bufsize", f"{ceiling * 2}k"]
+
 
 
 async def detect_gpu_capability(force: bool = False) -> GpuCapability:

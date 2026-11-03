@@ -38,6 +38,14 @@ _MESSAGES: dict[str, tuple[str, str]] = {
         "Multiple cuts are only supported for MP4 output.",
         "Çoklu kesim yalnızca MP4 çıktısında desteklenir.",
     ),
+    "error.invalidOutputScale": (
+        "Unsupported output resolution: {scale}. Use 1080, 720, 480 or 360.",
+        "Desteklenmeyen çıktı çözünürlüğü: {scale}. 1080, 720, 480 veya 360 kullanın.",
+    ),
+    "error.invalidAudioMode": (
+        "Unsupported audio mode: {mode}. Use auto, voice or strip.",
+        "Desteklenmeyen ses modu: {mode}. auto, voice veya strip kullanın.",
+    ),
     "error.jobNotFound": ("Job not found.", "İşlem bulunamadı."),
     "error.jobFinished": ("Job has already finished.", "İşlem zaten sonlandı."),
     "error.jobCancelled": ("Export cancelled.", "Dışa aktarma iptal edildi."),

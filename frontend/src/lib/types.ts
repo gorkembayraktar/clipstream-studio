@@ -107,6 +107,8 @@ export interface ProbeResponse {
   duration: number
   size_mb: number
   size_bytes: number
+  /** Toplam bit hızı (bit/sn); dışa aktarma boyut tahmini ve tavanı için. */
+  bit_rate?: number
   width: number
   height: number
   /** Kare hızı (kare adımı için); 0 → bilinmiyor. */
@@ -155,6 +157,8 @@ export interface VideoMeta {
   hasAudio: boolean
   /** Kare hızı (kare adımı için); yoksa varsayılan kullanılır. */
   fps?: number
+  /** Kaynağın toplam bit hızı (kbps); boyut tahmini için, bilinmiyorsa yok. */
+  bitRate?: number
 }
 
 export interface CropRect {
@@ -176,6 +180,10 @@ export type OutputFormat = "mp4" | "gif" | "mp3"
 export type ExportQuality = "high" | "balanced" | "compact"
 export type ExportCodec = "h264" | "hevc"
 export type EncoderChoice = "cpu" | "gpu"
+/** Çıktı yüksekliği; `null` kaynağın çözünürlüğünü korur. */
+export type OutputScale = 1080 | 720 | 480 | 360 | null
+/** Ses işleme: auto = profil bitrate'i, voice = 64k mono, strip = sessiz. */
+export type AudioMode = "auto" | "voice" | "strip"
 export type JobStatus = "pending" | "running" | "done" | "error" | "cancelled"
 
 /** GPU ve CPU render kuyrukları birbirinden bağımsızdır. */
@@ -226,6 +234,14 @@ export interface ExportRequest {
   codec?: ExportCodec
   /** İsteğe bağlı çıktı kare hızı (ör. 30); kaynak fps korunacaksa null. */
   output_fps?: number | null
+  /** İsteğe bağlı çıktı yüksekliği (1080/720/480/360); null kaynağı korur. */
+  output_scale?: OutputScale
+  /** Ses işleme tercihi; varsayılan `auto`. */
+  audio_mode?: AudioMode
+  /** Kaynağın toplam bit hızı (kbps): tavan ve boyut tahmini için. */
+  source_bit_rate?: number | null
+  /** Kaynağın piksel yüksekliği: ölçek küçültme karşılaştırması için. */
+  source_height?: number | null
   crop: CropPayload | null
   filename: string
   /** Render tercihi; GPU yalnızca uygun MP4 + hassas/kırpmalı işlerde kullanılır. */
@@ -282,6 +298,10 @@ export interface ExportJob {
   quality?: string
   codec?: string
   output_fps?: number | null
+  /** Küçültülmüş çıktı yüksekliği (kaynak korunuyorsa null). */
+  output_scale?: number | null
+  /** auto | voice | strip. */
+  audio_mode?: string
   /** İşin render kuyruğu: GPU ve CPU işleri ayrı kuyruklarda sırayla çalışır. */
   lane?: JobLane
   /** Bekleyen işin kendi kuyruğundaki 1 tabanlı sırası. */

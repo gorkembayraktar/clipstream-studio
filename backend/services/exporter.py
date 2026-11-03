@@ -48,16 +48,18 @@ MIN_SEGMENT_DURATION = 0.01
 #: Yeniden kodlanan MP4 çıktıları için kalite profilleri.
 #: Dengeli profil, HD çözünürlüğü korurken x264'ün daha verimli preset'i ve
 #: biraz daha yüksek CRF değeriyle tipik olarak %20-30 daha küçük dosya üretir.
+#: "Yüksek" de aynı gerekçeyle ``medium`` preset kullanır: ``veryfast`` aynı
+#: görsel kaliteye daha fazla bit harcadığı için dosya daha büyük çıkıyordu.
 DEFAULT_EXPORT_QUALITY = "balanced"
 DEFAULT_EXPORT_CODEC = "h264"
 EXPORT_CODECS = {"h264", "hevc"}
 EXPORT_QUALITY_PROFILES: dict[str, dict[str, Any]] = {
     "high": {
-        "preset": "veryfast",
+        "preset": "medium",
         "crf": 20,
         "crop_crf": 21,
         "audio_bitrate": "192k",
-        "hevc_preset": "fast",
+        "hevc_preset": "medium",
         "hevc_crf": 22,
         "hevc_crop_crf": 23,
     },
@@ -80,6 +82,21 @@ EXPORT_QUALITY_PROFILES: dict[str, dict[str, Any]] = {
         "hevc_crop_crf": 28,
     },
 }
+
+#: Profil başına video bitrate tavanı (kbps). Sabit CRF ile kodlarken bile
+#: karmaşık sahnelerde dosyanın kaynaktan büyük çıkmasını engeller.
+PROFILE_MAXRATE_CEILING_KBPS: dict[str, int] = {
+    "high": 12000,
+    "balanced": 6000,
+    "compact": 3500,
+}
+
+#: Çıktı yüksekliği seçenekleri (kaynak çözünürlükten büyük olanlar yok sayılır).
+OUTPUT_SCALES = {1080, 720, 480, 360}
+#: Ses modları: ``auto`` profil bitrate'i, ``voice`` 64k mono, ``strip`` sessiz.
+AUDIO_MODES = {"auto", "voice", "strip"}
+VOICE_AUDIO_BITRATE = "64k"
+
 
 
 class ExportError(Exception):
@@ -181,17 +198,103 @@ def _output_fps(payload: dict[str, Any]) -> Optional[int]:
     return fps if 1 <= fps <= 120 else None
 
 
+def _output_scale(payload: dict[str, Any]) -> Optional[int]:
+    """İstenen çıktı yüksekliğini doğrular (kaynak yüksekliğinden büyükse yok sayılır)."""
+    raw = payload.get("output_scale")
+    if raw in (None, "", 0, "0", "source"):
+        return None
+    try:
+        height = int(float(raw))
+    except (TypeError, ValueError):
+        return None
+    if height not in OUTPUT_SCALES:
+        return None
+    source_height = _source_height(payload)
+    if source_height > 0 and height >= source_height:
+        return None
+    return height
+
+
+def _source_height(payload: dict[str, Any]) -> int:
+    """Kaynağın piksel yüksekliği (bilinmiyorsa 0)."""
+    for key in ("source_height", "source_height_px"):
+        try:
+            value = int(float(payload.get(key) or 0))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    crop = payload.get("crop")
+    if isinstance(crop, dict):
+        try:
+            value = int(float(crop.get("source_height") or 0))
+        except (TypeError, ValueError):
+            value = 0
+        if value > 0:
+            return value
+    return 0
+
+
+def _source_bit_rate_kbps(payload: dict[str, Any]) -> int:
+    """Kaynağın toplam bit hızı (kbps); bilinmiyorsa 0.
+
+    İstemci ffprobe sonucunu ``source_bit_rate`` olarak kilobit/sn cinsinden
+    gönderir. Eski istemcilerde alan yoksa yalnızca profil tavanı uygulanır.
+    """
+    try:
+        value = float(payload.get("source_bit_rate") or 0)
+    except (TypeError, ValueError):
+        return 0
+    return int(value) if value > 0 else 0
+
+
+def _audio_mode(payload: dict[str, Any]) -> str:
+    """Ses modunu doğrular: auto | voice | strip (bilinmeyen değer auto)."""
+    requested = str(payload.get("audio_mode", "auto")).strip().lower()
+    return requested if requested in AUDIO_MODES else "auto"
+
+
+def _max_video_bitrate_kbps(
+    quality_name: str,
+    payload: dict[str, Any],
+    output_scale: Optional[int],
+    source_height: int,
+) -> int:
+    """Yeniden kodlamada kullanılacak video bitrate tavanını hesaplar.
+
+    Tavan, profil sınırı ile kaynak bitrate'inin %90'ının küçüğüdür. Çıktı
+    küçültüldüğünde tavan alan oranıyla (yükseklik²) ölçeklenir; böylece
+    1080p kaynaktan 480p çıktı alırken gereksiz büyük bir sınır konmaz.
+    """
+    ceiling = float(PROFILE_MAXRATE_CEILING_KBPS.get(quality_name, 6000))
+    if output_scale and source_height > 0 and output_scale < source_height:
+        ratio = output_scale / source_height
+        ceiling *= ratio * ratio
+    source_kbps = _source_bit_rate_kbps(payload)
+    if source_kbps > 0:
+        ceiling = min(ceiling, source_kbps * 0.9)
+        return max(300, int(ceiling))
+    return max(600, int(ceiling))
+
+
+
 def is_gpu_render_eligible(
     output_format: str,
     mode: str,
     crop: Optional[dict[str, int]],
     codec: str = DEFAULT_EXPORT_CODEC,
     output_fps: Optional[int] = None,
+    output_scale: Optional[int] = None,
 ) -> bool:
     """GPU yalnızca yeniden kodlanan H.264 MP4 çıktılarında kullanılabilir."""
     if output_format != "mp4" or codec == "hevc":
         return False
-    return crop is not None or mode != "fast" or output_fps is not None
+    return (
+        crop is not None
+        or mode != "fast"
+        or output_fps is not None
+        or output_scale is not None
+    )
 
 
 #: Yerel kaynakta yeniden kodlamadan kopyalanabilecek kodekler. MP4 kabına
@@ -263,6 +366,12 @@ async def local_copy_eligible(
         return False
     if _output_fps(payload) is not None:
         return False
+    # Küçültme filtresi gerektirir: akış kopyalanamaz.
+    if _output_scale(payload) is not None:
+        return False
+    # Ses profili değişecekse (voice = 64k mono) yeniden kodlama gerekir.
+    if _audio_mode(payload) == "voice":
+        return False
     # Ayrı ses akışı (YouTube gibi sessiz video) birleştirme ister: kopyalanamaz.
     if str(payload.get("audio_url") or "").strip():
         return False
@@ -332,16 +441,33 @@ def build_ffmpeg_command(
     quality_name, quality = _quality_profile(payload)
     codec = _export_codec(payload)
     output_fps = _output_fps(payload)
+    output_scale = _output_scale(payload)
+    source_height = _source_height(payload)
+    audio_mode = _audio_mode(payload) if output_format == "mp4" else "auto"
     crop = _normalized_crop(payload.get("crop"))
     requires_reencode = (
-        crop is not None or mode != "fast" or codec == "hevc" or output_fps is not None
+        crop is not None
+        or mode != "fast"
+        or codec == "hevc"
+        or output_fps is not None
+        or output_scale is not None
+        # Konuşma sesi 64k mono'ya kodlanır: akış kopyalanamaz.
+        or audio_mode == "voice"
     )
     use_gpu = (
-        is_gpu_render_eligible(output_format, mode, crop, codec, output_fps)
+        is_gpu_render_eligible(
+            output_format, mode, crop, codec, output_fps, output_scale
+        )
         and bool(gpu_encoder)
     )
     if use_gpu and get_gpu_encoder(gpu_encoder or "") is None:
         raise ExportError(t("error.gpuEncoderInvalid", encoder=gpu_encoder))
+
+    # Kaynaktan daha büyük bir tavan istemek anlamsız: profil tavanı ile
+    # kaynak bitrate'inin %90'ının küçüğü kullanılır (NVENC dahil).
+    maxrate_kbps = _max_video_bitrate_kbps(
+        quality_name, payload, output_scale, source_height
+    )
 
     # MP3'te ses tek başına yeterli: kaynak sessizse doğrudan ses akışı kullanılır.
     if output_format == "mp3" and audio_url:
@@ -349,7 +475,13 @@ def build_ffmpeg_command(
         video_seek = audio_seek
 
     # Ses birleştirme yalnızca MP4 çıktısında ve ses akışı ayrı verildiğinde yapılır.
-    merge_audio = bool(audio_url) and output_format == "mp4" and url != audio_url
+    # Ses tamamen atılacaksa ikinci girişi açmak gereksiz indirme demektir.
+    merge_audio = (
+        bool(audio_url)
+        and output_format == "mp4"
+        and url != audio_url
+        and audio_mode != "strip"
+    )
 
     command = ["ffmpeg", "-y", "-nostdin", "-nostats", "-progress", "pipe:1"]
     # curl ile yapıştırılan başlıklar ve header_token'dan (TikTok Referer gibi CDN
@@ -378,7 +510,7 @@ def build_ffmpeg_command(
         command += ["-map", "0:a:0"] if url == audio_url else ["-map", "0:a:0?"]
     else:
         command += ["-map", "0:v:0"]
-        if output_format == "mp4":
+        if output_format == "mp4" and audio_mode != "strip":
             command += ["-map", "1:a:0"] if merge_audio else ["-map", "0:a:0?"]
 
     if output_format == "gif":
@@ -399,17 +531,26 @@ def build_ffmpeg_command(
         filters = ["setpts=PTS-STARTPTS"]
         if crop:
             filters.append(f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}")
+        # Küçültme en sonda: kırpma koordinatları kaynak çözünürlükte kalır,
+        # genişlik en-boy oranını korumak için -2 ile hesaplanır.
+        if output_scale:
+            filters.append(f"scale=-2:{output_scale}")
         if output_fps:
             filters.append(f"fps={output_fps}")
         command += ["-vf", ",".join(filters)]
-        command += ["-af", "asetpts=PTS-STARTPTS"]
+        if audio_mode != "strip":
+            command += ["-af", "asetpts=PTS-STARTPTS"]
         if use_gpu:
-            command += gpu_encoder_arguments(gpu_encoder or "", quality_name)
+            command += gpu_encoder_arguments(
+                gpu_encoder or "", quality_name, maxrate_kbps
+            )
         elif codec == "hevc":
             command += [
                 "-c:v", "libx265",
                 "-preset", str(quality["hevc_preset"]),
                 "-crf", str(quality["hevc_crop_crf"] if crop else quality["hevc_crf"]),
+                "-maxrate", f"{maxrate_kbps}k",
+                "-bufsize", f"{maxrate_kbps * 2}k",
                 "-x265-params", "log-level=error",
             ]
             if not intermediate:
@@ -419,19 +560,25 @@ def build_ffmpeg_command(
                 "-c:v", "libx264",
                 "-preset", quality["preset"],
                 "-crf", str(quality["crop_crf"] if crop else quality["crf"]),
+                "-maxrate", f"{maxrate_kbps}k",
+                "-bufsize", f"{maxrate_kbps * 2}k",
             ]
-        command += [
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            "-b:a", quality["audio_bitrate"],
-        ]
+        command += ["-pix_fmt", "yuv420p"]
+        if audio_mode == "strip":
+            command += ["-an"]
+        elif audio_mode == "voice":
+            command += ["-c:a", "aac", "-b:a", VOICE_AUDIO_BITRATE, "-ac", "1"]
+        else:
+            command += ["-c:a", "aac", "-b:a", quality["audio_bitrate"]]
         if not intermediate:
             command += ["-movflags", "+faststart"]
 
     else:
         # Hızlı kesim — yeniden kodlama yok, anahtar kareye hizalı
         command += ["-c", "copy", "-avoid_negative_ts", "make_zero"]
-        if ".m3u8" in url.lower() and not merge_audio:
+        if audio_mode == "strip":
+            command += ["-an"]
+        elif ".m3u8" in url.lower() and not merge_audio:
             command += ["-bsf:a", "aac_adtstoasc"]
 
     if intermediate:
@@ -458,10 +605,13 @@ async def select_gpu_encoder(
     mode = str(payload.get("mode", "exact")).lower()
     codec = _export_codec(payload)
     output_fps = _output_fps(payload)
+    output_scale = _output_scale(payload)
     crop = _normalized_crop(payload.get("crop"))
     if codec == "hevc":
         return None, t("gpu.fallback.hevcCpu"), None, None
-    if not is_gpu_render_eligible(output_format, mode, crop, codec, output_fps):
+    if not is_gpu_render_eligible(
+        output_format, mode, crop, codec, output_fps, output_scale
+    ):
         return None, t("gpu.fallback.ineligible"), None, None
 
     capability = await detect_gpu_capability()
@@ -739,6 +889,8 @@ def _can_resume(payload: dict[str, Any]) -> bool:
         or mode != "fast"
         or _export_codec(payload) == "hevc"
         or _output_fps(payload) is not None
+        or _output_scale(payload) is not None
+        or _audio_mode(payload) == "voice"
     )
 
 
@@ -1353,6 +1505,8 @@ async def run_export_job(job: dict[str, Any], manager, client: Any = None) -> No
         job["quality"] = _quality_profile(payload)[0]
         job["codec"] = _export_codec(payload)
         job["output_fps"] = _output_fps(payload)
+        job["output_scale"] = _output_scale(payload)
+        job["audio_mode"] = _audio_mode(payload)
         job["encoder_requested"] = (
             "gpu" if str(payload.get("encoder", "cpu")).strip().lower() == "gpu" else "cpu"
         )

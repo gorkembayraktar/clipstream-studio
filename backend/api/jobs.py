@@ -6,7 +6,7 @@ from starlette.routing import Route
 
 from core.i18n import current_language, t
 from core.jobs import CANCELLED
-from services.exporter import run_export_job
+from services.exporter import AUDIO_MODES, OUTPUT_SCALES, run_export_job
 
 
 async def _run_in_lane(job, manager, client, semaphore) -> None:
@@ -47,6 +47,37 @@ async def create_job_endpoint(request):
 
     if not str(payload.get("url", "")).strip():
         return JSONResponse({"success": False, "error": t("error.sourceRequired")}, status_code=400)
+
+    # Yeni dışa aktarma parametreleri: geçersiz değer sessizce yok sayılmak
+    # yerine açık hata döner; arayüz seçenekleri zaten sunucudan gelir.
+    scale = payload.get("output_scale")
+    if scale not in (None, ""):
+        try:
+            scale_value = int(float(scale))
+        except (TypeError, ValueError):
+            scale_value = -1
+        if scale_value not in OUTPUT_SCALES:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": t("error.invalidOutputScale", scale=scale),
+                },
+                status_code=400,
+            )
+        payload["output_scale"] = scale_value
+
+    audio_mode = payload.get("audio_mode")
+    if audio_mode not in (None, ""):
+        mode_value = str(audio_mode).strip().lower()
+        if mode_value not in AUDIO_MODES:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": t("error.invalidAudioMode", mode=mode_value),
+                },
+                status_code=400,
+            )
+        payload["audio_mode"] = mode_value
 
     manager = request.app.state.jobs
     job = manager.create(payload, lang=current_language())

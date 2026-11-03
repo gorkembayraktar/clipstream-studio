@@ -15,6 +15,8 @@ interface ExportSummaryProps {
   outputFormat: OutputFormat
   profile: ExportProfile | null
   deviations: string[]
+  /** Kaba çıktı boyutu tahmini (MB); hesaplanamıyorsa null. */
+  estimatedSizeMb?: number | null
 }
 
 export function ExportSummary({
@@ -24,6 +26,7 @@ export function ExportSummary({
   outputFormat,
   profile,
   deviations,
+  estimatedSizeMb = null,
 }: ExportSummaryProps) {
   const { t } = useI18n()
 
@@ -63,6 +66,17 @@ export function ExportSummary({
           </span>
         ))}
       </div>
+
+      {estimatedSizeMb !== null ? (
+        <p
+          className="mt-2 text-[10px] leading-snug text-muted-foreground"
+          title={t("export.estimateSizeHint")}
+        >
+          {t("export.estimateSize", {
+            size: estimatedSizeMb.toFixed(1),
+          })}
+        </p>
+      ) : null}
     </section>
   )
 }

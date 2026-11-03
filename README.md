@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/logo/dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/logo/light.svg">
@@ -13,7 +13,7 @@
 
 
 > **Project status:** ClipStream Studio is currently in active development and has to be run from source (Python, FFmpeg and Node.js are required, see [Quick Start](#quick-start)).
-> If you find it useful, a ⭐ star or an [issue](../../issues) with feedback, bug reports or feature requests would be very welcome. Based on the interest, I'm planning to publish a ready-to-run Windows release (no setup needed).
+> If you find it useful, a ? star or an [issue](../../issues) with feedback, bug reports or feature requests would be very welcome. Based on the interest, I'm planning to publish a ready-to-run Windows release (no setup needed).
 ---
 
 ## Supported Sources
@@ -27,47 +27,47 @@
   <tr>
     <td align="center" width="64"><img src="docs/logos/youtube.svg" width="30" alt="YouTube logo"></td>
     <td><strong>YouTube</strong><br><sub>Videos and Shorts.</sub></td>
-    <td align="center" title="Requires yt-dlp">âœ…</td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/x.svg" width="30" alt="X logo"></td>
     <td><strong>X (Twitter)</strong><br><sub>Video posts.</sub></td>
-    <td align="center" title="Requires yt-dlp">âœ…</td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/instagram.svg" width="30" alt="Instagram logo"></td>
     <td><strong>Instagram</strong><br><sub>Public posts and reels.</sub></td>
-    <td align="center" title="Requires yt-dlp">âœ…</td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/tiktok.svg" width="30" alt="TikTok logo"></td>
     <td><strong>TikTok</strong><br><sub>Videos and Live streams (playback only).</sub></td>
-    <td align="center" title="Requires yt-dlp">âœ…</td>
+    <td align="center" title="Requires yt-dlp">✅</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/hls.svg" width="30" alt="HLS Stream logo"></td>
     <td><strong>m3u8 / HLS Stream</strong><br><sub>Master and media playlists. Supports <code>.m3u8</code>, <code>.txt</code>, and extensionless URLs.</sub></td>
-    <td align="center" title="No yt-dlp needed">âŒ</td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/ffmpeg.svg" width="30" alt="FFmpeg logo"></td>
     <td><strong>Direct MP4 / WebM</strong><br><sub>HTTP(S) video files.</sub></td>
-    <td align="center" title="No yt-dlp needed">âŒ</td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
   <tr>
     <td align="center"><img src="docs/logos/local-file.svg" width="30" alt="Local file logo"></td>
     <td><strong>Local files</strong><br><sub>Browse or drag and drop.</sub></td>
-    <td align="center" title="No yt-dlp needed">âŒ</td>
+    <td align="center" title="No yt-dlp needed">❌</td>
   </tr>
 </table>
 
-âœ… yt-dlp required Â· âŒ not required
+✅ yt-dlp required · ❌ not required
 
 > <sub>FFmpeg is required for every source. Brand logos are from Simple Icons (CC0). HLS and local file icons are custom.</sub>
 
 ## Features
 
-- **Minimal UI:** The stage takes the full width and the timeline strip keeps only everyday actions — seek, step, in/out, split, cut, and export. Rare options live behind the `⋯` menu, and the side panel is closed by default.
+- **Minimal UI:** The stage takes the full width and the timeline strip keeps only everyday actions � seek, step, in/out, split, cut, and export. Rare options live behind the `?` menu, and the side panel is closed by default.
 - **Sources:** YouTube, X, Instagram, TikTok, HLS, direct MP4/WebM, and local files.
 - **Audio:** Choose alternate HLS audio tracks or YouTube dubs.
 - **Subtitles:** Preview HLS WebVTT subtitles. Subtitles are not burned into exports.
@@ -84,7 +84,7 @@
 - **Gallery:** Play, download, reveal, or delete clips.
 - **Protected media:** Paste a `curl` command to add headers.
 - **Languages:** English and Turkish.
-- **Shortcuts:** `Space`, `I`/`O`, `â†`/`â†’`, `M`, `F`, `P`.
+- **Shortcuts:** `Space`, `I`/`O`, `←`/`→`, `M`, `F`, `P`.
 
 ## Quick Start
 
@@ -129,7 +129,7 @@ The address bar shows `#project/?v=<version>`. The version comes from `frontend/
 
 The app version follows `0.2.x`. Increment the last number by one for every
 development change and keep `frontend/package.json`, `frontend/package-lock.json`,
-and this note in sync. Current version: `0.2.22`.
+and this note in sync. Current version: `0.2.23`.
 
 ## Troubleshooting
 

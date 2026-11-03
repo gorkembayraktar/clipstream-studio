@@ -220,6 +220,11 @@ export function useSourceResolve(): SourceResolve {
               duration: existing?.duration || probe.duration,
               hasAudio: probe.has_audio,
               fps: probe.fps > 0 ? probe.fps : undefined,
+              // Boyut tahmini ve bitrate tavanı için kaynak bit hızı (kbps).
+              bitRate:
+                probe.bit_rate && probe.bit_rate > 0
+                  ? Math.round(probe.bit_rate / 1000)
+                  : undefined,
             })
             log(
               "success",

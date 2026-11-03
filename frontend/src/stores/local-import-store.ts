@@ -125,6 +125,11 @@ export function applyLocalSource(result: LocalFileResponse, sourcePath: string |
     duration: result.duration,
     hasAudio: result.has_audio,
     fps: result.fps > 0 ? result.fps : undefined,
+    // Yerel dosyada boyut ve süre biliniyor: tahmini bit hızı (kbps) türetilir.
+    bitRate:
+      result.duration > 0 && result.size_bytes > 0
+        ? Math.round((result.size_bytes * 8) / result.duration / 1000)
+        : undefined,
   })
 
   const current = useExportStore.getState()

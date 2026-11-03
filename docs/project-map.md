@@ -114,7 +114,7 @@
 | `export-advanced-settings.tsx`  | ExportAdvancedSettings |
 | `export-controls.tsx`           | InfoHint, FieldLabel |
 | `export-output-settings.tsx`    | ExportOutputSettings |
-| `export-panel-constants.ts`     | FORMAT_LABELS, FORMAT_NOTE_KEYS, PROFILE_LABEL_KEYS, QUALITY_DESCRIPTION_KEYS, CODEC_LABEL_KEYS, CODEC_DESCRIPTION_KEYS, FRAME_RATE_SOURCE, FRAME_RATE_30 |
+| `export-panel-constants.ts`     | FORMAT_LABELS, FORMAT_NOTE_KEYS, PROFILE_LABEL_KEYS, QUALITY_DESCRIPTION_KEYS, CODEC_LABEL_KEYS, CODEC_DESCRIPTION_KEYS, FRAME_RATE_SOURCE, FRAME_RATE_30, OUTPUT_SCALE_HEIGHTS, OUTPUT_SCALE_SOURCE, AUDIO_MODE_LABEL_KEYS, AUDIO_MODE_DESCRIPTION_KEYS |
 | `export-panel.tsx`              | ExportPanel |
 | `export-summary.tsx`            | ExportSummary |
 | `export-thumbnail.tsx`          | ExportThumbnail |

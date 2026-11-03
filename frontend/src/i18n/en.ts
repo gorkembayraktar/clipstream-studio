@@ -313,6 +313,34 @@ export const en = {
     "Drops the output to 30 fps, so motion is less smooth. About 35–50% extra saving.",
   "export.frameRateHintSource": "Keeps the source rate.",
   "export.frameRateHint30": "Less smooth; smaller file.",
+  "export.resolution": "Resolution",
+  "export.resolutionSource": "Source",
+  "export.resolutionOption": "{height}p",
+  "export.resolutionSourceDescription":
+    "Keeps the source resolution and aspect ratio.",
+  "export.resolutionDescription":
+    "Output height is {height}px; width keeps the aspect ratio.",
+  "export.resolutionHintSource": "Same size as the source.",
+  "export.resolutionHintScaled":
+    "{height}p output: much smaller files, softer fine detail.",
+  "export.audioMode": "Audio",
+  "export.audioAuto": "Standard",
+  "export.audioVoice": "Voice (mono)",
+  "export.audioStrip": "Remove audio",
+  "export.audioAutoDescription":
+    "Profile audio bitrate; stereo is preserved.",
+  "export.audioVoiceDescription":
+    "64 kbps mono AAC — ideal for talking-head clips.",
+  "export.audioStripDescription":
+    "Writes a silent video with no audio track.",
+  "export.audioHintAuto": "Best balance for most clips.",
+  "export.audioHintVoice": "Smallest audio; speech stays clear.",
+  "export.audioHintStrip": "For muted social uploads.",
+  "export.estimateSize": "Estimated size: ~{size} MB",
+  "export.estimateSizeHint":
+    "Rough estimate from the source bitrate; the actual file may differ.",
+  "export.summaryAudioVoice": "Voice audio",
+  "export.summaryAudioStripped": "No audio",
   "export.filename": "File name",
   "export.filenamePlaceholder": "Auto-generated",
   "export.filenameAuto": "Auto",

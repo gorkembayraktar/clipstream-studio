@@ -80,6 +80,11 @@ class GpuEligibilityTests(unittest.TestCase):
             is_gpu_render_eligible("mp4", "fast", None, "h264", 30)
         )
 
+    def test_output_scale_makes_fast_mode_gpu_eligible(self):
+        self.assertTrue(
+            is_gpu_render_eligible("mp4", "fast", None, "h264", None, 720)
+        )
+
 
 class FfmpegCommandTests(unittest.TestCase):
     def test_cpu_exact_uses_libx264(self):
@@ -97,11 +102,13 @@ class FfmpegCommandTests(unittest.TestCase):
         self.assertEqual(command[command.index("-crf") + 1], "22")
         self.assertEqual(command[command.index("-b:a") + 1], "160k")
 
-    def test_high_quality_preserves_previous_encoder_settings(self):
+    def test_high_quality_uses_efficient_preset(self):
+        # `veryfast` aynı görsel kalitede daha fazla bit harcıyordu; "Yüksek"
+        # profili artık `medium` kullanıyor ve CRF/bitrate değerleri korunuyor.
         command = build_ffmpeg_command(
             make_payload(quality="high"), Path("out.mp4")
         )
-        self.assertEqual(command[command.index("-preset") + 1], "veryfast")
+        self.assertEqual(command[command.index("-preset") + 1], "medium")
         self.assertEqual(command[command.index("-crf") + 1], "20")
         self.assertEqual(command[command.index("-b:a") + 1], "192k")
 
@@ -263,6 +270,109 @@ class FfmpegCommandTests(unittest.TestCase):
             )
             self.assertIn(str(audio), command)
             self.assertIn("1:a:0", command)
+
+
+class SourceAwareQualityTests(unittest.TestCase):
+    """Kaynak bitrate'i ve çıktı ölçeğine göre bitrate tavanı testleri."""
+
+    def test_maxrate_is_capped_by_source_bitrate(self):
+        command = build_ffmpeg_command(
+            make_payload(source_bit_rate=2000), Path("out.mp4")
+        )
+        # 2000 kbps kaynağın %90'ı = 1800k; profil tavanından (6000k) küçük.
+        self.assertEqual(command[command.index("-maxrate") + 1], "1800k")
+        self.assertEqual(command[command.index("-bufsize") + 1], "3600k")
+
+    def test_maxrate_uses_profile_ceiling_without_source_bitrate(self):
+        command = build_ffmpeg_command(
+            make_payload(quality="compact"), Path("out.mp4")
+        )
+        self.assertEqual(command[command.index("-maxrate") + 1], "3500k")
+
+    def test_hevc_also_gets_bitrate_ceiling(self):
+        command = build_ffmpeg_command(
+            make_payload(codec="hevc", source_bit_rate=1500), Path("out.mp4")
+        )
+        self.assertIn("-maxrate", command)
+        self.assertEqual(command[command.index("-maxrate") + 1], "1350k")
+
+    def test_output_scale_adds_scale_filter_and_shrinks_ceiling(self):
+        command = build_ffmpeg_command(
+            make_payload(
+                output_scale=480,
+                source_height=1080,
+                source_bit_rate=8000,
+            ),
+            Path("out.mp4"),
+        )
+        joined = " ".join(command)
+        self.assertIn("scale=-2:480", joined)
+        # 6000k profil tavanı × (480/1080)² ≈ 1185k, kaynak sınırından küçük.
+        self.assertEqual(command[command.index("-maxrate") + 1], "1185k")
+
+    def test_output_scale_is_ignored_when_not_smaller_than_source(self):
+        command = build_ffmpeg_command(
+            make_payload(output_scale=1080, source_height=1080), Path("out.mp4")
+        )
+        self.assertNotIn("scale=-2:1080", " ".join(command))
+
+    def test_invalid_output_scale_is_ignored(self):
+        command = build_ffmpeg_command(make_payload(output_scale=999), Path("out.mp4"))
+        self.assertNotIn("scale=-2:999", " ".join(command))
+
+    def test_voice_audio_mode_uses_mono_64k(self):
+        command = build_ffmpeg_command(
+            make_payload(audio_mode="voice"), Path("out.mp4")
+        )
+        self.assertEqual(command[command.index("-b:a") + 1], "64k")
+        self.assertEqual(command[command.index("-ac") + 1], "1")
+
+    def test_strip_audio_mode_drops_audio_stream(self):
+        command = build_ffmpeg_command(
+            make_payload(audio_mode="strip"), Path("out.mp4")
+        )
+        self.assertIn("-an", command)
+        self.assertNotIn("0:a:0?", command)
+        self.assertNotIn("-c:a", command)
+
+    def test_strip_audio_mode_skips_separate_audio_input(self):
+        command = build_ffmpeg_command(
+            make_payload(
+                url="https://example.com/video.m3u8",
+                audio_url="https://example.com/audio.m3u8",
+                audio_mode="strip",
+            ),
+            Path("out.mp4"),
+        )
+        self.assertEqual(command.count("-i"), 1)
+        self.assertIn("-an", command)
+
+    def test_fast_copy_with_strip_audio_drops_audio(self):
+        command = build_ffmpeg_command(
+            make_payload(mode="fast", audio_mode="strip"), Path("out.mp4")
+        )
+        self.assertIn("copy", command)
+        self.assertIn("-an", command)
+
+    def test_fast_copy_with_voice_mode_reencodes(self):
+        command = build_ffmpeg_command(
+            make_payload(mode="fast", audio_mode="voice"), Path("out.mp4")
+        )
+        self.assertIn("libx264", command)
+        self.assertNotIn("copy", command)
+
+    def test_gpu_encoder_arguments_include_bitrate_ceiling(self):
+        arguments = gpu_encoder_arguments("h264_nvenc", "balanced", 1800)
+        self.assertEqual(arguments[arguments.index("-maxrate") + 1], "1800k")
+        self.assertEqual(arguments[arguments.index("-bufsize") + 1], "3600k")
+
+    def test_gpu_command_gets_source_aware_ceiling(self):
+        command = build_ffmpeg_command(
+            make_payload(source_bit_rate=3000),
+            Path("out.mp4"),
+            gpu_encoder="h264_nvenc",
+        )
+        self.assertEqual(command[command.index("-maxrate") + 1], "2700k")
 
 
 class EtaTests(unittest.TestCase):

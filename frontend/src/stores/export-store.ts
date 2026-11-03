@@ -2,10 +2,12 @@
 import { create } from "zustand"
 
 import type {
+  AudioMode,
   CutMode,
   ExportCodec,
   ExportQuality,
   OutputFormat,
+  OutputScale,
 } from "@/lib/types"
 
 interface ExportState {
@@ -15,6 +17,10 @@ interface ExportState {
   codec: ExportCodec
   /** 30 gibi bir sınır; null kaynağın kare hızını korur. */
   outputFps: number | null
+  /** Çıktı yüksekliği; null kaynağın çözünürlüğünü korur. */
+  outputScale: OutputScale
+  /** Ses işleme: auto | voice | strip. */
+  audioMode: AudioMode
   filename: string
   /** GPU render tercihi; uygun olmayan çıktılarda arayüz tarafından yok sayılır. */
   gpuEnabled: boolean
@@ -27,6 +33,8 @@ interface ExportState {
   setQuality: (quality: ExportQuality) => void
   setCodec: (codec: ExportCodec) => void
   setOutputFps: (fps: number | null) => void
+  setOutputScale: (scale: OutputScale) => void
+  setAudioMode: (mode: AudioMode) => void
   setFilename: (value: string) => void
   setGpuEnabled: (value: boolean) => void
   addActiveJobId: (id: string) => void
@@ -39,6 +47,8 @@ export const useExportStore = create<ExportState>()((set) => ({
   quality: "balanced",
   codec: "h264",
   outputFps: null,
+  outputScale: null,
+  audioMode: "auto",
   filename: "",
   gpuEnabled: false,
   activeJobIds: [],
@@ -48,6 +58,8 @@ export const useExportStore = create<ExportState>()((set) => ({
   setQuality: (quality) => set({ quality }),
   setCodec: (codec) => set({ codec }),
   setOutputFps: (fps) => set({ outputFps: fps }),
+  setOutputScale: (scale) => set({ outputScale: scale }),
+  setAudioMode: (mode) => set({ audioMode: mode }),
   setFilename: (value) => set({ filename: value }),
   setGpuEnabled: (value) => set({ gpuEnabled: value }),
   addActiveJobId: (id) =>

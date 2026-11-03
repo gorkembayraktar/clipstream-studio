@@ -13,14 +13,19 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { cn } from "cn"
 import { useI18n } from "@/i18n"
-import type { ExportCodec, OutputFormat } from "@/lib/types"
+import type { AudioMode, ExportCodec, OutputFormat } from "@/lib/types"
 
 import { FieldLabel } from "./export-controls"
 import {
+  AUDIO_MODE_DESCRIPTION_KEYS,
+  AUDIO_MODE_HINT_KEYS,
+  AUDIO_MODE_LABEL_KEYS,
   CODEC_DESCRIPTION_KEYS,
   CODEC_LABEL_KEYS,
   FRAME_RATE_30,
   FRAME_RATE_SOURCE,
+  OUTPUT_SCALE_HEIGHTS,
+  OUTPUT_SCALE_SOURCE,
 } from "./export-panel-constants"
 
 interface ExportAdvancedSettingsProps {
@@ -33,6 +38,11 @@ interface ExportAdvancedSettingsProps {
   sourceFps: number
   effectiveOutputFps: number | null
   onOutputFpsChange: (value: string) => void
+  sourceHeight: number
+  outputScale: number | null
+  onOutputScaleChange: (value: string) => void
+  audioMode: AudioMode
+  onAudioModeChange: (value: string) => void
   gpuReady: boolean
   gpuPending: boolean
   useGpu: boolean
@@ -55,6 +65,11 @@ export function ExportAdvancedSettings({
   sourceFps,
   effectiveOutputFps,
   onOutputFpsChange,
+  sourceHeight,
+  outputScale,
+  onOutputScaleChange,
+  audioMode,
+  onAudioModeChange,
   gpuReady,
   gpuPending,
   useGpu,
@@ -74,13 +89,22 @@ export function ExportAdvancedSettings({
     outputFormat === "mp4" &&
     frameRateAvailable &&
     (sourceFps === 0 || sourceFps > 30)
+  // Yalnızca kaynaktan küçük yükseklikler sunulur: büyütme dosyayı şişirir.
+  // GIF çıktısı zaten 480 px'e ölçeklendiği, MP3'te video olmadığı için
+  // seçenek yalnızca MP4'te gösterilir.
+  const scaleOptions = OUTPUT_SCALE_HEIGHTS.filter(
+    (height) => sourceHeight <= 0 || height < sourceHeight,
+  )
+  const showScale = outputFormat === "mp4" && scaleOptions.length > 0
+  const showAudio = outputFormat === "mp4"
   const showGpu = outputFormat === "mp4"
   const showCrop =
     cropActive &&
     outputFormat !== "mp3" &&
     cropWidth !== null &&
     cropHeight !== null
-  const hasContent = showEncoder || showFrameRate || showGpu || showCrop
+  const hasContent =
+    showEncoder || showFrameRate || showScale || showAudio || showGpu || showCrop
 
   if (!hasContent) return null
 
@@ -204,6 +228,106 @@ export function ExportAdvancedSettings({
                     {effectiveOutputFps
                       ? t("export.frameRateHint30")
                       : t("export.frameRateHintSource")}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {showScale || showAudio ? (
+            <div
+              className={cn(
+                "grid gap-2 px-3 py-2.5",
+                showScale && showAudio ? "grid-cols-2" : "grid-cols-1",
+              )}
+            >
+              {showScale ? (
+                <div className="min-w-0 space-y-1.5">
+                  <FieldLabel
+                    htmlFor="export-resolution"
+                    label={t("export.resolution")}
+                    hint={
+                      outputScale
+                        ? t("export.resolutionDescription", {
+                            height: outputScale,
+                          })
+                        : t("export.resolutionSourceDescription")
+                    }
+                    hintLabel={t("export.fieldInfo", {
+                      field: t("export.resolution"),
+                    })}
+                  />
+                  <Select
+                    value={
+                      outputScale ? String(outputScale) : OUTPUT_SCALE_SOURCE
+                    }
+                    onValueChange={onOutputScaleChange}
+                  >
+                    <SelectTrigger
+                      id="export-resolution"
+                      className="h-9 w-full text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        value={OUTPUT_SCALE_SOURCE}
+                        className="text-xs"
+                      >
+                        {t("export.resolutionSource")}
+                      </SelectItem>
+                      {scaleOptions.map((height) => (
+                        <SelectItem
+                          key={height}
+                          value={String(height)}
+                          className="text-xs"
+                        >
+                          {t("export.resolutionOption", { height })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    {outputScale
+                      ? t("export.resolutionHintScaled", { height: outputScale })
+                      : t("export.resolutionHintSource")}
+                  </p>
+                </div>
+              ) : null}
+
+              {showAudio ? (
+                <div className="min-w-0 space-y-1.5">
+                  <FieldLabel
+                    htmlFor="export-audio-mode"
+                    label={t("export.audioMode")}
+                    hint={t(AUDIO_MODE_DESCRIPTION_KEYS[audioMode])}
+                    hintLabel={t("export.fieldInfo", {
+                      field: t("export.audioMode"),
+                    })}
+                  />
+                  <Select value={audioMode} onValueChange={onAudioModeChange}>
+                    <SelectTrigger
+                      id="export-audio-mode"
+                      className="h-9 w-full text-xs"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(AUDIO_MODE_LABEL_KEYS) as AudioMode[]).map(
+                        (value) => (
+                          <SelectItem
+                            key={value}
+                            value={value}
+                            className="text-xs"
+                          >
+                            {t(AUDIO_MODE_LABEL_KEYS[value])}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] leading-snug text-muted-foreground">
+                    {t(AUDIO_MODE_HINT_KEYS[audioMode])}
                   </p>
                 </div>
               ) : null}

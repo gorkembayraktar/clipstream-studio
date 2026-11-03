@@ -6,10 +6,12 @@ import { useGpuCapability } from "@/hooks/use-gpu-capability"
 import { useI18n } from "@/i18n"
 import { formatTime } from "@/lib/format"
 import type {
+  AudioMode,
   CropPayload,
   ExportCodec,
   ExportQuality,
   OutputFormat,
+  OutputScale,
 } from "@/lib/types"
 import { log } from "@/stores/log-store"
 import { useEditStore, clippedSegments } from "@/stores/edit-store"
@@ -20,7 +22,10 @@ import { ExportActionBar } from "./export-action-bar"
 import { ExportAdvancedSettings } from "./export-advanced-settings"
 import { ExportOutputSettings } from "./export-output-settings"
 import { ExportSummary } from "./export-summary"
-import type { ExportProfile } from "./export-panel-constants"
+import {
+  estimateExportSizeMb,
+  type ExportProfile,
+} from "./export-panel-constants"
 
 const MIN_EXPORT_PENDING_MS = 1000
 
@@ -49,6 +54,8 @@ export function ExportPanel() {
   const quality = useExportStore((s) => s.quality)
   const codec = useExportStore((s) => s.codec)
   const outputFps = useExportStore((s) => s.outputFps)
+  const outputScale = useExportStore((s) => s.outputScale)
+  const audioMode = useExportStore((s) => s.audioMode)
   const filename = useExportStore((s) => s.filename)
   const gpuEnabled = useExportStore((s) => s.gpuEnabled)
   const activeJobIds = useExportStore((s) => s.activeJobIds)
@@ -58,6 +65,8 @@ export function ExportPanel() {
   const setQuality = useExportStore((s) => s.setQuality)
   const setCodec = useExportStore((s) => s.setCodec)
   const setOutputFps = useExportStore((s) => s.setOutputFps)
+  const setOutputScale = useExportStore((s) => s.setOutputScale)
+  const setAudioMode = useExportStore((s) => s.setAudioMode)
   const setFilename = useExportStore((s) => s.setFilename)
   const setGpuEnabled = useExportStore((s) => s.setGpuEnabled)
 
@@ -75,6 +84,8 @@ export function ExportPanel() {
   const hevcAvailable = Boolean(features?.hevc)
   const frameRateAvailable = Boolean(features?.frame_rate)
   const sourceFps = meta?.fps ?? 0
+  const sourceHeight = meta?.height ?? 0
+  const sourceBitRateKbps = meta?.bitRate ?? 0
   const cropActive = Boolean(crop.enabled && crop.rect)
   const cropApplies = cropActive && outputFormat !== "mp3"
   const cropWidth = cropApplies && crop.rect ? crop.rect.width : null
@@ -86,11 +97,22 @@ export function ExportPanel() {
     frameRateAvailable &&
     (sourceFps === 0 || sourceFps > 30)
   const effectiveOutputFps = frameRateOptionVisible ? outputFps : null
+  // Küçültme yalnızca MP4'te anlamlı: GIF zaten 480 px'e ölçekleniyor, MP3'te
+  // video yok. Kaynaktan büyük/eşit seçim backend'de de yok sayılır.
+  const effectiveOutputScale: OutputScale =
+    outputFormat === "mp4" &&
+    outputScale &&
+    (sourceHeight <= 0 || outputScale < sourceHeight)
+      ? outputScale
+      : null
+  const effectiveAudioMode: AudioMode =
+    outputFormat === "mp4" ? audioMode : "auto"
   const requiresReencode =
     cropApplies ||
     cutMode !== "fast" ||
     effectiveCodec === "hevc" ||
-    effectiveOutputFps !== null
+    effectiveOutputFps !== null ||
+    effectiveOutputScale !== null
   const gpuEligible =
     outputFormat === "mp4" && effectiveCodec === "h264" && requiresReencode
   const gpuReady = gpuEligible && Boolean(gpu?.available)
@@ -103,6 +125,9 @@ export function ExportPanel() {
     cropApplies ? t("export.reasonCrop") : null,
     effectiveCodec === "hevc" ? "H.265" : null,
     effectiveOutputFps !== null ? `${effectiveOutputFps} fps` : null,
+    effectiveOutputScale !== null
+      ? t("export.resolutionOption", { height: effectiveOutputScale })
+      : null,
   ].filter((value): value is string => Boolean(value))
   const originalAvailable =
     outputFormat === "mp4" && originalBlockers.length === 0
@@ -155,11 +180,34 @@ export function ExportPanel() {
     effectiveOutputFps !== null
       ? t("export.summaryFps", { fps: effectiveOutputFps })
       : null,
+    effectiveOutputScale !== null
+      ? t("export.resolutionOption", { height: effectiveOutputScale })
+      : null,
+    outputFormat === "mp4" && effectiveAudioMode === "voice"
+      ? t("export.summaryAudioVoice")
+      : null,
+    outputFormat === "mp4" && effectiveAudioMode === "strip"
+      ? t("export.summaryAudioStripped")
+      : null,
     useGpu ? t("export.summaryGpu") : null,
     exportSegments.length > 1
       ? t("export.summaryPieces", { count: exportSegments.length })
       : null,
   ].filter((value): value is string => Boolean(value))
+
+  // Kaba boyut tahmini yalnızca yeniden kodlamada anlamlı: kopyalamada çıktı
+  // boyutu pratikte klibin kaynaktaki boyutudur.
+  const estimatedSizeMb =
+    outputFormat === "mp4" && requiresReencode
+      ? estimateExportSizeMb({
+          duration: clipDuration,
+          quality,
+          sourceBitRateKbps,
+          sourceHeight,
+          outputScale: effectiveOutputScale,
+          audioMode: effectiveAudioMode,
+        })
+      : null
 
   useEffect(() => {
     return () => {
@@ -229,6 +277,25 @@ export function ExportPanel() {
     }
     setOutputFps(30)
     setCutMode("exact")
+  }
+
+  const handleOutputScaleChange = (value: string) => {
+    if (value === "source") {
+      setOutputScale(null)
+      return
+    }
+    const height = Number(value)
+    if (!Number.isFinite(height) || height <= 0) return
+    setOutputScale(height as Exclude<OutputScale, null>)
+    // Ölçekleme filtre gerektirir: akış kopyalanamaz.
+    setCutMode("exact")
+  }
+
+  const handleAudioModeChange = (value: string) => {
+    setAudioMode(value as AudioMode)
+    // Ses profili değişimi yeniden kodlama ister (strip kopyalamada da çalışır,
+    // ama voice modu kesin kodlama gerektirir).
+    if (value === "voice") setCutMode("exact")
   }
 
   const focusJobsDock = () => {
@@ -329,6 +396,10 @@ export function ExportPanel() {
         quality: qualityApplicable ? quality : undefined,
         codec: outputFormat === "mp4" ? effectiveCodec : undefined,
         output_fps: outputFormat === "mp4" ? effectiveOutputFps : null,
+        output_scale: effectiveOutputScale,
+        audio_mode: effectiveAudioMode,
+        source_bit_rate: sourceBitRateKbps > 0 ? sourceBitRateKbps : null,
+        source_height: sourceHeight > 0 ? sourceHeight : null,
         crop: cropPayload,
         filename: filenameForExport,
         encoder: useGpu ? "gpu" : "cpu",
@@ -389,6 +460,7 @@ export function ExportPanel() {
         outputFormat={outputFormat}
         profile={outputFormat === "mp4" ? profile : null}
         deviations={deviations}
+        estimatedSizeMb={estimatedSizeMb}
       />
 
       <ExportOutputSettings
@@ -413,6 +485,11 @@ export function ExportPanel() {
         sourceFps={sourceFps}
         effectiveOutputFps={effectiveOutputFps}
         onOutputFpsChange={handleOutputFpsChange}
+        sourceHeight={sourceHeight}
+        outputScale={effectiveOutputScale}
+        onOutputScaleChange={handleOutputScaleChange}
+        audioMode={effectiveAudioMode}
+        onAudioModeChange={handleAudioModeChange}
         gpuReady={gpuReady}
         gpuPending={gpuCapability.isPending}
         useGpu={useGpu}

@@ -311,6 +311,34 @@ export const tr: Record<TranslationKey, string> = {
     "Çıktı 30 fps'e düşer, hareket daha az akıcı olur. Yaklaşık %35–50 ek tasarruf.",
   "export.frameRateHintSource": "Kaynak hızı korunur.",
   "export.frameRateHint30": "Daha az akıcı; daha küçük dosya.",
+  "export.resolution": "Çözünürlük",
+  "export.resolutionSource": "Kaynak",
+  "export.resolutionOption": "{height}p",
+  "export.resolutionSourceDescription":
+    "Kaynağın çözünürlüğünü ve en-boy oranını korur.",
+  "export.resolutionDescription":
+    "Çıktı yüksekliği {height}px; genişlik en-boy oranını korur.",
+  "export.resolutionHintSource": "Kaynakla aynı boyut.",
+  "export.resolutionHintScaled":
+    "{height}p çıktı: çok daha küçük dosya, daha yumuşak ince ayrıntı.",
+  "export.audioMode": "Ses",
+  "export.audioAuto": "Standart",
+  "export.audioVoice": "Konuşma (mono)",
+  "export.audioStrip": "Sesi kaldır",
+  "export.audioAutoDescription":
+    "Profil ses bitrate'i; stereo korunur.",
+  "export.audioVoiceDescription":
+    "64 kbps mono AAC — konuşma ağırlıklı klipler için ideal.",
+  "export.audioStripDescription":
+    "Ses akışı olmayan sessiz bir video yazar.",
+  "export.audioHintAuto": "Çoğu klip için en iyi denge.",
+  "export.audioHintVoice": "En küçük ses; konuşma net kalır.",
+  "export.audioHintStrip": "Sessiz sosyal medya yüklemeleri için.",
+  "export.estimateSize": "Tahmini boyut: ~{size} MB",
+  "export.estimateSizeHint":
+    "Kaynak bitrate'inden kaba tahmin; gerçek dosya farklı olabilir.",
+  "export.summaryAudioVoice": "Konuşma sesi",
+  "export.summaryAudioStripped": "Ses yok",
   "export.filename": "Dosya adı",
   "export.filenamePlaceholder": "Otomatik",
   "export.filenameAuto": "Oto",

@@ -74,12 +74,18 @@ async def probe_url(url: str, headers: Any = None) -> dict[str, Any]:
         duration = _to_float(video.get("duration"))
     size_bytes = int(_to_float(info.get("format", {}).get("size")))
     stream = video or audio
+    # Bit hızı, dışa aktarmada üst sınır (maxrate) türetmek için kullanılır.
+    # Format alanı boşsa boyut/süreden hesaplanır.
+    bit_rate = int(_to_float(info.get("format", {}).get("bit_rate")))
+    if bit_rate <= 0 and size_bytes > 0 and duration > 0:
+        bit_rate = int(size_bytes * 8 / duration)
 
     return {
         "success": True,
         "duration": round(duration, 3),
         "size_bytes": size_bytes,
         "size_mb": round(size_bytes / (1024 * 1024), 2) if size_bytes else 0,
+        "bit_rate": bit_rate,
         "width": int((video or {}).get("width") or 0),
         "height": int((video or {}).get("height") or 0),
         "fps": round(_to_rate((video or {}).get("r_frame_rate")) or _to_rate((video or {}).get("avg_frame_rate")), 3),
